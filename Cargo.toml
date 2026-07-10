@@ -8,6 +8,9 @@ repository = "https://github.com/CheckPickerUpper/roblox-rust"
 
 [dependencies]
 
+[dev-dependencies]
+full_moon = { version = "=2.2.0", features = ["luau"] }
+
 [lints.clippy]
 # Explicit Result matches keep every compiler rejection branch visible for review.
 question_mark = "allow"

@@ -116,7 +116,10 @@ impl SourceProgramParser {
             | (SourceTokenKind::Semicolon, SourceTokenKind::Semicolon)
             | (SourceTokenKind::Arrow, SourceTokenKind::Arrow)
             | (SourceTokenKind::Equals, SourceTokenKind::Equals)
-            | (SourceTokenKind::Plus, SourceTokenKind::Plus) => Ok(source_token),
+            | (SourceTokenKind::Plus, SourceTokenKind::Plus)
+            | (SourceTokenKind::Minus, SourceTokenKind::Minus)
+            | (SourceTokenKind::Star, SourceTokenKind::Star)
+            | (SourceTokenKind::Slash, SourceTokenKind::Slash) => Ok(source_token),
             _ => Err(Self::problem_at_range(source_token.source_range())),
         }
     }

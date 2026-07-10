@@ -1,11 +1,13 @@
 use crate::{
     checked_program::{
-        CheckedExpression, CheckedFunction, CheckedFunctionCall, CheckedFunctionReturn,
-        CheckedParameter, CheckedProgram, CheckedStatement, CheckedValueType,
+        CheckedBooleanLiteral, CheckedExpression, CheckedFunction, CheckedFunctionCall,
+        CheckedFunctionReturn, CheckedParameter, CheckedProgram, CheckedStatement,
+        CheckedValueType,
     },
     generated_luau::{
-        LuauExpression, LuauFunction, LuauFunctionCall, LuauFunctionReturn, LuauParameter,
-        LuauProgram, LuauStatement, LuauValueType,
+        LuauBooleanLiteral, LuauExpression, LuauFunction, LuauFunctionCall, LuauFunctionReturn,
+        LuauNumericOperation, LuauNumericOperator, LuauParameter, LuauProgram, LuauStatement,
+        LuauValueType,
     },
 };
 
@@ -100,13 +102,37 @@ impl LuauProgramGenerator {
             CheckedExpression::NumberLiteral(number_literal) => {
                 LuauExpression::NumberLiteral(number_literal.to_owned())
             }
-            CheckedExpression::Addition {
-                left_operand,
-                right_operand,
-            } => LuauExpression::Addition {
-                left_operand: Box::new(Self::generate_expression(left_operand)),
-                right_operand: Box::new(Self::generate_expression(right_operand)),
-            },
+            CheckedExpression::StringLiteral(string_literal) => {
+                LuauExpression::StringLiteral(string_literal.to_owned())
+            }
+            CheckedExpression::BooleanLiteral(checked_boolean_literal) => {
+                let luau_boolean_literal = match checked_boolean_literal {
+                    CheckedBooleanLiteral::True => LuauBooleanLiteral::True,
+                    CheckedBooleanLiteral::False => LuauBooleanLiteral::False,
+                };
+                LuauExpression::BooleanLiteral(luau_boolean_literal)
+            }
+            CheckedExpression::NumericOperation(operation) => {
+                let generated_operator = match operation.operator() {
+                    crate::checked_program::CheckedNumericOperator::Addition => {
+                        LuauNumericOperator::Addition
+                    }
+                    crate::checked_program::CheckedNumericOperator::Subtraction => {
+                        LuauNumericOperator::Subtraction
+                    }
+                    crate::checked_program::CheckedNumericOperator::Multiplication => {
+                        LuauNumericOperator::Multiplication
+                    }
+                    crate::checked_program::CheckedNumericOperator::Division => {
+                        LuauNumericOperator::Division
+                    }
+                };
+                LuauExpression::NumericOperation(LuauNumericOperation::from_parts((
+                    Box::new(Self::generate_expression(operation.left_operand())),
+                    Box::new(Self::generate_expression(operation.right_operand())),
+                    generated_operator,
+                )))
+            }
             CheckedExpression::FunctionCall(checked_function_call) => {
                 LuauExpression::FunctionCall(Self::generate_function_call(checked_function_call))
             }
@@ -127,6 +153,8 @@ impl LuauProgramGenerator {
     fn generate_value_type(checked_value_type: CheckedValueType) -> LuauValueType {
         match checked_value_type {
             CheckedValueType::Number => LuauValueType::Number,
+            CheckedValueType::String => LuauValueType::String,
+            CheckedValueType::Boolean => LuauValueType::Boolean,
             CheckedValueType::NoReturnedValues => LuauValueType::NoReturnedValues,
         }
     }

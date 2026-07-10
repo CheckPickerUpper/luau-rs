@@ -58,7 +58,9 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
         let checked_function_return = match parsed_function.function_return() {
             ParsedFunctionReturn::NoReturn => {
                 match self.check_context.expected_returned_value_type() {
-                    CheckedValueType::Number => {
+                    CheckedValueType::Number
+                    | CheckedValueType::String
+                    | CheckedValueType::Boolean => {
                         return Err(CompilationProblem::from_problem_at_range((
                             parsed_function.function_name_range(),
                             CompilationProblemReason::MissingReturn,

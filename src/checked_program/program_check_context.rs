@@ -75,6 +75,8 @@ impl<'a> ProgramCheckContext<'a> {
     pub(super) fn to_checked_value_type(parsed_value_type: ParsedValueType) -> CheckedValueType {
         match parsed_value_type {
             ParsedValueType::Number => CheckedValueType::Number,
+            ParsedValueType::String => CheckedValueType::String,
+            ParsedValueType::Boolean => CheckedValueType::Boolean,
             ParsedValueType::NoReturnedValues => CheckedValueType::NoReturnedValues,
         }
     }

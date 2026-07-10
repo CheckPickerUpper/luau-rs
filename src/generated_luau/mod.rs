@@ -1,9 +1,12 @@
 mod generate_luau_program;
 mod generated_luau_text;
+mod luau_boolean_literal;
 mod luau_expression;
 mod luau_function;
 mod luau_function_call;
 mod luau_function_return;
+mod luau_numeric_operation;
+mod luau_numeric_operator;
 mod luau_parameter;
 mod luau_program;
 mod luau_statement;
@@ -12,10 +15,13 @@ mod write_luau_text;
 
 pub(crate) use generate_luau_program::generate_luau_program;
 pub use generated_luau_text::GeneratedLuauText;
+pub(crate) use luau_boolean_literal::LuauBooleanLiteral;
 pub(crate) use luau_expression::LuauExpression;
 pub(crate) use luau_function::LuauFunction;
 pub(crate) use luau_function_call::LuauFunctionCall;
 pub(crate) use luau_function_return::LuauFunctionReturn;
+pub(crate) use luau_numeric_operation::LuauNumericOperation;
+pub(crate) use luau_numeric_operator::LuauNumericOperator;
 pub(crate) use luau_parameter::LuauParameter;
 pub(crate) use luau_program::LuauProgram;
 pub(crate) use luau_statement::LuauStatement;

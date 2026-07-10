@@ -2,10 +2,13 @@ mod check_declaration_names;
 mod check_expression;
 mod check_function;
 mod check_parsed_program;
+mod checked_boolean_literal;
 mod checked_expression;
 mod checked_function;
 mod checked_function_call;
 mod checked_function_return;
+mod checked_numeric_operation;
+mod checked_numeric_operator;
 mod checked_parameter;
 #[path = "checked_program.rs"]
 mod checked_source_program;
@@ -14,10 +17,13 @@ mod checked_value_type;
 mod program_check_context;
 
 pub(crate) use check_parsed_program::check_parsed_program;
+pub(crate) use checked_boolean_literal::CheckedBooleanLiteral;
 pub(crate) use checked_expression::CheckedExpression;
 pub(crate) use checked_function::CheckedFunction;
 pub(crate) use checked_function_call::CheckedFunctionCall;
 pub(crate) use checked_function_return::CheckedFunctionReturn;
+pub(crate) use checked_numeric_operation::CheckedNumericOperation;
+pub(crate) use checked_numeric_operator::CheckedNumericOperator;
 pub(crate) use checked_parameter::CheckedParameter;
 pub(crate) use checked_source_program::CheckedProgram;
 pub(crate) use checked_statement::CheckedStatement;

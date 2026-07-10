@@ -1,6 +1,7 @@
 use crate::generated_luau::{
-    GeneratedLuauText, LuauExpression, LuauFunction, LuauFunctionCall, LuauFunctionReturn,
-    LuauParameter, LuauProgram, LuauStatement, LuauValueType,
+    GeneratedLuauText, LuauBooleanLiteral, LuauExpression, LuauFunction, LuauFunctionCall,
+    LuauFunctionReturn, LuauNumericOperation, LuauNumericOperator, LuauParameter, LuauProgram,
+    LuauStatement, LuauValueType,
 };
 
 const STATEMENT_INDENTATION: &str = "    ";
@@ -117,25 +118,8 @@ impl LuauTextWriter {
     ) {
         let (luau_expression, expression_position) = expression_in_position;
         match (luau_expression, expression_position) {
-            (
-                LuauExpression::Addition {
-                    left_operand,
-                    right_operand,
-                },
-                LuauTextWriterExpressionPosition::AdditionRightOperand,
-            ) => {
-                self.luau_text.push('(');
-                self.write_addition((left_operand, right_operand));
-                self.luau_text.push(')');
-            }
-            (
-                LuauExpression::Addition {
-                    left_operand,
-                    right_operand,
-                },
-                _,
-            ) => {
-                self.write_addition((left_operand, right_operand));
+            (LuauExpression::NumericOperation(operation), expression_position) => {
+                self.write_numeric_operation((operation, expression_position));
             }
             (LuauExpression::NameReference(reference_name), _) => {
                 self.luau_text.push_str(reference_name);
@@ -143,6 +127,13 @@ impl LuauTextWriter {
             (LuauExpression::NumberLiteral(number_literal), _) => {
                 self.luau_text.push_str(number_literal);
             }
+            (LuauExpression::StringLiteral(string_literal), _) => {
+                self.luau_text.push_str(string_literal);
+            }
+            (LuauExpression::BooleanLiteral(boolean_literal), _) => match boolean_literal {
+                LuauBooleanLiteral::True => self.luau_text.push_str("true"),
+                LuauBooleanLiteral::False => self.luau_text.push_str("false"),
+            },
             (LuauExpression::FunctionCall(function_call), _) => {
                 self.write_function_call(function_call);
             }
@@ -156,17 +147,37 @@ impl LuauTextWriter {
         self.luau_text.push(')');
     }
 
-    fn write_addition(&mut self, operands: (&LuauExpression, &LuauExpression)) {
-        let (left_operand, right_operand) = operands;
+    fn write_numeric_operation(
+        &mut self,
+        operation_and_position: (&LuauNumericOperation, LuauTextWriterExpressionPosition),
+    ) {
+        let (operation, expression_position) = operation_and_position;
+        let needs_parentheses = match expression_position {
+            LuauTextWriterExpressionPosition::NumericOperationRightOperand => true,
+            LuauTextWriterExpressionPosition::Unrestricted
+            | LuauTextWriterExpressionPosition::NumericOperationLeftOperand
+            | LuauTextWriterExpressionPosition::FunctionArgument => false,
+        };
+        if needs_parentheses {
+            self.luau_text.push('(');
+        }
         self.write_expression_in((
-            left_operand,
-            LuauTextWriterExpressionPosition::AdditionLeftOperand,
+            operation.left_operand(),
+            LuauTextWriterExpressionPosition::NumericOperationLeftOperand,
         ));
-        self.luau_text.push_str(" + ");
+        match operation.operator() {
+            LuauNumericOperator::Addition => self.luau_text.push_str(" + "),
+            LuauNumericOperator::Subtraction => self.luau_text.push_str(" - "),
+            LuauNumericOperator::Multiplication => self.luau_text.push_str(" * "),
+            LuauNumericOperator::Division => self.luau_text.push_str(" / "),
+        }
         self.write_expression_in((
-            right_operand,
-            LuauTextWriterExpressionPosition::AdditionRightOperand,
+            operation.right_operand(),
+            LuauTextWriterExpressionPosition::NumericOperationRightOperand,
         ));
+        if needs_parentheses {
+            self.luau_text.push(')');
+        }
     }
 
     fn write_call_arguments(&mut self, call_arguments: &[LuauExpression]) {
@@ -190,6 +201,8 @@ impl LuauTextWriter {
     fn write_value_type(&mut self, luau_value_type: LuauValueType) {
         match luau_value_type {
             LuauValueType::Number => self.luau_text.push_str("number"),
+            LuauValueType::String => self.luau_text.push_str("string"),
+            LuauValueType::Boolean => self.luau_text.push_str("boolean"),
             LuauValueType::NoReturnedValues => self.luau_text.push_str("()"),
         }
     }
@@ -198,7 +211,7 @@ impl LuauTextWriter {
 #[derive(Clone, Copy)]
 enum LuauTextWriterExpressionPosition {
     Unrestricted,
-    AdditionLeftOperand,
-    AdditionRightOperand,
+    NumericOperationLeftOperand,
+    NumericOperationRightOperand,
     FunctionArgument,
 }

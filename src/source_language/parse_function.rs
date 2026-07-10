@@ -115,6 +115,8 @@ impl SourceProgramParser {
         };
         match type_name.as_str() {
             "number" => Ok(ParsedValueType::Number),
+            "string" => Ok(ParsedValueType::String),
+            "boolean" => Ok(ParsedValueType::Boolean),
             _ => Err(CompilationProblem::from_problem_at_range((
                 type_range,
                 crate::CompilationProblemReason::SourceDoesNotFollowLanguageRules,

@@ -1,3 +1,5 @@
+use crate::source_language::SourceBooleanLiteral;
+
 /// Names every lexical category accepted by the first source-language slice.
 #[derive(Clone)]
 pub(crate) enum SourceTokenKind {
@@ -11,6 +13,10 @@ pub(crate) enum SourceTokenKind {
     IdentifierName(String),
     /// Preserves a numeric literal spelling.
     NumberLiteral(String),
+    /// Preserves a validated one-line quoted string spelling.
+    StringLiteral(String),
+    /// Preserves a tokenizer-classified boolean literal.
+    BooleanLiteral(SourceBooleanLiteral),
     /// Opens a parameter or argument list.
     LeftParenthesis,
     /// Closes a parameter or argument list.
@@ -31,6 +37,12 @@ pub(crate) enum SourceTokenKind {
     Equals,
     /// Adds numeric expressions.
     Plus,
+    /// Subtracts numeric expressions.
+    Minus,
+    /// Multiplies numeric expressions.
+    Star,
+    /// Divides numeric expressions.
+    Slash,
     /// Marks the end of the token stream.
     EndOfSource,
 }

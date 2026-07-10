@@ -2,10 +2,13 @@ use std::cmp::Ordering;
 
 use crate::{
     checked_program::{
-        program_check_context::ProgramCheckContext, CheckedExpression, CheckedFunctionCall,
-        CheckedValueType,
+        program_check_context::ProgramCheckContext, CheckedBooleanLiteral, CheckedExpression,
+        CheckedFunctionCall, CheckedNumericOperation, CheckedNumericOperator, CheckedValueType,
     },
-    source_language::{ParsedExpression, ParsedFunctionCall},
+    source_language::{
+        ParsedExpression, ParsedFunctionCall, ParsedNumericOperation, ParsedNumericOperator,
+        SourceBooleanLiteral,
+    },
     ArgumentCount, CompilationProblem, CompilationProblemReason, SourceRange,
 };
 
@@ -37,47 +40,28 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 )),
                 Err(compilation_problem) => Err(compilation_problem),
             },
-            ParsedExpression::NumberLiteral { number_literal, .. } => Ok((
-                CheckedExpression::NumberLiteral(number_literal.to_owned()),
+            ParsedExpression::NumberLiteral(parsed_literal) => Ok((
+                CheckedExpression::NumberLiteral(parsed_literal.literal_spelling().to_owned()),
                 CheckedValueType::Number,
             )),
-            ParsedExpression::Addition {
-                left_operand,
-                right_operand,
-                operator_range,
-                ..
+            ParsedExpression::StringLiteral(parsed_literal) => Ok((
+                CheckedExpression::StringLiteral(parsed_literal.literal_spelling().to_owned()),
+                CheckedValueType::String,
+            )),
+            ParsedExpression::BooleanLiteral {
+                boolean_literal, ..
             } => {
-                let (checked_left, left_type) = match self.check_expression(left_operand) {
-                    Ok(checked_operand) => checked_operand,
-                    Err(compilation_problem) => return Err(compilation_problem),
+                let checked_boolean_literal = match boolean_literal {
+                    SourceBooleanLiteral::True => CheckedBooleanLiteral::True,
+                    SourceBooleanLiteral::False => CheckedBooleanLiteral::False,
                 };
-                match Self::require_matching_type((
-                    left_type,
-                    CheckedValueType::Number,
-                    *operator_range,
-                )) {
-                    Ok(()) => {}
-                    Err(compilation_problem) => return Err(compilation_problem),
-                }
-                let (checked_right, right_type) = match self.check_expression(right_operand) {
-                    Ok(checked_operand) => checked_operand,
-                    Err(compilation_problem) => return Err(compilation_problem),
-                };
-                match Self::require_matching_type((
-                    right_type,
-                    CheckedValueType::Number,
-                    *operator_range,
-                )) {
-                    Ok(()) => {}
-                    Err(compilation_problem) => return Err(compilation_problem),
-                }
                 Ok((
-                    CheckedExpression::Addition {
-                        left_operand: Box::new(checked_left),
-                        right_operand: Box::new(checked_right),
-                    },
-                    CheckedValueType::Number,
+                    CheckedExpression::BooleanLiteral(checked_boolean_literal),
+                    CheckedValueType::Boolean,
                 ))
+            }
+            ParsedExpression::NumericOperation(operation) => {
+                self.check_numeric_operation(operation)
             }
             ParsedExpression::FunctionCall(parsed_function_call) => {
                 match self.check_function_call(parsed_function_call) {
@@ -91,6 +75,51 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         }
     }
 
+    /// Checks both operands and preserves the stage-specific numeric operator.
+    fn check_numeric_operation(
+        &mut self,
+        operation: &ParsedNumericOperation,
+    ) -> Result<(CheckedExpression, CheckedValueType), CompilationProblem> {
+        let (checked_left, left_type) = match self.check_expression(operation.left_operand()) {
+            Ok(checked_operand) => checked_operand,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match Self::require_matching_type((
+            left_type,
+            CheckedValueType::Number,
+            operation.operator_range(),
+        )) {
+            Ok(()) => {}
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let (checked_right, right_type) = match self.check_expression(operation.right_operand()) {
+            Ok(checked_operand) => checked_operand,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match Self::require_matching_type((
+            right_type,
+            CheckedValueType::Number,
+            operation.operator_range(),
+        )) {
+            Ok(()) => {}
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let checked_operator = match operation.operator() {
+            ParsedNumericOperator::Addition => CheckedNumericOperator::Addition,
+            ParsedNumericOperator::Subtraction => CheckedNumericOperator::Subtraction,
+            ParsedNumericOperator::Multiplication => CheckedNumericOperator::Multiplication,
+            ParsedNumericOperator::Division => CheckedNumericOperator::Division,
+        };
+        Ok((
+            CheckedExpression::NumericOperation(CheckedNumericOperation::from_parts((
+                Box::new(checked_left),
+                Box::new(checked_right),
+                checked_operator,
+            ))),
+            CheckedValueType::Number,
+        ))
+    }
+
     /// Resolves and validates a call while preserving its returned value type.
     pub(super) fn check_function_call(
         &mut self,
@@ -99,6 +128,10 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         let function_name = parsed_function_call.function_name();
         let function_name_range = parsed_function_call.function_name_range();
         let function_arguments = parsed_function_call.function_arguments();
+        match function_name.cmp("print") {
+            Ordering::Equal => return self.check_print_call(parsed_function_call),
+            Ordering::Less | Ordering::Greater => {}
+        }
         let (expected_argument_types, returned_value_type) =
             match self.resolve_function_signature((function_name, function_name_range)) {
                 Ok(function_signature) => function_signature,
@@ -144,21 +177,63 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         ))
     }
 
+    fn check_print_call(
+        &mut self,
+        parsed_function_call: &ParsedFunctionCall,
+    ) -> Result<(CheckedFunctionCall, CheckedValueType), CompilationProblem> {
+        let function_arguments = parsed_function_call.function_arguments();
+        match function_arguments.len().cmp(&1) {
+            Ordering::Equal => {}
+            Ordering::Less | Ordering::Greater => {
+                return Err(CompilationProblem::from_problem_at_range((
+                    parsed_function_call.function_name_range(),
+                    CompilationProblemReason::WrongArgumentCount {
+                        expected: ArgumentCount::from_number_of_arguments(1),
+                        actual: ArgumentCount::from_number_of_arguments(function_arguments.len()),
+                    },
+                )));
+            }
+        }
+        let parsed_argument = match function_arguments.first() {
+            Some(parsed_argument) => parsed_argument,
+            None => {
+                return Err(CompilationProblem::from_problem_at_range((
+                    parsed_function_call.function_name_range(),
+                    CompilationProblemReason::WrongArgumentCount {
+                        expected: ArgumentCount::from_number_of_arguments(1),
+                        actual: ArgumentCount::from_number_of_arguments(0),
+                    },
+                )));
+            }
+        };
+        let (checked_argument, argument_type) = match self.check_expression(parsed_argument) {
+            Ok(checked_argument) => checked_argument,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match argument_type {
+            CheckedValueType::Number | CheckedValueType::String | CheckedValueType::Boolean => {}
+            CheckedValueType::NoReturnedValues => {
+                return Err(CompilationProblem::from_problem_at_range((
+                    parsed_argument.source_range(),
+                    CompilationProblemReason::TypesDoNotMatch,
+                )));
+            }
+        }
+        Ok((
+            CheckedFunctionCall::from_checked_call((
+                parsed_function_call.function_name().to_owned(),
+                vec![checked_argument],
+            )),
+            CheckedValueType::NoReturnedValues,
+        ))
+    }
+
     /// Resolves a callable name against builtins and source-ordered visible functions.
     pub(super) fn resolve_function_signature(
         &self,
         name_at_range: (&str, SourceRange),
     ) -> Result<(Vec<CheckedValueType>, CheckedValueType), CompilationProblem> {
         let (function_name, function_name_range) = name_at_range;
-        match function_name.cmp("print") {
-            Ordering::Equal => {
-                return Ok((
-                    vec![CheckedValueType::Number],
-                    CheckedValueType::NoReturnedValues,
-                ));
-            }
-            Ordering::Less | Ordering::Greater => {}
-        }
         for (visible_name, parameter_types, returned_value_type) in
             self.check_context.visible_function_signatures()
         {
@@ -210,6 +285,8 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         let (actual_type, expected_type, source_range) = type_requirement;
         match (actual_type, expected_type) {
             (CheckedValueType::Number, CheckedValueType::Number)
+            | (CheckedValueType::String, CheckedValueType::String)
+            | (CheckedValueType::Boolean, CheckedValueType::Boolean)
             | (CheckedValueType::NoReturnedValues, CheckedValueType::NoReturnedValues) => Ok(()),
             _ => Err(CompilationProblem::from_problem_at_range((
                 source_range,
