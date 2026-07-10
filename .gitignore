@@ -1,0 +1,19 @@
+# Build output and locally cloned research dependencies.
+/target/
+/references/checkouts/
+
+# Agent and editor state belongs to each contributor's local environment.
+/.claude/
+/.agents/
+/.codex/
+/.vscode/
+
+# Agent instructions and other Markdown-facing files remain local working context.
+AGENTS.md
+CLAUDE.md
+CONTEXT.md
+*.md
+
+# Runtime logs and temporary scratch files are disposable artifacts.
+*.log
+*.tmp

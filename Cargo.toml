@@ -1,0 +1,15 @@
+[package]
+name = "roblox-rust"
+version = "0.1.0"
+edition = "2021"
+description = "Experimental Rust-to-Luau compiler/toolchain for Roblox"
+license = "MIT"
+repository = "https://github.com/CheckPickerUpper/roblox-rust"
+
+[dependencies]
+
+[lints.clippy]
+# Explicit Result matches keep every compiler rejection branch visible for review.
+question_mark = "allow"
+# Constant-false assertions are the test failure path permitted by the project's no-panic rule.
+assertions_on_constants = "allow"
