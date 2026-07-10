@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Experimental Rust-to-Luau compiler/toolchain for Roblox"
 license = "MIT"
-repository = "https://github.com/CheckPickerUpper/roblox-rust"
+repository = "https://github.com/CheckPickerUpper/luau-rs"
 
 [dependencies]
 
