@@ -1,4 +1,7 @@
-use crate::generated_luau::{LuauBooleanLiteral, LuauFunctionCall, LuauNumericOperation};
+use crate::generated_luau::{
+    LuauBooleanLiteral, LuauComparisonOperation, LuauEqualityOperation, LuauFunctionCall,
+    LuauLogicalNegation, LuauLogicalOperation, LuauNumericOperation,
+};
 
 /// Represents expressions after source-language meaning has been resolved.
 #[derive(Debug, PartialEq, Eq)]
@@ -13,6 +16,14 @@ pub(crate) enum LuauExpression {
     BooleanLiteral(LuauBooleanLiteral),
     /// Retains a numeric operation in source order.
     NumericOperation(LuauNumericOperation),
+    /// Retains a numeric comparison in source order.
+    ComparisonOperation(LuauComparisonOperation),
+    /// Retains an equality operation in source order.
+    EqualityOperation(LuauEqualityOperation),
+    /// Retains a boolean negation in source order.
+    LogicalNegation(LuauLogicalNegation),
+    /// Retains a short-circuit logical operation in source order.
+    LogicalOperation(LuauLogicalOperation),
     /// Invokes a resolved function with ordered arguments.
     FunctionCall(LuauFunctionCall),
 }

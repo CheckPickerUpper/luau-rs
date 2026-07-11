@@ -1,7 +1,8 @@
 use crate::{
     source_language::{
         parse_source_program::SourceProgramParser, ParsedExpression, ParsedFunction,
-        ParsedFunctionReturn, ParsedParameter, ParsedStatement, ParsedValueType, SourceTokenKind,
+        ParsedFunctionBody, ParsedIfElse, ParsedParameter, ParsedStatement, ParsedValueType,
+        SourceTokenKind,
     },
     CompilationProblem,
 };
@@ -48,7 +49,7 @@ impl SourceProgramParser {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
-        let (function_statements, function_return) = match self.parse_function_body() {
+        let function_body = match self.parse_function_body() {
             Ok(function_body) => function_body,
             Err(compilation_problem) => return Err(compilation_problem),
         };
@@ -61,8 +62,7 @@ impl SourceProgramParser {
             function_name_range,
             function_parameters,
             returned_value_type,
-            function_statements,
-            function_return,
+            function_body,
         )))
     }
 
@@ -124,38 +124,12 @@ impl SourceProgramParser {
         }
     }
 
-    fn parse_function_body(
-        &mut self,
-    ) -> Result<(Vec<ParsedStatement>, ParsedFunctionReturn), CompilationProblem> {
+    fn parse_function_body(&mut self) -> Result<ParsedFunctionBody, CompilationProblem> {
         let mut function_statements = Vec::new();
         loop {
             match self.current_token_kind() {
                 Ok(SourceTokenKind::RightBrace) => {
-                    return Ok((function_statements, ParsedFunctionReturn::NoReturn));
-                }
-                Ok(SourceTokenKind::ReturnKeyword) => {
-                    match self.take_required_symbol(SourceTokenKind::ReturnKeyword) {
-                        Ok(consumed_symbol) => drop(consumed_symbol),
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    }
-                    let returned_value = match self.parse_expression() {
-                        Ok(returned_value) => returned_value,
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    match self.take_required_symbol(SourceTokenKind::Semicolon) {
-                        Ok(consumed_symbol) => drop(consumed_symbol),
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    }
-                    match self.current_token_kind() {
-                        Ok(SourceTokenKind::RightBrace) => {
-                            return Ok((
-                                function_statements,
-                                ParsedFunctionReturn::ReturnsValue(returned_value),
-                            ));
-                        }
-                        Ok(_) => return Err(self.problem_at_current_token()),
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    }
+                    return Ok(ParsedFunctionBody::from_statements(function_statements));
                 }
                 Ok(_) => match self.parse_non_return_statement() {
                     Ok(parsed_statement) => function_statements.push(parsed_statement),
@@ -168,6 +142,8 @@ impl SourceProgramParser {
 
     fn parse_non_return_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
         match self.current_token_kind() {
+            Ok(SourceTokenKind::ReturnKeyword) => self.parse_return_statement(),
+            Ok(SourceTokenKind::IfKeyword) => self.parse_if_else_statement(),
             Ok(SourceTokenKind::LetKeyword) => {
                 match self.take_required_symbol(SourceTokenKind::LetKeyword) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
@@ -223,5 +199,67 @@ impl SourceProgramParser {
             }
             Err(compilation_problem) => Err(compilation_problem),
         }
+    }
+
+    fn parse_return_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
+        match self.take_required_symbol(SourceTokenKind::ReturnKeyword) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let returned_value = match self.parse_expression() {
+            Ok(returned_value) => returned_value,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(SourceTokenKind::Semicolon) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        Ok(ParsedStatement::ReturnsValue(returned_value))
+    }
+
+    fn parse_if_else_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
+        match self.take_required_symbol(SourceTokenKind::IfKeyword) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let condition = match self.parse_expression() {
+            Ok(condition) => condition,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        let condition_range = condition.source_range();
+        match self.take_required_symbol(SourceTokenKind::LeftBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let then_body = match self.parse_function_body() {
+            Ok(then_body) => then_body,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(SourceTokenKind::RightBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        match self.take_required_symbol(SourceTokenKind::ElseKeyword) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        match self.take_required_symbol(SourceTokenKind::LeftBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let else_body = match self.parse_function_body() {
+            Ok(else_body) => else_body,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(SourceTokenKind::RightBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        Ok(ParsedStatement::IfElse(ParsedIfElse::from_parts((
+            condition,
+            then_body,
+            else_body,
+            condition_range,
+        ))))
     }
 }

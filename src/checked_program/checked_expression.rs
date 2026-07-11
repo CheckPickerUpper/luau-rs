@@ -1,4 +1,7 @@
-use crate::checked_program::{CheckedBooleanLiteral, CheckedNumericOperation};
+use crate::checked_program::{
+    CheckedBooleanLiteral, CheckedComparisonOperation, CheckedEqualityOperation,
+    CheckedLogicalNegation, CheckedLogicalOperation, CheckedNumericOperation,
+};
 
 /// Represents expressions whose names and types have been validated.
 pub(crate) enum CheckedExpression {
@@ -12,6 +15,14 @@ pub(crate) enum CheckedExpression {
     BooleanLiteral(CheckedBooleanLiteral),
     /// Retains a numeric operation whose operands are proven numeric.
     NumericOperation(CheckedNumericOperation),
+    /// Retains a numeric comparison whose operands are proven numeric.
+    ComparisonOperation(CheckedComparisonOperation),
+    /// Retains an equality operation whose operands have the same value type.
+    EqualityOperation(CheckedEqualityOperation),
+    /// Retains a boolean negation whose operand is proven boolean.
+    LogicalNegation(CheckedLogicalNegation),
+    /// Retains a short-circuit logical operation whose operands are proven boolean.
+    LogicalOperation(CheckedLogicalOperation),
     /// Calls a resolved function with validated argument types.
     FunctionCall(CheckedFunctionCall),
 }

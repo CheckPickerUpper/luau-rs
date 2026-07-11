@@ -1,14 +1,11 @@
-use crate::checked_program::{
-    CheckedFunctionReturn, CheckedParameter, CheckedStatement, CheckedValueType,
-};
+use crate::checked_program::{CheckedFunctionBody, CheckedParameter, CheckedValueType};
 
 /// Owns one validated function signature and body.
 pub(crate) struct CheckedFunction {
     function_name: String,
     function_parameters: Vec<CheckedParameter>,
     returned_value_type: CheckedValueType,
-    function_statements: Vec<CheckedStatement>,
-    function_return: CheckedFunctionReturn,
+    function_body: CheckedFunctionBody,
 }
 
 /// Exposes only the validated structure needed by Luau generation.
@@ -19,23 +16,16 @@ impl CheckedFunction {
             String,
             Vec<CheckedParameter>,
             CheckedValueType,
-            Vec<CheckedStatement>,
-            CheckedFunctionReturn,
+            CheckedFunctionBody,
         ),
     ) -> Self {
-        let (
-            function_name,
-            function_parameters,
-            returned_value_type,
-            function_statements,
-            function_return,
-        ) = checked_declaration;
+        let (function_name, function_parameters, returned_value_type, function_body) =
+            checked_declaration;
         Self {
             function_name,
             function_parameters,
             returned_value_type,
-            function_statements,
-            function_return,
+            function_body,
         }
     }
 
@@ -54,13 +44,8 @@ impl CheckedFunction {
         self.returned_value_type
     }
 
-    /// Gives Luau generation the ordered validated function body.
-    pub(crate) fn statements(&self) -> &[CheckedStatement] {
-        &self.function_statements
-    }
-
-    /// Gives Luau generation the structurally final checked function return.
-    pub(crate) fn function_return(&self) -> &CheckedFunctionReturn {
-        &self.function_return
+    /// Gives Luau generation the whole checked lexical scope of the function.
+    pub(crate) fn function_body(&self) -> &CheckedFunctionBody {
+        &self.function_body
     }
 }

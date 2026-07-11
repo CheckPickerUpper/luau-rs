@@ -1,16 +1,145 @@
 use crate::{
     source_language::{
-        parse_source_program::SourceProgramParser, ParsedExpression, ParsedFunctionCall,
-        ParsedLiteral, ParsedNumericOperation, ParsedNumericOperator, SourceToken, SourceTokenKind,
+        parse_source_program::SourceProgramParser, ParsedComparisonOperation,
+        ParsedComparisonOperator, ParsedEqualityOperation, ParsedEqualityOperator,
+        ParsedExpression, ParsedFunctionCall, ParsedLiteral, ParsedLogicalNegation,
+        ParsedLogicalOperation, ParsedLogicalOperator, ParsedNumericOperation,
+        ParsedNumericOperator, SourceToken, SourceTokenKind,
     },
     CompilationProblem, SourceRange,
 };
 
-/// Parses value expressions, numeric precedence, and function argument lists.
+/// Parses value expressions and the source language's complete operator precedence ladder.
 impl SourceProgramParser {
     /// Parses one complete value expression at the current token position.
     pub(super) fn parse_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
-        self.parse_additive_expression()
+        self.parse_disjunction_expression()
+    }
+
+    fn parse_disjunction_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        let mut parsed_expression = match self.parse_conjunction_expression() {
+            Ok(parsed_expression) => parsed_expression,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        loop {
+            match self.current_token_kind() {
+                Ok(SourceTokenKind::PipePipe) => {
+                    let operator_token = match self.take_required_symbol(SourceTokenKind::PipePipe)
+                    {
+                        Ok(operator_token) => operator_token,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    let right_operand = match self.parse_conjunction_expression() {
+                        Ok(right_operand) => right_operand,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    parsed_expression = Self::make_logical_operation((
+                        parsed_expression,
+                        right_operand,
+                        ParsedLogicalOperator::Disjunction,
+                        operator_token.source_range(),
+                    ));
+                }
+                Ok(_) => break,
+                Err(compilation_problem) => return Err(compilation_problem),
+            }
+        }
+        Ok(parsed_expression)
+    }
+
+    fn parse_conjunction_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        let mut parsed_expression = match self.parse_equality_expression() {
+            Ok(parsed_expression) => parsed_expression,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        loop {
+            match self.current_token_kind() {
+                Ok(SourceTokenKind::AmpersandAmpersand) => {
+                    let operator_token =
+                        match self.take_required_symbol(SourceTokenKind::AmpersandAmpersand) {
+                            Ok(operator_token) => operator_token,
+                            Err(compilation_problem) => return Err(compilation_problem),
+                        };
+                    let right_operand = match self.parse_equality_expression() {
+                        Ok(right_operand) => right_operand,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    parsed_expression = Self::make_logical_operation((
+                        parsed_expression,
+                        right_operand,
+                        ParsedLogicalOperator::Conjunction,
+                        operator_token.source_range(),
+                    ));
+                }
+                Ok(_) => break,
+                Err(compilation_problem) => return Err(compilation_problem),
+            }
+        }
+        Ok(parsed_expression)
+    }
+
+    fn parse_equality_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        let mut parsed_expression = match self.parse_comparison_expression() {
+            Ok(parsed_expression) => parsed_expression,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        loop {
+            let operator_kind = match self.current_token_kind() {
+                Ok(SourceTokenKind::EqualEqual) => ParsedEqualityOperator::Equal,
+                Ok(SourceTokenKind::BangEqual) => ParsedEqualityOperator::NotEqual,
+                Ok(_) => break,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            let operator_token = match self.take_next_token() {
+                Ok(operator_token) => operator_token,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            let right_operand = match self.parse_comparison_expression() {
+                Ok(right_operand) => right_operand,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            parsed_expression = Self::make_equality_operation((
+                parsed_expression,
+                right_operand,
+                operator_kind,
+                operator_token.source_range(),
+            ));
+        }
+        Ok(parsed_expression)
+    }
+
+    fn parse_comparison_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        let mut parsed_expression = match self.parse_additive_expression() {
+            Ok(parsed_expression) => parsed_expression,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        loop {
+            let operator_kind = match self.current_token_kind() {
+                Ok(SourceTokenKind::LessThan) => ParsedComparisonOperator::LessThan,
+                Ok(SourceTokenKind::LessThanOrEqual) => ParsedComparisonOperator::LessThanOrEqual,
+                Ok(SourceTokenKind::GreaterThan) => ParsedComparisonOperator::GreaterThan,
+                Ok(SourceTokenKind::GreaterThanOrEqual) => {
+                    ParsedComparisonOperator::GreaterThanOrEqual
+                }
+                Ok(_) => break,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            let operator_token = match self.take_next_token() {
+                Ok(operator_token) => operator_token,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            let right_operand = match self.parse_additive_expression() {
+                Ok(right_operand) => right_operand,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            parsed_expression = Self::make_comparison_operation((
+                parsed_expression,
+                right_operand,
+                operator_kind,
+                operator_token.source_range(),
+            ));
+        }
+        Ok(parsed_expression)
     }
 
     fn parse_additive_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
@@ -19,78 +148,86 @@ impl SourceProgramParser {
             Err(compilation_problem) => return Err(compilation_problem),
         };
         loop {
-            match self.current_token_kind() {
-                Ok(SourceTokenKind::Plus) | Ok(SourceTokenKind::Minus) => {
-                    let (operator_kind, operator_token_kind) = match self.current_token_kind() {
-                        Ok(SourceTokenKind::Plus) => {
-                            (ParsedNumericOperator::Addition, SourceTokenKind::Plus)
-                        }
-                        Ok(SourceTokenKind::Minus) => {
-                            (ParsedNumericOperator::Subtraction, SourceTokenKind::Minus)
-                        }
-                        Ok(_) => return Err(self.problem_at_current_token()),
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    let operator_token = match self.take_required_symbol(operator_token_kind) {
-                        Ok(operator_token) => operator_token,
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    let right_operand = match self.parse_multiplicative_expression() {
-                        Ok(right_operand) => right_operand,
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    parsed_expression = Self::make_numeric_operation((
-                        parsed_expression,
-                        right_operand,
-                        operator_kind,
-                        operator_token.source_range(),
-                    ));
-                }
+            let operator_kind = match self.current_token_kind() {
+                Ok(SourceTokenKind::Plus) => ParsedNumericOperator::Addition,
+                Ok(SourceTokenKind::Minus) => ParsedNumericOperator::Subtraction,
                 Ok(_) => break,
                 Err(compilation_problem) => return Err(compilation_problem),
-            }
+            };
+            let operator_token = match self.take_next_token() {
+                Ok(operator_token) => operator_token,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            let right_operand = match self.parse_multiplicative_expression() {
+                Ok(right_operand) => right_operand,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            parsed_expression = Self::make_numeric_operation((
+                parsed_expression,
+                right_operand,
+                operator_kind,
+                operator_token.source_range(),
+            ));
         }
         Ok(parsed_expression)
     }
 
     fn parse_multiplicative_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
-        let mut parsed_expression = match self.parse_primary_expression() {
+        let mut parsed_expression = match self.parse_unary_expression() {
             Ok(parsed_expression) => parsed_expression,
             Err(compilation_problem) => return Err(compilation_problem),
         };
         loop {
-            match self.current_token_kind() {
-                Ok(SourceTokenKind::Star) | Ok(SourceTokenKind::Slash) => {
-                    let (operator_kind, operator_token_kind) = match self.current_token_kind() {
-                        Ok(SourceTokenKind::Star) => {
-                            (ParsedNumericOperator::Multiplication, SourceTokenKind::Star)
-                        }
-                        Ok(SourceTokenKind::Slash) => {
-                            (ParsedNumericOperator::Division, SourceTokenKind::Slash)
-                        }
-                        Ok(_) => return Err(self.problem_at_current_token()),
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    let operator_token = match self.take_required_symbol(operator_token_kind) {
-                        Ok(operator_token) => operator_token,
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    let right_operand = match self.parse_primary_expression() {
-                        Ok(right_operand) => right_operand,
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    parsed_expression = Self::make_numeric_operation((
-                        parsed_expression,
-                        right_operand,
-                        operator_kind,
-                        operator_token.source_range(),
-                    ));
-                }
+            let operator_kind = match self.current_token_kind() {
+                Ok(SourceTokenKind::Star) => ParsedNumericOperator::Multiplication,
+                Ok(SourceTokenKind::Slash) => ParsedNumericOperator::Division,
                 Ok(_) => break,
                 Err(compilation_problem) => return Err(compilation_problem),
-            }
+            };
+            let operator_token = match self.take_next_token() {
+                Ok(operator_token) => operator_token,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            let right_operand = match self.parse_unary_expression() {
+                Ok(right_operand) => right_operand,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            parsed_expression = Self::make_numeric_operation((
+                parsed_expression,
+                right_operand,
+                operator_kind,
+                operator_token.source_range(),
+            ));
         }
         Ok(parsed_expression)
+    }
+
+    fn parse_unary_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        match self.current_token_kind() {
+            Ok(SourceTokenKind::Bang) => {
+                let operator_token = match self.take_required_symbol(SourceTokenKind::Bang) {
+                    Ok(operator_token) => operator_token,
+                    Err(compilation_problem) => return Err(compilation_problem),
+                };
+                let negated_expression = match self.parse_unary_expression() {
+                    Ok(negated_expression) => negated_expression,
+                    Err(compilation_problem) => return Err(compilation_problem),
+                };
+                let expression_range = SourceRange::from_byte_range((
+                    operator_token.source_range().start_byte(),
+                    negated_expression.source_range().end_byte(),
+                ));
+                Ok(ParsedExpression::LogicalNegation(
+                    ParsedLogicalNegation::from_parts((
+                        Box::new(negated_expression),
+                        operator_token.source_range(),
+                        expression_range,
+                    )),
+                ))
+            }
+            Ok(_) => self.parse_primary_expression(),
+            Err(compilation_problem) => Err(compilation_problem),
+        }
     }
 
     fn make_numeric_operation(
@@ -102,10 +239,7 @@ impl SourceProgramParser {
         ),
     ) -> ParsedExpression {
         let (left_operand, right_operand, operator, operator_range) = operation_parts;
-        let expression_range = SourceRange::from_byte_range((
-            left_operand.source_range().start_byte(),
-            right_operand.source_range().end_byte(),
-        ));
+        let expression_range = Self::range_spanning_operands((&left_operand, &right_operand));
         ParsedExpression::NumericOperation(ParsedNumericOperation::from_parts((
             Box::new(left_operand),
             Box::new(right_operand),
@@ -115,7 +249,96 @@ impl SourceProgramParser {
         )))
     }
 
+    fn make_comparison_operation(
+        operation_parts: (
+            ParsedExpression,
+            ParsedExpression,
+            ParsedComparisonOperator,
+            SourceRange,
+        ),
+    ) -> ParsedExpression {
+        let (left_operand, right_operand, operator, operator_range) = operation_parts;
+        let expression_range = Self::range_spanning_operands((&left_operand, &right_operand));
+        ParsedExpression::ComparisonOperation(ParsedComparisonOperation::from_parts((
+            Box::new(left_operand),
+            Box::new(right_operand),
+            operator,
+            operator_range,
+            expression_range,
+        )))
+    }
+
+    fn make_equality_operation(
+        operation_parts: (
+            ParsedExpression,
+            ParsedExpression,
+            ParsedEqualityOperator,
+            SourceRange,
+        ),
+    ) -> ParsedExpression {
+        let (left_operand, right_operand, operator, operator_range) = operation_parts;
+        let expression_range = Self::range_spanning_operands((&left_operand, &right_operand));
+        ParsedExpression::EqualityOperation(ParsedEqualityOperation::from_parts((
+            Box::new(left_operand),
+            Box::new(right_operand),
+            operator,
+            operator_range,
+            expression_range,
+        )))
+    }
+
+    fn make_logical_operation(
+        operation_parts: (
+            ParsedExpression,
+            ParsedExpression,
+            ParsedLogicalOperator,
+            SourceRange,
+        ),
+    ) -> ParsedExpression {
+        let (left_operand, right_operand, operator, operator_range) = operation_parts;
+        let expression_range = Self::range_spanning_operands((&left_operand, &right_operand));
+        ParsedExpression::LogicalOperation(ParsedLogicalOperation::from_parts((
+            Box::new(left_operand),
+            Box::new(right_operand),
+            operator,
+            operator_range,
+            expression_range,
+        )))
+    }
+
+    fn range_spanning_operands(operands: (&ParsedExpression, &ParsedExpression)) -> SourceRange {
+        let (left_operand, right_operand) = operands;
+        SourceRange::from_byte_range((
+            left_operand.source_range().start_byte(),
+            right_operand.source_range().end_byte(),
+        ))
+    }
+
     fn parse_primary_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        match self.current_token_kind() {
+            Ok(SourceTokenKind::LeftParenthesis) => {
+                match self.take_required_symbol(SourceTokenKind::LeftParenthesis) {
+                    Ok(consumed_symbol) => drop(consumed_symbol),
+                    Err(compilation_problem) => return Err(compilation_problem),
+                }
+                let grouped_expression = match self.parse_expression() {
+                    Ok(grouped_expression) => grouped_expression,
+                    Err(compilation_problem) => return Err(compilation_problem),
+                };
+                match self.take_required_symbol(SourceTokenKind::RightParenthesis) {
+                    Ok(consumed_symbol) => drop(consumed_symbol),
+                    Err(compilation_problem) => return Err(compilation_problem),
+                }
+                Ok(grouped_expression)
+            }
+            Ok(_) => self.parse_ungrouped_primary_expression(),
+            Err(compilation_problem) => Err(compilation_problem),
+        }
+    }
+
+    fn parse_ungrouped_primary_expression(
+        &mut self,
+    ) -> Result<ParsedExpression, CompilationProblem> {
         let source_token = match self.take_required_expression_token() {
             Ok(source_token) => source_token,
             Err(compilation_problem) => return Err(compilation_problem),

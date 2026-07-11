@@ -48,6 +48,8 @@ pub(crate) fn split_source_into_tokens(
                     "fn" => SourceTokenKind::FunctionKeyword,
                     "let" => SourceTokenKind::LetKeyword,
                     "return" => SourceTokenKind::ReturnKeyword,
+                    "if" => SourceTokenKind::IfKeyword,
+                    "else" => SourceTokenKind::ElseKeyword,
                     "true" => SourceTokenKind::BooleanLiteral(SourceBooleanLiteral::True),
                     "false" => SourceTokenKind::BooleanLiteral(SourceBooleanLiteral::False),
                     _ => SourceTokenKind::IdentifierName(identifier),
@@ -135,10 +137,32 @@ pub(crate) fn split_source_into_tokens(
                 SourceTokenKind::Semicolon,
                 (start_byte, start_byte + 1),
             ))),
-            '=' => source_tokens.push(make_source_token((
-                SourceTokenKind::Equals,
-                (start_byte, start_byte + 1),
-            ))),
+            '=' => match characters.peek().copied() {
+                Some((next_start_byte, '=')) => {
+                    characters.next();
+                    source_tokens.push(make_source_token((
+                        SourceTokenKind::EqualEqual,
+                        (start_byte, next_start_byte + 1),
+                    )));
+                }
+                _ => source_tokens.push(make_source_token((
+                    SourceTokenKind::Equals,
+                    (start_byte, start_byte + 1),
+                ))),
+            },
+            '!' => match characters.peek().copied() {
+                Some((next_start_byte, '=')) => {
+                    characters.next();
+                    source_tokens.push(make_source_token((
+                        SourceTokenKind::BangEqual,
+                        (start_byte, next_start_byte + 1),
+                    )));
+                }
+                _ => source_tokens.push(make_source_token((
+                    SourceTokenKind::Bang,
+                    (start_byte, start_byte + 1),
+                ))),
+            },
             '+' => source_tokens.push(make_source_token((
                 SourceTokenKind::Plus,
                 (start_byte, start_byte + 1),
@@ -151,6 +175,60 @@ pub(crate) fn split_source_into_tokens(
                 SourceTokenKind::Slash,
                 (start_byte, start_byte + 1),
             ))),
+            '<' => match characters.peek().copied() {
+                Some((next_start_byte, '=')) => {
+                    characters.next();
+                    source_tokens.push(make_source_token((
+                        SourceTokenKind::LessThanOrEqual,
+                        (start_byte, next_start_byte + 1),
+                    )));
+                }
+                _ => source_tokens.push(make_source_token((
+                    SourceTokenKind::LessThan,
+                    (start_byte, start_byte + 1),
+                ))),
+            },
+            '>' => match characters.peek().copied() {
+                Some((next_start_byte, '=')) => {
+                    characters.next();
+                    source_tokens.push(make_source_token((
+                        SourceTokenKind::GreaterThanOrEqual,
+                        (start_byte, next_start_byte + 1),
+                    )));
+                }
+                _ => source_tokens.push(make_source_token((
+                    SourceTokenKind::GreaterThan,
+                    (start_byte, start_byte + 1),
+                ))),
+            },
+            '&' => match characters.next() {
+                Some((next_start_byte, '&')) => source_tokens.push(make_source_token((
+                    SourceTokenKind::AmpersandAmpersand,
+                    (start_byte, next_start_byte + 1),
+                ))),
+                Some((next_start_byte, next_character)) => {
+                    return Err(unexpected_character((
+                        next_character,
+                        next_start_byte,
+                        next_start_byte + next_character.len_utf8(),
+                    )));
+                }
+                None => return Err(unexpected_character(('&', start_byte, start_byte + 1))),
+            },
+            '|' => match characters.next() {
+                Some((next_start_byte, '|')) => source_tokens.push(make_source_token((
+                    SourceTokenKind::PipePipe,
+                    (start_byte, next_start_byte + 1),
+                ))),
+                Some((next_start_byte, next_character)) => {
+                    return Err(unexpected_character((
+                        next_character,
+                        next_start_byte,
+                        next_start_byte + next_character.len_utf8(),
+                    )));
+                }
+                None => return Err(unexpected_character(('|', start_byte, start_byte + 1))),
+            },
             '-' => match characters.peek().copied() {
                 Some((next_start_byte, '>')) => {
                     characters.next();

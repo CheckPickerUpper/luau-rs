@@ -1,4 +1,6 @@
-use crate::checked_program::{CheckedExpression, CheckedFunctionCall, CheckedValueType};
+use crate::checked_program::{
+    CheckedExpression, CheckedFunctionCall, CheckedIfElse, CheckedValueType,
+};
 
 /// Represents only validated forms allowed inside a function body.
 pub(crate) enum CheckedStatement {
@@ -10,4 +12,8 @@ pub(crate) enum CheckedStatement {
     },
     /// Invokes a validated function where the source discards any returned value.
     CallFunctionAndIgnoreResult(CheckedFunctionCall),
+    /// Returns an expression whose type matches the enclosing function contract.
+    ReturnsValue(CheckedExpression),
+    /// Selects between independently scoped checked branches.
+    IfElse(CheckedIfElse),
 }

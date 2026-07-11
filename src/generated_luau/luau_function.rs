@@ -1,4 +1,4 @@
-use crate::generated_luau::{LuauFunctionReturn, LuauParameter, LuauStatement, LuauValueType};
+use crate::generated_luau::{LuauFunctionBody, LuauParameter, LuauValueType};
 
 /// Owns one complete function after checked source constructs have been lowered.
 #[derive(Debug, PartialEq, Eq)]
@@ -6,35 +6,22 @@ pub(crate) struct LuauFunction {
     function_name: String,
     function_parameters: Vec<LuauParameter>,
     returned_value_type: LuauValueType,
-    function_statements: Vec<LuauStatement>,
-    function_return: LuauFunctionReturn,
+    function_body: LuauFunctionBody,
 }
 
 /// Restricts generated-function assembly to the lowering phase.
 impl LuauFunction {
     /// Collects the ordered function parts needed for deterministic output.
     pub(crate) fn from_function_parts(
-        function_parts: (
-            String,
-            Vec<LuauParameter>,
-            LuauValueType,
-            Vec<LuauStatement>,
-            LuauFunctionReturn,
-        ),
+        function_parts: (String, Vec<LuauParameter>, LuauValueType, LuauFunctionBody),
     ) -> Self {
-        let (
-            function_name,
-            function_parameters,
-            returned_value_type,
-            function_statements,
-            function_return,
-        ) = function_parts;
+        let (function_name, function_parameters, returned_value_type, function_body) =
+            function_parts;
         Self {
             function_name,
             function_parameters,
             returned_value_type,
-            function_statements,
-            function_return,
+            function_body,
         }
     }
 
@@ -53,13 +40,8 @@ impl LuauFunction {
         self.returned_value_type
     }
 
-    /// Preserves checked statement order for textual emission.
-    pub(crate) fn function_statements(&self) -> &[LuauStatement] {
-        &self.function_statements
-    }
-
-    /// Gives the text writer the structurally final function return.
-    pub(crate) fn function_return(&self) -> &LuauFunctionReturn {
-        &self.function_return
+    /// Gives the text writer the complete generated function scope.
+    pub(crate) fn function_body(&self) -> &LuauFunctionBody {
+        &self.function_body
     }
 }

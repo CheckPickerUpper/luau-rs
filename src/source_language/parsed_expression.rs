@@ -1,6 +1,8 @@
 use crate::{
     source_language::{
-        ParsedFunctionCall, ParsedLiteral, ParsedNumericOperation, SourceBooleanLiteral,
+        ParsedComparisonOperation, ParsedEqualityOperation, ParsedFunctionCall, ParsedLiteral,
+        ParsedLogicalNegation, ParsedLogicalOperation, ParsedNumericOperation,
+        SourceBooleanLiteral,
     },
     SourceRange,
 };
@@ -23,6 +25,14 @@ pub(crate) enum ParsedExpression {
     },
     /// Retains a numeric operation and its operator location for type failures.
     NumericOperation(ParsedNumericOperation),
+    /// Retains a numeric comparison and its operator location for type failures.
+    ComparisonOperation(ParsedComparisonOperation),
+    /// Retains an equality operation and its operator location for type failures.
+    EqualityOperation(ParsedEqualityOperation),
+    /// Retains a boolean negation and its operator location for type failures.
+    LogicalNegation(ParsedLogicalNegation),
+    /// Retains a short-circuit logical operation and its operator location for type failures.
+    LogicalOperation(ParsedLogicalOperation),
     /// Calls a named function and retains the name location for call failures.
     FunctionCall(ParsedFunctionCall),
 }
@@ -38,6 +48,10 @@ impl ParsedExpression {
             }
             Self::BooleanLiteral { literal_range, .. } => *literal_range,
             Self::NumericOperation(operation) => operation.expression_range(),
+            Self::ComparisonOperation(operation) => operation.expression_range(),
+            Self::EqualityOperation(operation) => operation.expression_range(),
+            Self::LogicalNegation(negation) => negation.expression_range(),
+            Self::LogicalOperation(operation) => operation.expression_range(),
             Self::FunctionCall(function_call) => function_call.source_range(),
         }
     }

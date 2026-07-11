@@ -61,6 +61,16 @@ impl<'a> ProgramCheckContext<'a> {
         self.local_bindings.push(local_binding);
     }
 
+    /// Records the active lexical-scope boundary before checking a nested body.
+    pub(super) fn local_scope_boundary(&self) -> usize {
+        self.local_bindings.len()
+    }
+
+    /// Removes bindings introduced by a completed nested lexical scope.
+    pub(super) fn end_local_scope(&mut self, local_scope_boundary: usize) {
+        self.local_bindings.truncate(local_scope_boundary);
+    }
+
     /// Provides active parameter and local bindings for collision and reference checks.
     pub(super) fn local_bindings(&self) -> &[(String, CheckedValueType)] {
         &self.local_bindings

@@ -63,6 +63,16 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             ParsedExpression::NumericOperation(operation) => {
                 self.check_numeric_operation(operation)
             }
+            ParsedExpression::ComparisonOperation(operation) => {
+                self.check_comparison_operation(operation)
+            }
+            ParsedExpression::EqualityOperation(operation) => {
+                self.check_equality_operation(operation)
+            }
+            ParsedExpression::LogicalNegation(negation) => self.check_logical_negation(negation),
+            ParsedExpression::LogicalOperation(operation) => {
+                self.check_logical_operation(operation)
+            }
             ParsedExpression::FunctionCall(parsed_function_call) => {
                 match self.check_function_call(parsed_function_call) {
                     Ok((checked_function_call, returned_value_type)) => Ok((

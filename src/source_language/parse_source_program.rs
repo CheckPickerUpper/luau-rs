@@ -107,6 +107,8 @@ impl SourceProgramParser {
             (SourceTokenKind::FunctionKeyword, SourceTokenKind::FunctionKeyword)
             | (SourceTokenKind::LetKeyword, SourceTokenKind::LetKeyword)
             | (SourceTokenKind::ReturnKeyword, SourceTokenKind::ReturnKeyword)
+            | (SourceTokenKind::IfKeyword, SourceTokenKind::IfKeyword)
+            | (SourceTokenKind::ElseKeyword, SourceTokenKind::ElseKeyword)
             | (SourceTokenKind::LeftParenthesis, SourceTokenKind::LeftParenthesis)
             | (SourceTokenKind::RightParenthesis, SourceTokenKind::RightParenthesis)
             | (SourceTokenKind::LeftBrace, SourceTokenKind::LeftBrace)
@@ -116,10 +118,19 @@ impl SourceProgramParser {
             | (SourceTokenKind::Semicolon, SourceTokenKind::Semicolon)
             | (SourceTokenKind::Arrow, SourceTokenKind::Arrow)
             | (SourceTokenKind::Equals, SourceTokenKind::Equals)
+            | (SourceTokenKind::EqualEqual, SourceTokenKind::EqualEqual)
+            | (SourceTokenKind::BangEqual, SourceTokenKind::BangEqual)
+            | (SourceTokenKind::Bang, SourceTokenKind::Bang)
             | (SourceTokenKind::Plus, SourceTokenKind::Plus)
             | (SourceTokenKind::Minus, SourceTokenKind::Minus)
             | (SourceTokenKind::Star, SourceTokenKind::Star)
-            | (SourceTokenKind::Slash, SourceTokenKind::Slash) => Ok(source_token),
+            | (SourceTokenKind::Slash, SourceTokenKind::Slash)
+            | (SourceTokenKind::LessThan, SourceTokenKind::LessThan)
+            | (SourceTokenKind::LessThanOrEqual, SourceTokenKind::LessThanOrEqual)
+            | (SourceTokenKind::GreaterThan, SourceTokenKind::GreaterThan)
+            | (SourceTokenKind::GreaterThanOrEqual, SourceTokenKind::GreaterThanOrEqual)
+            | (SourceTokenKind::AmpersandAmpersand, SourceTokenKind::AmpersandAmpersand)
+            | (SourceTokenKind::PipePipe, SourceTokenKind::PipePipe) => Ok(source_token),
             _ => Err(Self::problem_at_range(source_token.source_range())),
         }
     }

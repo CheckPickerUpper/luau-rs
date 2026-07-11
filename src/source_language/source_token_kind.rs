@@ -9,6 +9,10 @@ pub(crate) enum SourceTokenKind {
     LetKeyword,
     /// Begins a return statement.
     ReturnKeyword,
+    /// Begins a two-branch conditional statement.
+    IfKeyword,
+    /// Introduces the required alternative branch of a conditional statement.
+    ElseKeyword,
     /// Preserves an identifier spelling.
     IdentifierName(String),
     /// Preserves a numeric literal spelling.
@@ -35,6 +39,12 @@ pub(crate) enum SourceTokenKind {
     Arrow,
     /// Separates a local binding from its initializer.
     Equals,
+    /// Tests equality between two expressions.
+    EqualEqual,
+    /// Tests inequality between two expressions.
+    BangEqual,
+    /// Negates one boolean expression.
+    Bang,
     /// Adds numeric expressions.
     Plus,
     /// Subtracts numeric expressions.
@@ -43,6 +53,18 @@ pub(crate) enum SourceTokenKind {
     Star,
     /// Divides numeric expressions.
     Slash,
+    /// Tests whether the left number is smaller than the right number.
+    LessThan,
+    /// Tests whether the left number is no greater than the right number.
+    LessThanOrEqual,
+    /// Tests whether the left number is greater than the right number.
+    GreaterThan,
+    /// Tests whether the left number is at least the right number.
+    GreaterThanOrEqual,
+    /// Conjoins boolean expressions with short-circuit evaluation.
+    AmpersandAmpersand,
+    /// Disjoins boolean expressions with short-circuit evaluation.
+    PipePipe,
     /// Marks the end of the token stream.
     EndOfSource,
 }

@@ -1,5 +1,5 @@
 use crate::{
-    source_language::{ParsedFunctionReturn, ParsedParameter, ParsedStatement, ParsedValueType},
+    source_language::{ParsedFunctionBody, ParsedParameter, ParsedValueType},
     SourceRange,
 };
 
@@ -9,8 +9,7 @@ pub(crate) struct ParsedFunction {
     function_name_range: SourceRange,
     function_parameters: Vec<ParsedParameter>,
     returned_value_type: ParsedValueType,
-    function_statements: Vec<ParsedStatement>,
-    function_return: ParsedFunctionReturn,
+    function_body: ParsedFunctionBody,
 }
 
 /// Prevents expression or statement nodes from appearing at the program level.
@@ -22,8 +21,7 @@ impl ParsedFunction {
             SourceRange,
             Vec<ParsedParameter>,
             ParsedValueType,
-            Vec<ParsedStatement>,
-            ParsedFunctionReturn,
+            ParsedFunctionBody,
         ),
     ) -> Self {
         let (
@@ -31,16 +29,14 @@ impl ParsedFunction {
             function_name_range,
             function_parameters,
             returned_value_type,
-            function_statements,
-            function_return,
+            function_body,
         ) = declaration;
         Self {
             function_name,
             function_name_range,
             function_parameters,
             returned_value_type,
-            function_statements,
-            function_return,
+            function_body,
         }
     }
 
@@ -64,13 +60,8 @@ impl ParsedFunction {
         self.returned_value_type
     }
 
-    /// Gives semantic checking the complete ordered function body.
-    pub(crate) fn function_statements(&self) -> &[ParsedStatement] {
-        &self.function_statements
-    }
-
-    /// Gives semantic checking the structurally final function return.
-    pub(crate) fn function_return(&self) -> &ParsedFunctionReturn {
-        &self.function_return
+    /// Gives semantic checking the complete scope of the function body.
+    pub(crate) fn function_body(&self) -> &ParsedFunctionBody {
+        &self.function_body
     }
 }

@@ -1,11 +1,13 @@
 use crate::{
     checked_program::{
-        CheckedBooleanLiteral, CheckedExpression, CheckedFunction, CheckedFunctionCall,
-        CheckedFunctionReturn, CheckedParameter, CheckedProgram, CheckedStatement,
+        CheckedBooleanLiteral, CheckedExpression, CheckedFunction, CheckedFunctionBody,
+        CheckedFunctionCall, CheckedIfElse, CheckedParameter, CheckedProgram, CheckedStatement,
         CheckedValueType,
     },
     generated_luau::{
-        LuauBooleanLiteral, LuauExpression, LuauFunction, LuauFunctionCall, LuauFunctionReturn,
+        LuauBooleanLiteral, LuauComparisonOperation, LuauComparisonOperator, LuauEqualityOperation,
+        LuauEqualityOperator, LuauExpression, LuauFunction, LuauFunctionBody, LuauFunctionCall,
+        LuauIfElse, LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator,
         LuauNumericOperation, LuauNumericOperator, LuauParameter, LuauProgram, LuauStatement,
         LuauValueType,
     },
@@ -42,18 +44,11 @@ impl LuauProgramGenerator {
             .iter()
             .map(Self::generate_parameter)
             .collect();
-        let luau_statements = checked_function
-            .statements()
-            .iter()
-            .map(Self::generate_statement)
-            .collect();
-
         LuauFunction::from_function_parts((
             checked_function.function_name().to_owned(),
             luau_parameters,
             Self::generate_value_type(checked_function.returned_value_type()),
-            luau_statements,
-            Self::generate_function_return(checked_function.function_return()),
+            Self::generate_function_body(checked_function.function_body()),
         ))
     }
 
@@ -62,6 +57,16 @@ impl LuauProgramGenerator {
             checked_parameter.parameter_name().to_owned(),
             Self::generate_value_type(checked_parameter.value_type()),
         ))
+    }
+
+    fn generate_function_body(checked_function_body: &CheckedFunctionBody) -> LuauFunctionBody {
+        LuauFunctionBody::from_statements(
+            checked_function_body
+                .body_statements()
+                .iter()
+                .map(Self::generate_statement)
+                .collect(),
+        )
     }
 
     fn generate_statement(checked_statement: &CheckedStatement) -> LuauStatement {
@@ -80,18 +85,21 @@ impl LuauProgramGenerator {
                     checked_function_call,
                 ))
             }
+            CheckedStatement::ReturnsValue(checked_expression) => {
+                LuauStatement::ReturnsValue(Self::generate_expression(checked_expression))
+            }
+            CheckedStatement::IfElse(checked_if_else) => {
+                LuauStatement::IfElse(Self::generate_if_else(checked_if_else))
+            }
         }
     }
 
-    fn generate_function_return(
-        checked_function_return: &CheckedFunctionReturn,
-    ) -> LuauFunctionReturn {
-        match checked_function_return {
-            CheckedFunctionReturn::NoReturn => LuauFunctionReturn::NoReturn,
-            CheckedFunctionReturn::ReturnsValue(returned_expression) => {
-                LuauFunctionReturn::ReturnsValue(Self::generate_expression(returned_expression))
-            }
-        }
+    fn generate_if_else(checked_if_else: &CheckedIfElse) -> LuauIfElse {
+        LuauIfElse::from_parts((
+            Self::generate_expression(checked_if_else.condition()),
+            Self::generate_function_body(checked_if_else.then_body()),
+            Self::generate_function_body(checked_if_else.else_body()),
+        ))
     }
 
     fn generate_expression(checked_expression: &CheckedExpression) -> LuauExpression {
@@ -128,6 +136,62 @@ impl LuauProgramGenerator {
                     }
                 };
                 LuauExpression::NumericOperation(LuauNumericOperation::from_parts((
+                    Box::new(Self::generate_expression(operation.left_operand())),
+                    Box::new(Self::generate_expression(operation.right_operand())),
+                    generated_operator,
+                )))
+            }
+            CheckedExpression::ComparisonOperation(operation) => {
+                let generated_operator = match operation.operator() {
+                    crate::checked_program::CheckedComparisonOperator::LessThan => {
+                        LuauComparisonOperator::LessThan
+                    }
+                    crate::checked_program::CheckedComparisonOperator::LessThanOrEqual => {
+                        LuauComparisonOperator::LessThanOrEqual
+                    }
+                    crate::checked_program::CheckedComparisonOperator::GreaterThan => {
+                        LuauComparisonOperator::GreaterThan
+                    }
+                    crate::checked_program::CheckedComparisonOperator::GreaterThanOrEqual => {
+                        LuauComparisonOperator::GreaterThanOrEqual
+                    }
+                };
+                LuauExpression::ComparisonOperation(LuauComparisonOperation::from_parts((
+                    Box::new(Self::generate_expression(operation.left_operand())),
+                    Box::new(Self::generate_expression(operation.right_operand())),
+                    generated_operator,
+                )))
+            }
+            CheckedExpression::EqualityOperation(operation) => {
+                let generated_operator = match operation.operator() {
+                    crate::checked_program::CheckedEqualityOperator::Equal => {
+                        LuauEqualityOperator::Equal
+                    }
+                    crate::checked_program::CheckedEqualityOperator::NotEqual => {
+                        LuauEqualityOperator::NotEqual
+                    }
+                };
+                LuauExpression::EqualityOperation(LuauEqualityOperation::from_parts((
+                    Box::new(Self::generate_expression(operation.left_operand())),
+                    Box::new(Self::generate_expression(operation.right_operand())),
+                    generated_operator,
+                )))
+            }
+            CheckedExpression::LogicalNegation(negation) => {
+                LuauExpression::LogicalNegation(LuauLogicalNegation::from_expression(Box::new(
+                    Self::generate_expression(negation.negated_expression()),
+                )))
+            }
+            CheckedExpression::LogicalOperation(operation) => {
+                let generated_operator = match operation.operator() {
+                    crate::checked_program::CheckedLogicalOperator::Conjunction => {
+                        LuauLogicalOperator::Conjunction
+                    }
+                    crate::checked_program::CheckedLogicalOperator::Disjunction => {
+                        LuauLogicalOperator::Disjunction
+                    }
+                };
+                LuauExpression::LogicalOperation(LuauLogicalOperation::from_parts((
                     Box::new(Self::generate_expression(operation.left_operand())),
                     Box::new(Self::generate_expression(operation.right_operand())),
                     generated_operator,
