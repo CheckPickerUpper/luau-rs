@@ -5,7 +5,7 @@ use crate::generated_luau::{
 
 /// Represents expressions after source-language meaning has been resolved.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum LuauExpression {
+pub enum LuauExpression {
     /// Reads a previously resolved local or parameter.
     NameReference(String),
     /// Preserves the checked literal spelling for emission.

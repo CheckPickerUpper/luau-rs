@@ -18,7 +18,9 @@ pub(super) struct FunctionChecker<'context, 'program> {
 /// Keeps function-scope mutation separate from program orchestration and expression rules.
 impl<'context, 'program> FunctionChecker<'context, 'program> {
     /// Borrows the active program context for one complete function check.
-    pub(super) fn from_context(check_context: &'context mut ProgramCheckContext<'program>) -> Self {
+    pub(super) const fn from_context(
+        check_context: &'context mut ProgramCheckContext<'program>,
+    ) -> Self {
         Self { check_context }
     }
 
@@ -233,9 +235,11 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             (FunctionBodyCompletion::AlwaysReturns, FunctionBodyCompletion::AlwaysReturns) => {
                 FunctionBodyCompletion::AlwaysReturns
             }
-            (FunctionBodyCompletion::ReachesEnd, FunctionBodyCompletion::AlwaysReturns)
-            | (FunctionBodyCompletion::AlwaysReturns, FunctionBodyCompletion::ReachesEnd)
-            | (FunctionBodyCompletion::ReachesEnd, FunctionBodyCompletion::ReachesEnd) => {
+            (
+                FunctionBodyCompletion::ReachesEnd,
+                FunctionBodyCompletion::AlwaysReturns | FunctionBodyCompletion::ReachesEnd,
+            )
+            | (FunctionBodyCompletion::AlwaysReturns, FunctionBodyCompletion::ReachesEnd) => {
                 FunctionBodyCompletion::ReachesEnd
             }
         };

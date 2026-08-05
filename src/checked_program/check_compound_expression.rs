@@ -15,7 +15,7 @@ use crate::{
 use super::check_expression::ExpressionChecker;
 
 /// Validates compound expressions whose types depend on their operand relationships.
-impl<'context, 'program> ExpressionChecker<'context, 'program> {
+impl ExpressionChecker<'_, '_> {
     /// Checks a numeric comparison and gives it the boolean type.
     pub(super) fn check_comparison_operation(
         &mut self,
@@ -167,7 +167,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         ))
     }
 
-    fn require_matching_equality_operands(
+    const fn require_matching_equality_operands(
         value_types_at_range: (CheckedValueType, CheckedValueType, SourceRange),
     ) -> Result<(), CompilationProblem> {
         let (left_type, right_type, operator_range) = value_types_at_range;
@@ -175,24 +175,34 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             (CheckedValueType::Number, CheckedValueType::Number)
             | (CheckedValueType::String, CheckedValueType::String)
             | (CheckedValueType::Boolean, CheckedValueType::Boolean) => Ok(()),
-            (CheckedValueType::NoReturnedValues, CheckedValueType::NoReturnedValues)
-            | (CheckedValueType::Number, CheckedValueType::String)
-            | (CheckedValueType::Number, CheckedValueType::Boolean)
-            | (CheckedValueType::Number, CheckedValueType::NoReturnedValues)
-            | (CheckedValueType::String, CheckedValueType::Number)
-            | (CheckedValueType::String, CheckedValueType::Boolean)
-            | (CheckedValueType::String, CheckedValueType::NoReturnedValues)
-            | (CheckedValueType::Boolean, CheckedValueType::Number)
-            | (CheckedValueType::Boolean, CheckedValueType::String)
-            | (CheckedValueType::Boolean, CheckedValueType::NoReturnedValues)
-            | (CheckedValueType::NoReturnedValues, CheckedValueType::Number)
-            | (CheckedValueType::NoReturnedValues, CheckedValueType::String)
-            | (CheckedValueType::NoReturnedValues, CheckedValueType::Boolean) => {
-                Err(CompilationProblem::from_problem_at_range((
-                    operator_range,
-                    CompilationProblemReason::TypesDoNotMatch,
-                )))
-            }
+            (
+                CheckedValueType::NoReturnedValues
+                | CheckedValueType::Number
+                | CheckedValueType::String
+                | CheckedValueType::Boolean,
+                CheckedValueType::NoReturnedValues,
+            )
+            | (
+                CheckedValueType::Number
+                | CheckedValueType::Boolean
+                | CheckedValueType::NoReturnedValues,
+                CheckedValueType::String,
+            )
+            | (
+                CheckedValueType::Number
+                | CheckedValueType::String
+                | CheckedValueType::NoReturnedValues,
+                CheckedValueType::Boolean,
+            )
+            | (
+                CheckedValueType::String
+                | CheckedValueType::Boolean
+                | CheckedValueType::NoReturnedValues,
+                CheckedValueType::Number,
+            ) => Err(CompilationProblem::from_problem_at_range((
+                operator_range,
+                CompilationProblemReason::TypesDoNotMatch,
+            ))),
         }
     }
 }

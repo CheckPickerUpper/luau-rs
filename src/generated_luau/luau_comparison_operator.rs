@@ -1,6 +1,6 @@
 /// Names numeric comparisons emitted into Luau.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum LuauComparisonOperator {
+pub enum LuauComparisonOperator {
     /// Emits a less-than comparison.
     LessThan,
     /// Emits a less-than-or-equal comparison.

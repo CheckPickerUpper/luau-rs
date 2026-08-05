@@ -2,7 +2,7 @@ use crate::generated_luau::{LuauEqualityOperator, LuauExpression};
 
 /// Retains one target equality operation for precedence-aware writing.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LuauEqualityOperation {
+pub struct LuauEqualityOperation {
     left_operand: Box<LuauExpression>,
     right_operand: Box<LuauExpression>,
     operator: LuauEqualityOperator,
@@ -37,7 +37,7 @@ impl LuauEqualityOperation {
     }
 
     /// Gives the generated equality operator to the writer.
-    pub(crate) fn operator(&self) -> &LuauEqualityOperator {
+    pub(crate) const fn operator(&self) -> &LuauEqualityOperator {
         &self.operator
     }
 }

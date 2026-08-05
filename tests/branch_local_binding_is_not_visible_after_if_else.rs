@@ -1,8 +1,10 @@
+//! Integration coverage for branch-local binding visibility.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn a_branch_local_cannot_be_referenced_after_its_if_else_statement() {
-    let source = r#"fn main() {
+    let source = r"fn main() {
     if true {
         let selected_number: number = 42;
         print(selected_number);
@@ -12,7 +14,7 @@ fn a_branch_local_cannot_be_referenced_after_its_if_else_statement() {
     }
     print(selected_number);
 }
-"#;
+";
 
     let compilation_rejection = match compile_source(source) {
         CompilationOutcome::Rejected(compilation_rejection) => compilation_rejection,

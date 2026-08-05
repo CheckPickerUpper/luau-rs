@@ -1,14 +1,14 @@
 use crate::source_language::ParsedStatement;
 
 /// Owns the ordered statements inside either a function or a conditional branch.
-pub(crate) struct ParsedFunctionBody {
+pub struct ParsedFunctionBody {
     body_statements: Vec<ParsedStatement>,
 }
 
 /// Preserves source nesting until semantic checking establishes each statement's meaning.
 impl ParsedFunctionBody {
     /// Collects statements that share one lexical scope.
-    pub(crate) fn from_statements(body_statements: Vec<ParsedStatement>) -> Self {
+    pub(crate) const fn from_statements(body_statements: Vec<ParsedStatement>) -> Self {
         Self { body_statements }
     }
 

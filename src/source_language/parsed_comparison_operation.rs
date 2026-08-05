@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Retains one parsed numeric comparison and its diagnostic locations.
-pub(crate) struct ParsedComparisonOperation {
+pub struct ParsedComparisonOperation {
     left_operand: Box<ParsedExpression>,
     right_operand: Box<ParsedExpression>,
     operator: ParsedComparisonOperator,
@@ -45,17 +45,17 @@ impl ParsedComparisonOperation {
     }
 
     /// Gives the parsed comparison operator to later compiler stages.
-    pub(crate) fn operator(&self) -> &ParsedComparisonOperator {
+    pub(crate) const fn operator(&self) -> &ParsedComparisonOperator {
         &self.operator
     }
 
     /// Gives the operator location used for comparison type diagnostics.
-    pub(crate) fn operator_range(&self) -> SourceRange {
+    pub(crate) const fn operator_range(&self) -> SourceRange {
         self.operator_range
     }
 
     /// Gives the complete comparison range.
-    pub(crate) fn expression_range(&self) -> SourceRange {
+    pub(crate) const fn expression_range(&self) -> SourceRange {
         self.expression_range
     }
 }

@@ -14,7 +14,7 @@ pub(super) struct ProgramCheckContext<'a> {
 /// Restricts mutable semantic state to the checked-program phase.
 impl<'a> ProgramCheckContext<'a> {
     /// Starts checking with no visible declarations or active local bindings.
-    pub(super) fn from_parsed_program(parsed_program: &'a ParsedProgram) -> Self {
+    pub(super) const fn from_parsed_program(parsed_program: &'a ParsedProgram) -> Self {
         Self {
             parsed_program,
             local_bindings: Vec::new(),
@@ -24,7 +24,7 @@ impl<'a> ProgramCheckContext<'a> {
     }
 
     /// Provides the complete source declaration set for forward-reference classification.
-    pub(super) fn parsed_program(&self) -> &ParsedProgram {
+    pub(super) const fn parsed_program(&self) -> &ParsedProgram {
         self.parsed_program
     }
 
@@ -62,7 +62,7 @@ impl<'a> ProgramCheckContext<'a> {
     }
 
     /// Records the active lexical-scope boundary before checking a nested body.
-    pub(super) fn local_scope_boundary(&self) -> usize {
+    pub(super) const fn local_scope_boundary(&self) -> usize {
         self.local_bindings.len()
     }
 
@@ -77,12 +77,14 @@ impl<'a> ProgramCheckContext<'a> {
     }
 
     /// Provides the current function's checked return contract.
-    pub(super) fn expected_returned_value_type(&self) -> CheckedValueType {
+    pub(super) const fn expected_returned_value_type(&self) -> CheckedValueType {
         self.expected_returned_value_type
     }
 
     /// Converts the parsed type vocabulary into the checked-program vocabulary.
-    pub(super) fn to_checked_value_type(parsed_value_type: ParsedValueType) -> CheckedValueType {
+    pub(super) const fn to_checked_value_type(
+        parsed_value_type: ParsedValueType,
+    ) -> CheckedValueType {
         match parsed_value_type {
             ParsedValueType::Number => CheckedValueType::Number,
             ParsedValueType::String => CheckedValueType::String,

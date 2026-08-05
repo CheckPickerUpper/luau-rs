@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Owns one parsed function declaration with its typed signature and body.
-pub(crate) struct ParsedFunction {
+pub struct ParsedFunction {
     function_name: String,
     function_name_range: SourceRange,
     function_parameters: Vec<ParsedParameter>,
@@ -46,7 +46,7 @@ impl ParsedFunction {
     }
 
     /// Gives semantic checking the declaration-name range for function contract failures.
-    pub(crate) fn function_name_range(&self) -> SourceRange {
+    pub(crate) const fn function_name_range(&self) -> SourceRange {
         self.function_name_range
     }
 
@@ -56,12 +56,12 @@ impl ParsedFunction {
     }
 
     /// Gives semantic checking the function's declared returned value type.
-    pub(crate) fn returned_value_type(&self) -> ParsedValueType {
+    pub(crate) const fn returned_value_type(&self) -> ParsedValueType {
         self.returned_value_type
     }
 
     /// Gives semantic checking the complete scope of the function body.
-    pub(crate) fn function_body(&self) -> &ParsedFunctionBody {
+    pub(crate) const fn function_body(&self) -> &ParsedFunctionBody {
         &self.function_body
     }
 }

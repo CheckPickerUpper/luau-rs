@@ -1,7 +1,7 @@
 use crate::checked_program::CheckedExpression;
 
 /// Owns a resolved function invocation with type-checked arguments.
-pub(crate) struct CheckedFunctionCall {
+pub struct CheckedFunctionCall {
     function_name: String,
     function_arguments: Vec<CheckedExpression>,
 }

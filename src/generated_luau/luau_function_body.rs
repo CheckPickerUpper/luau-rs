@@ -2,14 +2,14 @@ use crate::generated_luau::LuauStatement;
 
 /// Owns generated statements that share one Luau lexical scope.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LuauFunctionBody {
+pub struct LuauFunctionBody {
     body_statements: Vec<LuauStatement>,
 }
 
 /// Keeps nested target-language bodies explicit until text serialization.
 impl LuauFunctionBody {
     /// Collects generated statements in execution order.
-    pub(crate) fn from_statements(body_statements: Vec<LuauStatement>) -> Self {
+    pub(crate) const fn from_statements(body_statements: Vec<LuauStatement>) -> Self {
         Self { body_statements }
     }
 

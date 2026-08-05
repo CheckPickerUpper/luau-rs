@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Retains an explicit two-branch decision before its condition or scopes are checked.
-pub(crate) struct ParsedIfElse {
+pub struct ParsedIfElse {
     condition: ParsedExpression,
     then_body: ParsedFunctionBody,
     else_body: ParsedFunctionBody,
@@ -32,22 +32,22 @@ impl ParsedIfElse {
     }
 
     /// Gives semantic checking the expression that determines the selected branch.
-    pub(crate) fn condition(&self) -> &ParsedExpression {
+    pub(crate) const fn condition(&self) -> &ParsedExpression {
         &self.condition
     }
 
     /// Gives semantic checking the scope entered when the condition is true.
-    pub(crate) fn then_body(&self) -> &ParsedFunctionBody {
+    pub(crate) const fn then_body(&self) -> &ParsedFunctionBody {
         &self.then_body
     }
 
     /// Gives semantic checking the scope entered when the condition is false.
-    pub(crate) fn else_body(&self) -> &ParsedFunctionBody {
+    pub(crate) const fn else_body(&self) -> &ParsedFunctionBody {
         &self.else_body
     }
 
     /// Attributes decision-level diagnostics to the condition.
-    pub(crate) fn condition_range(&self) -> SourceRange {
+    pub(crate) const fn condition_range(&self) -> SourceRange {
         self.condition_range
     }
 }

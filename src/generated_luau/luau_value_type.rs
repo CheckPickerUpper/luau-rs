@@ -1,6 +1,6 @@
 /// Names the value categories that survive lowering into typed Luau.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum LuauValueType {
+pub enum LuauValueType {
     /// Uses Luau's sole numeric representation.
     Number,
     /// Uses Luau's immutable string value representation.

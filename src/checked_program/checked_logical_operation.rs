@@ -1,7 +1,7 @@
 use crate::checked_program::{CheckedExpression, CheckedLogicalOperator};
 
 /// Retains a checked short-circuit logical operation for target generation.
-pub(crate) struct CheckedLogicalOperation {
+pub struct CheckedLogicalOperation {
     left_operand: Box<CheckedExpression>,
     right_operand: Box<CheckedExpression>,
     operator: CheckedLogicalOperator,
@@ -36,7 +36,7 @@ impl CheckedLogicalOperation {
     }
 
     /// Gives the checked logical operator to target generation.
-    pub(crate) fn operator(&self) -> &CheckedLogicalOperator {
+    pub(crate) const fn operator(&self) -> &CheckedLogicalOperator {
         &self.operator
     }
 }

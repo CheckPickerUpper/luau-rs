@@ -1,3 +1,5 @@
+//! Integration coverage for compiling string literals.
+
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]

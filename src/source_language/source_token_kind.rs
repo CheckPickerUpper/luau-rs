@@ -2,7 +2,7 @@ use crate::source_language::SourceBooleanLiteral;
 
 /// Names every lexical category accepted by the first source-language slice.
 #[derive(Clone)]
-pub(crate) enum SourceTokenKind {
+pub enum SourceTokenKind {
     /// Begins a function declaration.
     FunctionKeyword,
     /// Begins an immutable local declaration.

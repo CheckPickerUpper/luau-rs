@@ -1,3 +1,5 @@
+//! Integration coverage for boolean type mismatch ranges.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const STRING_LITERAL_START_BYTE: usize = 32;

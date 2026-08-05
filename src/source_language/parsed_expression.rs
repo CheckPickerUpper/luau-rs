@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// Represents only grammar forms valid where the source expects a value.
-pub(crate) enum ParsedExpression {
+pub enum ParsedExpression {
     /// Refers to a local value and retains its name location for resolution failures.
     NameReference {
         referenced_name: String,
@@ -40,7 +40,7 @@ pub(crate) enum ParsedExpression {
 /// Keeps diagnostic attribution available for every value-producing grammar form.
 impl ParsedExpression {
     /// Gives type checking the complete expression range responsible for a mismatch.
-    pub(crate) fn source_range(&self) -> SourceRange {
+    pub(crate) const fn source_range(&self) -> SourceRange {
         match self {
             Self::NameReference { name_range, .. } => *name_range,
             Self::NumberLiteral(parsed_literal) | Self::StringLiteral(parsed_literal) => {

@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Retains one parsed short-circuit logical operation and its diagnostic locations.
-pub(crate) struct ParsedLogicalOperation {
+pub struct ParsedLogicalOperation {
     left_operand: Box<ParsedExpression>,
     right_operand: Box<ParsedExpression>,
     operator: ParsedLogicalOperator,
@@ -45,17 +45,17 @@ impl ParsedLogicalOperation {
     }
 
     /// Gives the parsed logical operator to later compiler stages.
-    pub(crate) fn operator(&self) -> &ParsedLogicalOperator {
+    pub(crate) const fn operator(&self) -> &ParsedLogicalOperator {
         &self.operator
     }
 
     /// Gives the operator location used for logical type diagnostics.
-    pub(crate) fn operator_range(&self) -> SourceRange {
+    pub(crate) const fn operator_range(&self) -> SourceRange {
         self.operator_range
     }
 
     /// Gives the complete logical-operation range.
-    pub(crate) fn expression_range(&self) -> SourceRange {
+    pub(crate) const fn expression_range(&self) -> SourceRange {
         self.expression_range
     }
 }

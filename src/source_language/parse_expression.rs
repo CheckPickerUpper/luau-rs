@@ -24,7 +24,7 @@ impl SourceProgramParser {
         loop {
             match self.current_token_kind() {
                 Ok(SourceTokenKind::PipePipe) => {
-                    let operator_token = match self.take_required_symbol(SourceTokenKind::PipePipe)
+                    let operator_token = match self.take_required_symbol(&SourceTokenKind::PipePipe)
                     {
                         Ok(operator_token) => operator_token,
                         Err(compilation_problem) => return Err(compilation_problem),
@@ -56,7 +56,7 @@ impl SourceProgramParser {
             match self.current_token_kind() {
                 Ok(SourceTokenKind::AmpersandAmpersand) => {
                     let operator_token =
-                        match self.take_required_symbol(SourceTokenKind::AmpersandAmpersand) {
+                        match self.take_required_symbol(&SourceTokenKind::AmpersandAmpersand) {
                             Ok(operator_token) => operator_token,
                             Err(compilation_problem) => return Err(compilation_problem),
                         };
@@ -205,7 +205,7 @@ impl SourceProgramParser {
     fn parse_unary_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
         match self.current_token_kind() {
             Ok(SourceTokenKind::Bang) => {
-                let operator_token = match self.take_required_symbol(SourceTokenKind::Bang) {
+                let operator_token = match self.take_required_symbol(&SourceTokenKind::Bang) {
                     Ok(operator_token) => operator_token,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
@@ -306,7 +306,9 @@ impl SourceProgramParser {
         )))
     }
 
-    fn range_spanning_operands(operands: (&ParsedExpression, &ParsedExpression)) -> SourceRange {
+    const fn range_spanning_operands(
+        operands: (&ParsedExpression, &ParsedExpression),
+    ) -> SourceRange {
         let (left_operand, right_operand) = operands;
         SourceRange::from_byte_range((
             left_operand.source_range().start_byte(),
@@ -317,7 +319,7 @@ impl SourceProgramParser {
     fn parse_primary_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
         match self.current_token_kind() {
             Ok(SourceTokenKind::LeftParenthesis) => {
-                match self.take_required_symbol(SourceTokenKind::LeftParenthesis) {
+                match self.take_required_symbol(&SourceTokenKind::LeftParenthesis) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -325,7 +327,7 @@ impl SourceProgramParser {
                     Ok(grouped_expression) => grouped_expression,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
-                match self.take_required_symbol(SourceTokenKind::RightParenthesis) {
+                match self.take_required_symbol(&SourceTokenKind::RightParenthesis) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -359,7 +361,7 @@ impl SourceProgramParser {
             }
             SourceTokenKind::IdentifierName(identifier_name) => match self.current_token_kind() {
                 Ok(SourceTokenKind::LeftParenthesis) => {
-                    match self.take_required_symbol(SourceTokenKind::LeftParenthesis) {
+                    match self.take_required_symbol(&SourceTokenKind::LeftParenthesis) {
                         Ok(consumed_symbol) => drop(consumed_symbol),
                         Err(compilation_problem) => return Err(compilation_problem),
                     }
@@ -368,7 +370,7 @@ impl SourceProgramParser {
                         Err(compilation_problem) => return Err(compilation_problem),
                     };
                     let right_parenthesis =
-                        match self.take_required_symbol(SourceTokenKind::RightParenthesis) {
+                        match self.take_required_symbol(&SourceTokenKind::RightParenthesis) {
                             Ok(right_parenthesis) => right_parenthesis,
                             Err(compilation_problem) => return Err(compilation_problem),
                         };
@@ -410,7 +412,7 @@ impl SourceProgramParser {
                     }
                     match self.current_token_kind() {
                         Ok(SourceTokenKind::Comma) => {
-                            match self.take_required_symbol(SourceTokenKind::Comma) {
+                            match self.take_required_symbol(&SourceTokenKind::Comma) {
                                 Ok(consumed_symbol) => drop(consumed_symbol),
                                 Err(compilation_problem) => return Err(compilation_problem),
                             }
@@ -428,10 +430,12 @@ impl SourceProgramParser {
 
     fn take_required_expression_token(&mut self) -> Result<SourceToken, CompilationProblem> {
         match self.current_token_kind() {
-            Ok(SourceTokenKind::IdentifierName(_))
-            | Ok(SourceTokenKind::NumberLiteral(_))
-            | Ok(SourceTokenKind::StringLiteral(_))
-            | Ok(SourceTokenKind::BooleanLiteral(_)) => match self.take_next_token() {
+            Ok(
+                SourceTokenKind::IdentifierName(_)
+                | SourceTokenKind::NumberLiteral(_)
+                | SourceTokenKind::StringLiteral(_)
+                | SourceTokenKind::BooleanLiteral(_),
+            ) => match self.take_next_token() {
                 Ok(source_token) => Ok(source_token),
                 Err(compilation_problem) => Err(compilation_problem),
             },

@@ -1,3 +1,5 @@
+//! Integration coverage for rejecting statements after returns.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const POST_RETURN_STATEMENT_START_BYTE: usize = 33;

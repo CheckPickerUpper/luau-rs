@@ -1,3 +1,5 @@
+//! Integration coverage for initializer mismatch ranges.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const INITIALIZER_START_BYTE: usize = 28;

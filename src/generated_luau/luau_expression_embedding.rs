@@ -2,7 +2,7 @@ use crate::generated_luau::{LuauExpressionPrecedence, LuauOperationOperandSide};
 
 /// Describes where an expression is written so parentheses preserve its meaning.
 #[derive(Clone, Copy)]
-pub(crate) enum LuauExpressionEmbedding {
+pub enum LuauExpressionEmbedding {
     /// Writes an expression where no enclosing operator can change its meaning.
     Unrestricted,
     /// Writes an expression as a binary operation operand.

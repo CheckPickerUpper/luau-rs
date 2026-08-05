@@ -1,7 +1,7 @@
 use crate::{source_language::ParsedExpression, SourceRange};
 
 /// Owns a parsed function invocation shared by value and effect-only grammar positions.
-pub(crate) struct ParsedFunctionCall {
+pub struct ParsedFunctionCall {
     function_name: String,
     function_name_range: SourceRange,
     function_arguments: Vec<ParsedExpression>,
@@ -29,7 +29,7 @@ impl ParsedFunctionCall {
     }
 
     /// Gives semantic checking the range used for call diagnostics.
-    pub(crate) fn function_name_range(&self) -> SourceRange {
+    pub(crate) const fn function_name_range(&self) -> SourceRange {
         self.function_name_range
     }
 
@@ -39,7 +39,7 @@ impl ParsedFunctionCall {
     }
 
     /// Gives type checking the complete call-expression range.
-    pub(crate) fn source_range(&self) -> SourceRange {
+    pub(crate) const fn source_range(&self) -> SourceRange {
         self.call_range
     }
 }

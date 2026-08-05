@@ -2,7 +2,7 @@ use crate::generated_luau::{LuauExpression, LuauFunctionCall, LuauIfElse, LuauVa
 
 /// Represents statements using only constructs supported by the Luau writer.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum LuauStatement {
+pub enum LuauStatement {
     /// Introduces a typed immutable local binding.
     ImmutableLocal {
         /// Keeps the resolved local spelling.

@@ -1,3 +1,5 @@
+//! Integration coverage for function binding mutation rejection.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const COLLIDING_LOCAL_START_BYTE: usize = 28;

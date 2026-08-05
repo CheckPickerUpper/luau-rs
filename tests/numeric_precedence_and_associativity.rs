@@ -1,14 +1,16 @@
+//! Integration coverage for numeric precedence and associativity.
+
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]
 fn multiplication_binds_tighter_and_same_tier_operations_are_left_associative() {
-    let source = r#"fn main() {
+    let source = r"fn main() {
     let precedence: number = 2 + 3 * 4;
     let order: number = 20 - 5 - 3;
     print(precedence);
     print(order);
 }
-"#;
+";
 
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),

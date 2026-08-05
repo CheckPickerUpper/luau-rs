@@ -2,7 +2,7 @@ use crate::generated_luau::{LuauExpression, LuauLogicalOperator};
 
 /// Retains one target short-circuit logical operation for precedence-aware writing.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LuauLogicalOperation {
+pub struct LuauLogicalOperation {
     left_operand: Box<LuauExpression>,
     right_operand: Box<LuauExpression>,
     operator: LuauLogicalOperator,
@@ -37,7 +37,7 @@ impl LuauLogicalOperation {
     }
 
     /// Gives the generated logical operator to the writer.
-    pub(crate) fn operator(&self) -> &LuauLogicalOperator {
+    pub(crate) const fn operator(&self) -> &LuauLogicalOperator {
         &self.operator
     }
 }

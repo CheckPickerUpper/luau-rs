@@ -16,7 +16,7 @@ use crate::{
 const ENTRY_FUNCTION_NAME: &str = "main";
 
 /// Lowers a semantically checked program into an owned Luau representation.
-pub(crate) fn generate_luau_program(checked_program: &CheckedProgram) -> LuauProgram {
+pub fn generate_luau_program(checked_program: &CheckedProgram) -> LuauProgram {
     LuauProgramGenerator::generate(checked_program)
 }
 
@@ -214,7 +214,7 @@ impl LuauProgramGenerator {
         ))
     }
 
-    fn generate_value_type(checked_value_type: CheckedValueType) -> LuauValueType {
+    const fn generate_value_type(checked_value_type: CheckedValueType) -> LuauValueType {
         match checked_value_type {
             CheckedValueType::Number => LuauValueType::Number,
             CheckedValueType::String => LuauValueType::String,

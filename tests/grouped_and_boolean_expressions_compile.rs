@@ -1,3 +1,5 @@
+//! Integration coverage for grouped and boolean expressions.
+
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]

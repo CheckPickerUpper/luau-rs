@@ -1,5 +1,5 @@
 /// Names numeric operations after source names and types are checked.
-pub(crate) enum CheckedNumericOperator {
+pub enum CheckedNumericOperator {
     /// Adds the two numeric operands.
     Addition,
     /// Subtracts the right numeric operand from the left numeric operand.

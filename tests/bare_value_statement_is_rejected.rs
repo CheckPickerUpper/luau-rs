@@ -1,3 +1,5 @@
+//! Integration coverage for rejecting bare value statements.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const VALUE_START_BYTE: usize = 12;

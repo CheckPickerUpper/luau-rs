@@ -1,8 +1,10 @@
+//! Integration coverage for strict Luau program generation.
+
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]
 fn a_program_with_functions_and_a_call_compiles_to_strict_luau() {
-    let source = r#"fn add(left: number, right: number) -> number {
+    let source = r"fn add(left: number, right: number) -> number {
     return left + right;
 }
 
@@ -10,8 +12,8 @@ fn main() {
     let total: number = add(20, 22);
     print(total);
 }
-"#;
-    let expected_luau_text = r#"--!strict
+";
+    let expected_luau_text = r"--!strict
 
 local function add(left: number, right: number): number
     return left + right
@@ -23,7 +25,7 @@ local function main(): ()
 end
 
 main()
-"#;
+";
 
     let actual_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),
