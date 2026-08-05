@@ -1,9 +1,11 @@
+//! Integration coverage for parsing generated Luau with `full_moon`.
+
 use full_moon::ast::{LuaVersion, Stmt};
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]
 fn generated_luau_has_two_functions_and_an_entry_call() {
-    let source = r#"fn add(left: number, right: number) -> number {
+    let source = r"fn add(left: number, right: number) -> number {
     return left + right;
 }
 
@@ -11,7 +13,7 @@ fn main() {
     let total: number = add(20, 22);
     print(total);
 }
-"#;
+";
 
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),

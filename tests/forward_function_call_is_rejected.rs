@@ -1,3 +1,5 @@
+//! Integration coverage for forward function-call rejection.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const FORWARD_CALL_START_BYTE: usize = 12;

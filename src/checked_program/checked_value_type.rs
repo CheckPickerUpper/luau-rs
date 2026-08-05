@@ -1,6 +1,6 @@
 /// Names every value type proven by semantic checking.
 #[derive(Clone, Copy)]
-pub(crate) enum CheckedValueType {
+pub enum CheckedValueType {
     /// Represents a validated numeric value.
     Number,
     /// Represents a validated string value.

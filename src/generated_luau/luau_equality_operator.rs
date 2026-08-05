@@ -1,6 +1,6 @@
 /// Names equality operations emitted into Luau.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum LuauEqualityOperator {
+pub enum LuauEqualityOperator {
     /// Emits equality.
     Equal,
     /// Emits inequality.

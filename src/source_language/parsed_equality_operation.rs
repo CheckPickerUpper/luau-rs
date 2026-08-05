@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Retains one parsed equality operation and its diagnostic locations.
-pub(crate) struct ParsedEqualityOperation {
+pub struct ParsedEqualityOperation {
     left_operand: Box<ParsedExpression>,
     right_operand: Box<ParsedExpression>,
     operator: ParsedEqualityOperator,
@@ -45,17 +45,17 @@ impl ParsedEqualityOperation {
     }
 
     /// Gives the parsed equality operator to later compiler stages.
-    pub(crate) fn operator(&self) -> &ParsedEqualityOperator {
+    pub(crate) const fn operator(&self) -> &ParsedEqualityOperator {
         &self.operator
     }
 
     /// Gives the operator location used for equality type diagnostics.
-    pub(crate) fn operator_range(&self) -> SourceRange {
+    pub(crate) const fn operator_range(&self) -> SourceRange {
         self.operator_range
     }
 
     /// Gives the complete equality range.
-    pub(crate) fn expression_range(&self) -> SourceRange {
+    pub(crate) const fn expression_range(&self) -> SourceRange {
         self.expression_range
     }
 }

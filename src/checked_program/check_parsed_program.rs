@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// Resolves source-ordered declarations and validates the program entrypoint contract.
-pub(crate) fn check_parsed_program(
+pub fn check_parsed_program(
     parsed_program: &ParsedProgram,
 ) -> Result<CheckedProgram, CompilationProblem> {
     let mut check_context = ProgramCheckContext::from_parsed_program(parsed_program);

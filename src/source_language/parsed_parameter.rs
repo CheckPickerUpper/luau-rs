@@ -1,7 +1,7 @@
 use crate::{source_language::ParsedValueType, SourceRange};
 
 /// Owns one parsed function parameter declaration.
-pub(crate) struct ParsedParameter {
+pub struct ParsedParameter {
     parameter_name: String,
     parameter_name_range: SourceRange,
     value_type: ParsedValueType,
@@ -25,12 +25,12 @@ impl ParsedParameter {
     }
 
     /// Gives semantic checking the declaration-name range for name validation failures.
-    pub(crate) fn parameter_name_range(&self) -> SourceRange {
+    pub(crate) const fn parameter_name_range(&self) -> SourceRange {
         self.parameter_name_range
     }
 
     /// Gives semantic checking the parameter's declared value type.
-    pub(crate) fn value_type(&self) -> ParsedValueType {
+    pub(crate) const fn value_type(&self) -> ParsedValueType {
         self.value_type
     }
 }

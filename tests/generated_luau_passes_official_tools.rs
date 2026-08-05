@@ -1,3 +1,5 @@
+//! Integration coverage for validating generated Luau with official tools.
+
 use std::{
     path::{Path, PathBuf},
     process::{Command, Output},
@@ -7,7 +9,7 @@ use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]
 fn official_luau_tools_execute_and_validate_generated_program() {
-    let source = r#"fn add(left: number, right: number) -> number {
+    let source = r"fn add(left: number, right: number) -> number {
     return left + right;
 }
 
@@ -15,7 +17,7 @@ fn main() {
     let total: number = add(20, 22);
     print(total);
 }
-"#;
+";
 
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),
@@ -45,31 +47,23 @@ fn main() {
         }
     }
 
-    let luau_path = match resolve_official_luau_tool(("LUAU_BIN", "luau")) {
-        Some(luau_path) => luau_path,
-        None => {
-            fail_missing_official_luau_tools();
-            return;
-        }
+    let Some(luau_path) = resolve_official_luau_tool(("LUAU_BIN", "luau")) else {
+        fail_missing_official_luau_tools();
+        return;
     };
-    let luau_analyze_path = match resolve_official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze")) {
-        Some(luau_analyze_path) => luau_analyze_path,
-        None => {
-            fail_missing_official_luau_tools();
-            return;
-        }
+    let Some(luau_analyze_path) = resolve_official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))
+    else {
+        fail_missing_official_luau_tools();
+        return;
     };
-    let luau_compile_path = match resolve_official_luau_tool(("LUAU_COMPILE_BIN", "luau-compile")) {
-        Some(luau_compile_path) => luau_compile_path,
-        None => {
-            fail_missing_official_luau_tools();
-            return;
-        }
+    let Some(luau_compile_path) = resolve_official_luau_tool(("LUAU_COMPILE_BIN", "luau-compile"))
+    else {
+        fail_missing_official_luau_tools();
+        return;
     };
 
-    let runtime_output = match run_official_luau_tool((&luau_path, &generated_luau_path)) {
-        Some(runtime_output) => runtime_output,
-        None => return,
+    let Some(runtime_output) = run_official_luau_tool((&luau_path, &generated_luau_path)) else {
+        return;
     };
     assert!(
         runtime_output.status.success(),
@@ -79,9 +73,9 @@ fn main() {
     let expected_runtime_output: &[u8] = if cfg!(windows) { b"42\r\n" } else { b"42\n" };
     assert_eq!(runtime_output.stdout, expected_runtime_output);
 
-    let analysis_output = match run_official_luau_tool((&luau_analyze_path, &generated_luau_path)) {
-        Some(analysis_output) => analysis_output,
-        None => return,
+    let Some(analysis_output) = run_official_luau_tool((&luau_analyze_path, &generated_luau_path))
+    else {
+        return;
     };
     assert!(
         analysis_output.status.success(),
@@ -89,11 +83,11 @@ fn main() {
         String::from_utf8_lossy(&analysis_output.stderr)
     );
 
-    let compilation_output =
-        match run_official_luau_tool((&luau_compile_path, &generated_luau_path)) {
-            Some(compilation_output) => compilation_output,
-            None => return,
-        };
+    let Some(compilation_output) =
+        run_official_luau_tool((&luau_compile_path, &generated_luau_path))
+    else {
+        return;
+    };
     assert!(
         compilation_output.status.success(),
         "official luau-compile rejected generated Luau:\n{}",
@@ -113,9 +107,8 @@ fn main() {
 
 fn resolve_official_luau_tool(tool_name: (&str, &str)) -> Option<PathBuf> {
     let (environment_variable, executable_name) = tool_name;
-    match std::env::var_os(environment_variable) {
-        Some(configured_path) => Some(PathBuf::from(configured_path)),
-        None => {
+    std::env::var_os(environment_variable).map_or_else(
+        || {
             let executable_filename = if cfg!(windows) {
                 format!("{executable_name}.exe")
             } else {
@@ -133,8 +126,9 @@ fn resolve_official_luau_tool(tool_name: (&str, &str)) -> Option<PathBuf> {
             } else {
                 None
             }
-        }
-    }
+        },
+        |configured_path| Some(PathBuf::from(configured_path)),
+    )
 }
 
 fn run_official_luau_tool(tool_and_source: (&Path, &Path)) -> Option<Output> {

@@ -1,7 +1,7 @@
 use crate::SourceRange;
 
 /// Keeps a validated literal spelling coupled to its diagnostic range.
-pub(crate) struct ParsedLiteral {
+pub struct ParsedLiteral {
     literal_spelling: String,
     literal_range: SourceRange,
 }
@@ -23,7 +23,7 @@ impl ParsedLiteral {
     }
 
     /// Gives diagnostics the complete literal range.
-    pub(crate) fn literal_range(&self) -> SourceRange {
+    pub(crate) const fn literal_range(&self) -> SourceRange {
         self.literal_range
     }
 }

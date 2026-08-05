@@ -1,6 +1,6 @@
 /// Orders generated Luau expressions according to Luau's operator binding rules.
 #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) enum LuauExpressionPrecedence {
+pub enum LuauExpressionPrecedence {
     /// Identifies a short-circuit disjunction.
     Disjunction,
     /// Identifies a short-circuit conjunction.

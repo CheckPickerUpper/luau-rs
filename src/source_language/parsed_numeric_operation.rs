@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Retains one parsed numeric operation and its source locations.
-pub(crate) struct ParsedNumericOperation {
+pub struct ParsedNumericOperation {
     left_operand: Box<ParsedExpression>,
     right_operand: Box<ParsedExpression>,
     operator: ParsedNumericOperator,
@@ -45,17 +45,17 @@ impl ParsedNumericOperation {
     }
 
     /// Gives the parsed operator to later compiler stages.
-    pub(crate) fn operator(&self) -> &ParsedNumericOperator {
+    pub(crate) const fn operator(&self) -> &ParsedNumericOperator {
         &self.operator
     }
 
     /// Gives the operator range used for numeric type diagnostics.
-    pub(crate) fn operator_range(&self) -> SourceRange {
+    pub(crate) const fn operator_range(&self) -> SourceRange {
         self.operator_range
     }
 
     /// Gives the complete operation range.
-    pub(crate) fn expression_range(&self) -> SourceRange {
+    pub(crate) const fn expression_range(&self) -> SourceRange {
         self.expression_range
     }
 }

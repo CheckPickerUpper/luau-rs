@@ -1,3 +1,5 @@
+//! Integration coverage for unknown name rejection.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const MISSING_NAME_START_BYTE: usize = 18;

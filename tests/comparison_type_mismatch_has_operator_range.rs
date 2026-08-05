@@ -1,14 +1,13 @@
+//! Integration coverage for comparison type mismatch ranges.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn equality_with_different_value_types_is_rejected_at_the_operator() {
     let source = "fn main() {\n    let invalid: boolean = 1 == true;\n}\n";
-    let operator_start = match source.find("==") {
-        Some(operator_start) => operator_start,
-        None => {
-            assert!(false, "equality fixture lacks an equality operator");
-            return;
-        }
+    let Some(operator_start) = source.find("==") else {
+        assert!(false, "equality fixture lacks an equality operator");
+        return;
     };
 
     match compile_source(source) {

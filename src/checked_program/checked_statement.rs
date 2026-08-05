@@ -3,7 +3,7 @@ use crate::checked_program::{
 };
 
 /// Represents only validated forms allowed inside a function body.
-pub(crate) enum CheckedStatement {
+pub enum CheckedStatement {
     /// Introduces an immutable local whose initial value has the declared type.
     ImmutableLocal {
         local_name: String,

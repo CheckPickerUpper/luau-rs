@@ -10,7 +10,7 @@ use crate::generated_luau::{
 const STATEMENT_INDENTATION: &str = "    ";
 
 /// Serializes the owned target model into deterministic strict Luau text.
-pub(crate) fn write_luau_text(luau_program: &LuauProgram) -> GeneratedLuauText {
+pub fn write_luau_text(luau_program: &LuauProgram) -> GeneratedLuauText {
     let mut luau_text_writer = LuauTextWriter::new();
     luau_text_writer.write_program(luau_program);
     GeneratedLuauText::from_text(luau_text_writer.finish())
@@ -22,7 +22,7 @@ struct LuauTextWriter {
 
 /// Centralizes layout and precedence decisions for generated Luau.
 impl LuauTextWriter {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             luau_text: String::new(),
         }
@@ -72,9 +72,8 @@ impl LuauTextWriter {
     }
 
     fn write_parameters(&mut self, luau_parameters: &[LuauParameter]) {
-        let (first_parameter, remaining_parameters) = match luau_parameters.split_first() {
-            Some(parameter_sequence) => parameter_sequence,
-            None => return,
+        let Some((first_parameter, remaining_parameters)) = luau_parameters.split_first() else {
+            return;
         };
         self.write_parameter(first_parameter);
         for luau_parameter in remaining_parameters {
@@ -139,17 +138,17 @@ impl LuauTextWriter {
         expression_in_position: (&LuauExpression, LuauExpressionEmbedding),
     ) {
         let (luau_expression, expression_embedding) = expression_in_position;
-        let needs_parentheses = self.needs_parentheses((luau_expression, expression_embedding));
+        let needs_parentheses = Self::needs_parentheses((luau_expression, expression_embedding));
         if needs_parentheses {
             self.luau_text.push('(');
         }
         match luau_expression {
             LuauExpression::NumericOperation(operation) => self.write_numeric_operation(operation),
             LuauExpression::ComparisonOperation(operation) => {
-                self.write_comparison_operation(operation)
+                self.write_comparison_operation(operation);
             }
             LuauExpression::EqualityOperation(operation) => {
-                self.write_equality_operation(operation)
+                self.write_equality_operation(operation);
             }
             LuauExpression::LogicalNegation(negation) => self.write_logical_negation(negation),
             LuauExpression::LogicalOperation(operation) => self.write_logical_operation(operation),
@@ -286,7 +285,6 @@ impl LuauTextWriter {
     }
 
     fn needs_parentheses(
-        &self,
         expression_in_embedding: (&LuauExpression, LuauExpressionEmbedding),
     ) -> bool {
         let (luau_expression, expression_embedding) = expression_in_embedding;
@@ -315,7 +313,7 @@ impl LuauTextWriter {
         }
     }
 
-    fn requires_numeric_precedence_parentheses(
+    const fn requires_numeric_precedence_parentheses(
         expression_precedence_relationship: (
             LuauExpressionPrecedence,
             LuauExpressionPrecedence,
@@ -346,7 +344,7 @@ impl LuauTextWriter {
         }
     }
 
-    fn expression_precedence(luau_expression: &LuauExpression) -> LuauExpressionPrecedence {
+    const fn expression_precedence(luau_expression: &LuauExpression) -> LuauExpressionPrecedence {
         match luau_expression {
             LuauExpression::LogicalOperation(operation) => match operation.operator() {
                 LuauLogicalOperator::Conjunction => LuauExpressionPrecedence::Conjunction,
@@ -373,9 +371,8 @@ impl LuauTextWriter {
     }
 
     fn write_call_arguments(&mut self, call_arguments: &[LuauExpression]) {
-        let (first_argument, remaining_arguments) = match call_arguments.split_first() {
-            Some(argument_sequence) => argument_sequence,
-            None => return,
+        let Some((first_argument, remaining_arguments)) = call_arguments.split_first() else {
+            return;
         };
         self.write_expression_in((first_argument, LuauExpressionEmbedding::FunctionArgument));
         for call_argument in remaining_arguments {

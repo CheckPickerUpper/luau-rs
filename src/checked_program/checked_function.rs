@@ -1,7 +1,7 @@
 use crate::checked_program::{CheckedFunctionBody, CheckedParameter, CheckedValueType};
 
 /// Owns one validated function signature and body.
-pub(crate) struct CheckedFunction {
+pub struct CheckedFunction {
     function_name: String,
     function_parameters: Vec<CheckedParameter>,
     returned_value_type: CheckedValueType,
@@ -40,12 +40,12 @@ impl CheckedFunction {
     }
 
     /// Gives Luau generation the validated returned value type.
-    pub(crate) fn returned_value_type(&self) -> CheckedValueType {
+    pub(crate) const fn returned_value_type(&self) -> CheckedValueType {
         self.returned_value_type
     }
 
     /// Gives Luau generation the whole checked lexical scope of the function.
-    pub(crate) fn function_body(&self) -> &CheckedFunctionBody {
+    pub(crate) const fn function_body(&self) -> &CheckedFunctionBody {
         &self.function_body
     }
 }

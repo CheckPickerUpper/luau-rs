@@ -1,3 +1,5 @@
+//! Integration coverage for rejecting unsupported string escapes.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const BACKSLASH_START_BYTE: usize = 36;

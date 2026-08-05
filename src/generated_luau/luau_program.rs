@@ -2,7 +2,7 @@ use crate::generated_luau::{LuauExpression, LuauFunction};
 
 /// Owns the complete target-language program independently of checked source nodes.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LuauProgram {
+pub struct LuauProgram {
     program_functions: Vec<LuauFunction>,
     entry_function_call: LuauExpression,
 }
@@ -24,7 +24,7 @@ impl LuauProgram {
     }
 
     /// Supplies the final expression that enters the compiled program.
-    pub(crate) fn entry_function_call(&self) -> &LuauExpression {
+    pub(crate) const fn entry_function_call(&self) -> &LuauExpression {
         &self.entry_function_call
     }
 }

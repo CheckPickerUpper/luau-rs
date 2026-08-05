@@ -1,10 +1,12 @@
+//! Integration coverage for executing generated numeric Luau.
+
 use std::{path::Path, process::Command};
 
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]
 fn subtraction_multiplication_and_division_execute_with_official_luau() {
-    let source = r#"fn main() {
+    let source = r"fn main() {
     let subtraction: number = 20 - 8;
     let multiplication: number = 6 * 7;
     let division: number = 84 / 2;
@@ -12,7 +14,7 @@ fn subtraction_multiplication_and_division_execute_with_official_luau() {
     print(multiplication);
     print(division);
 }
-"#;
+";
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),
         CompilationOutcome::Rejected(compilation_rejection) => {
@@ -39,15 +41,12 @@ fn subtraction_multiplication_and_division_execute_with_official_luau() {
             return;
         }
     }
-    let luau_path = match resolve_official_luau_path() {
-        Some(luau_path) => luau_path,
-        None => {
-            assert!(
-                false,
-                "official luau is required; set LUAU_BIN or build references/checkouts/luau"
-            );
-            return;
-        }
+    let Some(luau_path) = resolve_official_luau_path() else {
+        assert!(
+            false,
+            "official luau is required; set LUAU_BIN or build references/checkouts/luau"
+        );
+        return;
     };
     let runtime_output = match Command::new(&luau_path).arg(&generated_luau_path).output() {
         Ok(runtime_output) => runtime_output,
@@ -82,9 +81,8 @@ fn subtraction_multiplication_and_division_execute_with_official_luau() {
 }
 
 fn resolve_official_luau_path() -> Option<std::path::PathBuf> {
-    match std::env::var_os("LUAU_BIN") {
-        Some(configured_path) => Some(std::path::PathBuf::from(configured_path)),
-        None => {
+    std::env::var_os("LUAU_BIN").map_or_else(
+        || {
             let executable_name = if cfg!(windows) { "luau.exe" } else { "luau" };
             let checkout_build_path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("references")
@@ -98,6 +96,7 @@ fn resolve_official_luau_path() -> Option<std::path::PathBuf> {
             } else {
                 None
             }
-        }
-    }
+        },
+        |configured_path| Some(std::path::PathBuf::from(configured_path)),
+    )
 }

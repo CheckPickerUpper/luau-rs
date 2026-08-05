@@ -1,8 +1,10 @@
+//! Integration coverage for compiling boolean functions.
+
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]
 fn both_boolean_literals_flow_through_a_function_and_print() {
-    let source = r#"fn identity(flag: boolean) -> boolean {
+    let source = r"fn identity(flag: boolean) -> boolean {
     return flag;
 }
 
@@ -12,8 +14,8 @@ fn main() {
     print(enabled);
     print(disabled);
 }
-"#;
-    let expected_luau_text = r#"--!strict
+";
+    let expected_luau_text = r"--!strict
 
 local function identity(flag: boolean): boolean
     return flag
@@ -27,7 +29,7 @@ local function main(): ()
 end
 
 main()
-"#;
+";
 
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),

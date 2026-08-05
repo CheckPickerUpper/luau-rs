@@ -1,7 +1,7 @@
 use crate::checked_program::CheckedValueType;
 
 /// Owns one validated function parameter.
-pub(crate) struct CheckedParameter {
+pub struct CheckedParameter {
     parameter_name: String,
     value_type: CheckedValueType,
 }
@@ -25,7 +25,7 @@ impl CheckedParameter {
     }
 
     /// Gives Luau generation the validated parameter type.
-    pub(crate) fn value_type(&self) -> CheckedValueType {
+    pub(crate) const fn value_type(&self) -> CheckedValueType {
         self.value_type
     }
 }

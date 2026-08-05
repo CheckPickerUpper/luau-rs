@@ -2,7 +2,7 @@ use crate::generated_luau::LuauExpression;
 
 /// Owns a generated Luau function invocation with ordered arguments.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LuauFunctionCall {
+pub struct LuauFunctionCall {
     function_name: String,
     function_arguments: Vec<LuauExpression>,
 }

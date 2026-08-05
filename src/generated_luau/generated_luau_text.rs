@@ -7,11 +7,12 @@ pub struct GeneratedLuauText {
 /// Keeps emitted text immutable until a caller deliberately takes ownership.
 impl GeneratedLuauText {
     /// Restricts construction to the renderer-backed compilation pipeline.
-    pub(crate) fn from_text(text: String) -> Self {
+    pub(crate) const fn from_text(text: String) -> Self {
         Self { text }
     }
 
     /// @why Transfers the validated artifact so callers can write or execute it without copying the generated program.
+    #[must_use]
     pub fn into_text(self) -> String {
         self.text
     }

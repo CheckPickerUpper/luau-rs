@@ -6,6 +6,7 @@ use crate::{
 };
 
 /// @why Enforces the compiler's all-or-nothing artifact contract so downstream tools never execute text from a rejected program.
+#[must_use]
 pub fn compile_source(source: &str) -> CompilationOutcome {
     let source_tokens = match split_source_into_tokens(source) {
         Ok(source_tokens) => source_tokens,
@@ -23,6 +24,6 @@ pub fn compile_source(source: &str) -> CompilationOutcome {
     CompilationOutcome::Compiled(write_luau_text(&luau_program))
 }
 
-fn rejected(compilation_problem: CompilationProblem) -> CompilationOutcome {
+const fn rejected(compilation_problem: CompilationProblem) -> CompilationOutcome {
     CompilationOutcome::Rejected(CompilationRejection::from_problem(compilation_problem))
 }

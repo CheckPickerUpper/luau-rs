@@ -1,3 +1,5 @@
+//! Integration coverage for reserved Luau function names.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const RESERVED_NAME_START_BYTE: usize = 3;

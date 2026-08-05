@@ -1,5 +1,5 @@
 /// Names the numeric operators accepted by the source language.
-pub(crate) enum ParsedNumericOperator {
+pub enum ParsedNumericOperator {
     /// Adds the two operands.
     Addition,
     /// Subtracts the right operand from the left operand.

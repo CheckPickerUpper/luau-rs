@@ -1,14 +1,13 @@
+//! Integration coverage for numeric operator mismatch ranges.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn subtraction_rejects_a_string_operand_at_the_operator_range() {
     let source = "fn main() { let computed_value: number = \"x\" - 1; }\n";
-    let operator_start_byte = match source.find('-') {
-        Some(operator_start_byte) => operator_start_byte,
-        None => {
-            assert!(false, "subtraction fixture is missing its operator");
-            return;
-        }
+    let Some(operator_start_byte) = source.find('-') else {
+        assert!(false, "subtraction fixture is missing its operator");
+        return;
     };
     let operator_end_byte = operator_start_byte + '-'.len_utf8();
 

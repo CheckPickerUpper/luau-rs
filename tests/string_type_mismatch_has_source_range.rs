@@ -1,3 +1,5 @@
+//! Integration coverage for string type mismatch ranges.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const NUMBER_LITERAL_START_BYTE: usize = 35;

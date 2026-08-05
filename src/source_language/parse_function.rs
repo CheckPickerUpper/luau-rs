@@ -11,7 +11,7 @@ use crate::{
 impl SourceProgramParser {
     /// Parses one complete function declaration at the current token position.
     pub(super) fn parse_function(&mut self) -> Result<ParsedFunction, CompilationProblem> {
-        match self.take_required_symbol(SourceTokenKind::FunctionKeyword) {
+        match self.take_required_symbol(&SourceTokenKind::FunctionKeyword) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -19,7 +19,7 @@ impl SourceProgramParser {
             Ok(declaration_name) => declaration_name,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match self.take_required_symbol(SourceTokenKind::LeftParenthesis) {
+        match self.take_required_symbol(&SourceTokenKind::LeftParenthesis) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -27,13 +27,13 @@ impl SourceProgramParser {
             Ok(function_parameters) => function_parameters,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match self.take_required_symbol(SourceTokenKind::RightParenthesis) {
+        match self.take_required_symbol(&SourceTokenKind::RightParenthesis) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
         let returned_value_type = match self.current_token_kind() {
             Ok(SourceTokenKind::Arrow) => {
-                match self.take_required_symbol(SourceTokenKind::Arrow) {
+                match self.take_required_symbol(&SourceTokenKind::Arrow) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -45,7 +45,7 @@ impl SourceProgramParser {
             Ok(_) => ParsedValueType::NoReturnedValues,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match self.take_required_symbol(SourceTokenKind::LeftBrace) {
+        match self.take_required_symbol(&SourceTokenKind::LeftBrace) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -53,7 +53,7 @@ impl SourceProgramParser {
             Ok(function_body) => function_body,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match self.take_required_symbol(SourceTokenKind::RightBrace) {
+        match self.take_required_symbol(&SourceTokenKind::RightBrace) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -77,7 +77,7 @@ impl SourceProgramParser {
                         Ok(declaration_name) => declaration_name,
                         Err(compilation_problem) => return Err(compilation_problem),
                     };
-                    match self.take_required_symbol(SourceTokenKind::Colon) {
+                    match self.take_required_symbol(&SourceTokenKind::Colon) {
                         Ok(consumed_symbol) => drop(consumed_symbol),
                         Err(compilation_problem) => return Err(compilation_problem),
                     }
@@ -92,7 +92,7 @@ impl SourceProgramParser {
                     )));
                     match self.current_token_kind() {
                         Ok(SourceTokenKind::Comma) => {
-                            match self.take_required_symbol(SourceTokenKind::Comma) {
+                            match self.take_required_symbol(&SourceTokenKind::Comma) {
                                 Ok(consumed_symbol) => drop(consumed_symbol),
                                 Err(compilation_problem) => return Err(compilation_problem),
                             }
@@ -145,7 +145,7 @@ impl SourceProgramParser {
             Ok(SourceTokenKind::ReturnKeyword) => self.parse_return_statement(),
             Ok(SourceTokenKind::IfKeyword) => self.parse_if_else_statement(),
             Ok(SourceTokenKind::LetKeyword) => {
-                match self.take_required_symbol(SourceTokenKind::LetKeyword) {
+                match self.take_required_symbol(&SourceTokenKind::LetKeyword) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -153,7 +153,7 @@ impl SourceProgramParser {
                     Ok(declaration_name) => declaration_name,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
-                match self.take_required_symbol(SourceTokenKind::Colon) {
+                match self.take_required_symbol(&SourceTokenKind::Colon) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -161,7 +161,7 @@ impl SourceProgramParser {
                     Ok(value_type) => value_type,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
-                match self.take_required_symbol(SourceTokenKind::Equals) {
+                match self.take_required_symbol(&SourceTokenKind::Equals) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -169,7 +169,7 @@ impl SourceProgramParser {
                     Ok(initial_value) => initial_value,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
-                match self.take_required_symbol(SourceTokenKind::Semicolon) {
+                match self.take_required_symbol(&SourceTokenKind::Semicolon) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -186,7 +186,7 @@ impl SourceProgramParser {
                     Ok(expression) => expression,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
-                match self.take_required_symbol(SourceTokenKind::Semicolon) {
+                match self.take_required_symbol(&SourceTokenKind::Semicolon) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
@@ -202,7 +202,7 @@ impl SourceProgramParser {
     }
 
     fn parse_return_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
-        match self.take_required_symbol(SourceTokenKind::ReturnKeyword) {
+        match self.take_required_symbol(&SourceTokenKind::ReturnKeyword) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -210,7 +210,7 @@ impl SourceProgramParser {
             Ok(returned_value) => returned_value,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match self.take_required_symbol(SourceTokenKind::Semicolon) {
+        match self.take_required_symbol(&SourceTokenKind::Semicolon) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -218,7 +218,7 @@ impl SourceProgramParser {
     }
 
     fn parse_if_else_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
-        match self.take_required_symbol(SourceTokenKind::IfKeyword) {
+        match self.take_required_symbol(&SourceTokenKind::IfKeyword) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -227,7 +227,7 @@ impl SourceProgramParser {
             Err(compilation_problem) => return Err(compilation_problem),
         };
         let condition_range = condition.source_range();
-        match self.take_required_symbol(SourceTokenKind::LeftBrace) {
+        match self.take_required_symbol(&SourceTokenKind::LeftBrace) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -235,15 +235,15 @@ impl SourceProgramParser {
             Ok(then_body) => then_body,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match self.take_required_symbol(SourceTokenKind::RightBrace) {
+        match self.take_required_symbol(&SourceTokenKind::RightBrace) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
-        match self.take_required_symbol(SourceTokenKind::ElseKeyword) {
+        match self.take_required_symbol(&SourceTokenKind::ElseKeyword) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
-        match self.take_required_symbol(SourceTokenKind::LeftBrace) {
+        match self.take_required_symbol(&SourceTokenKind::LeftBrace) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
@@ -251,7 +251,7 @@ impl SourceProgramParser {
             Ok(else_body) => else_body,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match self.take_required_symbol(SourceTokenKind::RightBrace) {
+        match self.take_required_symbol(&SourceTokenKind::RightBrace) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }

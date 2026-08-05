@@ -20,7 +20,9 @@ pub(super) struct ExpressionChecker<'context, 'program> {
 /// Keeps reference, call, arity, and value-type checks at the expression boundary.
 impl<'context, 'program> ExpressionChecker<'context, 'program> {
     /// Borrows the active semantic context for one expression-checking operation.
-    pub(super) fn from_context(check_context: &'context mut ProgramCheckContext<'program>) -> Self {
+    pub(super) const fn from_context(
+        check_context: &'context mut ProgramCheckContext<'program>,
+    ) -> Self {
         Self { check_context }
     }
 
@@ -204,17 +206,14 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 )));
             }
         }
-        let parsed_argument = match function_arguments.first() {
-            Some(parsed_argument) => parsed_argument,
-            None => {
-                return Err(CompilationProblem::from_problem_at_range((
-                    parsed_function_call.function_name_range(),
-                    CompilationProblemReason::WrongArgumentCount {
-                        expected: ArgumentCount::from_number_of_arguments(1),
-                        actual: ArgumentCount::from_number_of_arguments(0),
-                    },
-                )));
-            }
+        let Some(parsed_argument) = function_arguments.first() else {
+            return Err(CompilationProblem::from_problem_at_range((
+                parsed_function_call.function_name_range(),
+                CompilationProblemReason::WrongArgumentCount {
+                    expected: ArgumentCount::from_number_of_arguments(1),
+                    actual: ArgumentCount::from_number_of_arguments(0),
+                },
+            )));
         };
         let (checked_argument, argument_type) = match self.check_expression(parsed_argument) {
             Ok(checked_argument) => checked_argument,
@@ -289,7 +288,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
     }
 
     /// Rejects a value whose proven type differs from its required type.
-    pub(super) fn require_matching_type(
+    pub(super) const fn require_matching_type(
         type_requirement: (CheckedValueType, CheckedValueType, SourceRange),
     ) -> Result<(), CompilationProblem> {
         let (actual_type, expected_type, source_range) = type_requirement;

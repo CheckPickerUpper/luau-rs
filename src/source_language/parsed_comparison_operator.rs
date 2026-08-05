@@ -1,5 +1,5 @@
 /// Names numeric comparisons accepted by the source language.
-pub(crate) enum ParsedComparisonOperator {
+pub enum ParsedComparisonOperator {
     /// Tests whether the left number is smaller than the right number.
     LessThan,
     /// Tests whether the left number is no greater than the right number.

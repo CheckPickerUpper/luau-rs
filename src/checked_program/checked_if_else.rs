@@ -1,7 +1,7 @@
 use crate::checked_program::{CheckedExpression, CheckedFunctionBody};
 
 /// Retains a checked boolean decision and independently checked branch scopes.
-pub(crate) struct CheckedIfElse {
+pub struct CheckedIfElse {
     condition: CheckedExpression,
     then_body: CheckedFunctionBody,
     else_body: CheckedFunctionBody,
@@ -22,17 +22,17 @@ impl CheckedIfElse {
     }
 
     /// Supplies the condition that is proven to evaluate to a boolean.
-    pub(crate) fn condition(&self) -> &CheckedExpression {
+    pub(crate) const fn condition(&self) -> &CheckedExpression {
         &self.condition
     }
 
     /// Supplies statements evaluated when the condition is true.
-    pub(crate) fn then_body(&self) -> &CheckedFunctionBody {
+    pub(crate) const fn then_body(&self) -> &CheckedFunctionBody {
         &self.then_body
     }
 
     /// Supplies statements evaluated when the condition is false.
-    pub(crate) fn else_body(&self) -> &CheckedFunctionBody {
+    pub(crate) const fn else_body(&self) -> &CheckedFunctionBody {
         &self.else_body
     }
 }

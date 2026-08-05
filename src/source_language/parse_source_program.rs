@@ -12,7 +12,7 @@ pub(super) struct SourceProgramParser {
 }
 
 /// Converts a complete token stream into an explicitly shaped source program.
-pub(crate) fn parse_source_program(
+pub fn parse_source_program(
     source_tokens: Vec<SourceToken>,
 ) -> Result<ParsedProgram, CompilationProblem> {
     SourceProgramParser::from_tokens(source_tokens).parse_program()
@@ -21,10 +21,10 @@ pub(crate) fn parse_source_program(
 /// Owns token navigation and whole-program orchestration for source parsing.
 impl SourceProgramParser {
     fn from_tokens(source_tokens: Vec<SourceToken>) -> Self {
-        let end_of_source_range = match source_tokens.last() {
-            Some(end_of_source_token) => end_of_source_token.source_range(),
-            None => SourceRange::from_byte_range((source_tokens.len(), source_tokens.len())),
-        };
+        let end_of_source_range = source_tokens.last().map_or_else(
+            || SourceRange::from_byte_range((source_tokens.len(), source_tokens.len())),
+            SourceToken::source_range,
+        );
         Self {
             remaining_tokens: source_tokens.into_iter().peekable(),
             end_of_source_range,
@@ -57,10 +57,10 @@ impl SourceProgramParser {
     /// Borrows the next lexical category without consuming its located token.
     pub(super) fn current_token_kind(&mut self) -> Result<&SourceTokenKind, CompilationProblem> {
         let end_of_source_range = self.end_of_source_range;
-        match self.remaining_tokens.peek() {
-            Some(source_token) => Ok(source_token.token_kind()),
-            None => Err(Self::problem_at_range(end_of_source_range)),
-        }
+        self.remaining_tokens.peek().map_or_else(
+            || Err(Self::problem_at_range(end_of_source_range)),
+            |source_token| Ok(source_token.token_kind()),
+        )
     }
 
     /// Consumes an ordinary identifier while preserving its source location.
@@ -97,13 +97,13 @@ impl SourceProgramParser {
     /// Consumes one required grammar symbol or reports the encountered token range.
     pub(super) fn take_required_symbol(
         &mut self,
-        required_symbol: SourceTokenKind,
+        required_symbol: &SourceTokenKind,
     ) -> Result<SourceToken, CompilationProblem> {
         let source_token = match self.take_next_token() {
             Ok(source_token) => source_token,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        match (&required_symbol, source_token.token_kind()) {
+        match (required_symbol, source_token.token_kind()) {
             (SourceTokenKind::FunctionKeyword, SourceTokenKind::FunctionKeyword)
             | (SourceTokenKind::LetKeyword, SourceTokenKind::LetKeyword)
             | (SourceTokenKind::ReturnKeyword, SourceTokenKind::ReturnKeyword)
@@ -137,25 +137,25 @@ impl SourceProgramParser {
 
     /// Consumes the next located token or reports the stored end-of-source range.
     pub(super) fn take_next_token(&mut self) -> Result<SourceToken, CompilationProblem> {
-        match self.remaining_tokens.next() {
-            Some(source_token) => Ok(source_token),
-            None => Err(self.problem_at_end_of_source()),
-        }
+        self.remaining_tokens
+            .next()
+            .map_or_else(|| Err(self.problem_at_end_of_source()), Ok)
     }
 
     /// Reports invalid grammar at the next token or the stored end-of-source range.
     pub(super) fn problem_at_current_token(&mut self) -> CompilationProblem {
-        match self.remaining_tokens.peek() {
-            Some(source_token) => Self::problem_at_range(source_token.source_range()),
-            None => self.problem_at_end_of_source(),
-        }
+        let end_of_source_range = self.end_of_source_range;
+        self.remaining_tokens.peek().map_or_else(
+            || Self::problem_at_range(end_of_source_range),
+            |source_token| Self::problem_at_range(source_token.source_range()),
+        )
     }
 
-    fn problem_at_end_of_source(&self) -> CompilationProblem {
+    const fn problem_at_end_of_source(&self) -> CompilationProblem {
         Self::problem_at_range(self.end_of_source_range)
     }
 
-    fn problem_at_range(source_range: SourceRange) -> CompilationProblem {
+    const fn problem_at_range(source_range: SourceRange) -> CompilationProblem {
         CompilationProblem::from_problem_at_range((
             source_range,
             CompilationProblemReason::SourceDoesNotFollowLanguageRules,

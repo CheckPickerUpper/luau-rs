@@ -2,7 +2,7 @@ use crate::generated_luau::{LuauFunctionBody, LuauParameter, LuauValueType};
 
 /// Owns one complete function after checked source constructs have been lowered.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LuauFunction {
+pub struct LuauFunction {
     function_name: String,
     function_parameters: Vec<LuauParameter>,
     returned_value_type: LuauValueType,
@@ -36,12 +36,12 @@ impl LuauFunction {
     }
 
     /// Supplies the explicit Luau return annotation.
-    pub(crate) fn returned_value_type(&self) -> LuauValueType {
+    pub(crate) const fn returned_value_type(&self) -> LuauValueType {
         self.returned_value_type
     }
 
     /// Gives the text writer the complete generated function scope.
-    pub(crate) fn function_body(&self) -> &LuauFunctionBody {
+    pub(crate) const fn function_body(&self) -> &LuauFunctionBody {
         &self.function_body
     }
 }

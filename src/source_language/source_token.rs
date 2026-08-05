@@ -2,7 +2,7 @@ use crate::{source_language::SourceTokenKind, SourceRange};
 
 /// Couples one lexical category with its byte range.
 #[derive(Clone)]
-pub(crate) struct SourceToken {
+pub struct SourceToken {
     token_kind: SourceTokenKind,
     source_range: SourceRange,
 }
@@ -18,11 +18,11 @@ impl SourceToken {
         }
     }
     /// Gives the parser a borrowed view of the lexical category.
-    pub(crate) fn token_kind(&self) -> &SourceTokenKind {
+    pub(crate) const fn token_kind(&self) -> &SourceTokenKind {
         &self.token_kind
     }
     /// Gives parse diagnostics the original token location.
-    pub(crate) fn source_range(&self) -> SourceRange {
+    pub(crate) const fn source_range(&self) -> SourceRange {
         self.source_range
     }
 

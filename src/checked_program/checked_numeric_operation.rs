@@ -1,7 +1,7 @@
 use crate::checked_program::{CheckedExpression, CheckedNumericOperator};
 
 /// Retains a checked numeric operation for target generation.
-pub(crate) struct CheckedNumericOperation {
+pub struct CheckedNumericOperation {
     left_operand: Box<CheckedExpression>,
     right_operand: Box<CheckedExpression>,
     operator: CheckedNumericOperator,
@@ -36,7 +36,7 @@ impl CheckedNumericOperation {
     }
 
     /// Gives the checked operator to target generation.
-    pub(crate) fn operator(&self) -> &CheckedNumericOperator {
+    pub(crate) const fn operator(&self) -> &CheckedNumericOperator {
         &self.operator
     }
 }

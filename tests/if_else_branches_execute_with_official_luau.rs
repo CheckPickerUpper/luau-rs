@@ -1,10 +1,12 @@
+//! Integration coverage for executing conditional branches with Luau.
+
 use std::{path::Path, process::Command};
 
 use roblox_rust::{compile_source, CompilationOutcome};
 
 #[test]
 fn if_else_branches_scope_locals_and_return_on_every_path() {
-    let source = r#"fn select_value(enabled: boolean) -> number {
+    let source = r"fn select_value(enabled: boolean) -> number {
     if enabled {
         let selected: number = 40;
         return selected + 2;
@@ -18,7 +20,7 @@ fn main() {
     print(select_value(true));
     print(select_value(false));
 }
-"#;
+";
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),
         CompilationOutcome::Rejected(compilation_rejection) => {
@@ -45,15 +47,12 @@ fn main() {
             return;
         }
     }
-    let luau_path = match resolve_official_luau_path() {
-        Some(luau_path) => luau_path,
-        None => {
-            assert!(
-                false,
-                "official luau is required; set LUAU_BIN or build references/checkouts/luau"
-            );
-            return;
-        }
+    let Some(luau_path) = resolve_official_luau_path() else {
+        assert!(
+            false,
+            "official luau is required; set LUAU_BIN or build references/checkouts/luau"
+        );
+        return;
     };
     let runtime_output = match Command::new(&luau_path).arg(&generated_luau_path).output() {
         Ok(runtime_output) => runtime_output,
@@ -88,9 +87,8 @@ fn main() {
 }
 
 fn resolve_official_luau_path() -> Option<std::path::PathBuf> {
-    match std::env::var_os("LUAU_BIN") {
-        Some(configured_path) => Some(std::path::PathBuf::from(configured_path)),
-        None => {
+    std::env::var_os("LUAU_BIN").map_or_else(
+        || {
             let executable_name = if cfg!(windows) { "luau.exe" } else { "luau" };
             let checkout_build_path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("references")
@@ -104,6 +102,7 @@ fn resolve_official_luau_path() -> Option<std::path::PathBuf> {
             } else {
                 None
             }
-        }
-    }
+        },
+        |configured_path| Some(std::path::PathBuf::from(configured_path)),
+    )
 }

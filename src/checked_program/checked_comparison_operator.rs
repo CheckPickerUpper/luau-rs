@@ -1,5 +1,5 @@
 /// Names numeric comparisons after source names and types are checked.
-pub(crate) enum CheckedComparisonOperator {
+pub enum CheckedComparisonOperator {
     /// Tests whether the left number is smaller than the right number.
     LessThan,
     /// Tests whether the left number is no greater than the right number.

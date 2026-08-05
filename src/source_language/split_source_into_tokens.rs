@@ -4,9 +4,7 @@ use crate::{
 };
 
 /// Produces a complete token stream or located problems without leaking partial tokens.
-pub(crate) fn split_source_into_tokens(
-    source: &str,
-) -> Result<Vec<SourceToken>, CompilationProblem> {
+pub fn split_source_into_tokens(source: &str) -> Result<Vec<SourceToken>, CompilationProblem> {
     let source_range = |byte_range| SourceRange::from_byte_range(byte_range);
     let unexpected_syntax = |byte_range| {
         CompilationProblem::from_problem_at_range((

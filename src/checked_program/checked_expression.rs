@@ -4,7 +4,7 @@ use crate::checked_program::{
 };
 
 /// Represents expressions whose names and types have been validated.
-pub(crate) enum CheckedExpression {
+pub enum CheckedExpression {
     /// Refers to a resolved local value.
     NameReference(String),
     /// Preserves a validated numeric literal spelling.

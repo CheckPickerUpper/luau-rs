@@ -1,7 +1,7 @@
 use crate::{source_language::ParsedFunction, SourceRange};
 
 /// Owns every function accepted from one source file.
-pub(crate) struct ParsedProgram {
+pub struct ParsedProgram {
     parsed_functions: Vec<ParsedFunction>,
     end_of_source_range: SourceRange,
 }
@@ -23,7 +23,7 @@ impl ParsedProgram {
     }
 
     /// Gives entrypoint validation the real location immediately after the source program.
-    pub(crate) fn end_of_source_range(&self) -> SourceRange {
+    pub(crate) const fn end_of_source_range(&self) -> SourceRange {
         self.end_of_source_range
     }
 }

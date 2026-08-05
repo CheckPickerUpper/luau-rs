@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Represents only grammar forms valid inside a parsed function body.
-pub(crate) enum ParsedStatement {
+pub enum ParsedStatement {
     /// Introduces an immutable typed local value.
     ImmutableLocal {
         local_name: String,
@@ -23,7 +23,7 @@ pub(crate) enum ParsedStatement {
 /// Keeps unreachable-statement diagnostics tied to the first unreachable source construct.
 impl ParsedStatement {
     /// Gives control-flow checking the statement location that follows a guaranteed return.
-    pub(crate) fn source_range(&self) -> SourceRange {
+    pub(crate) const fn source_range(&self) -> SourceRange {
         match self {
             Self::ImmutableLocal {
                 local_name_range, ..

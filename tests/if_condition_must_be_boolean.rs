@@ -1,3 +1,5 @@
+//! Integration coverage for boolean conditional requirements.
+
 use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const NUMBER_CONDITION_START_BYTE: usize = 15;
