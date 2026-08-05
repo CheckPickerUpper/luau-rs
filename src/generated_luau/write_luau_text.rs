@@ -3,8 +3,8 @@ use crate::generated_luau::{
     LuauEqualityOperation, LuauEqualityOperator, LuauExpression, LuauExpressionEmbedding,
     LuauExpressionPrecedence, LuauFunction, LuauFunctionBody, LuauFunctionCall, LuauIfElse,
     LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator, LuauNumericOperation,
-    LuauNumericOperator, LuauOperationOperandSide, LuauParameter, LuauProgram, LuauStatement,
-    LuauValueType,
+    LuauNumericOperator, LuauOperationOperandSide, LuauParameter, LuauProgram, LuauProgramEnding,
+    LuauRecordAlias, LuauRecordLiteral, LuauStatement, LuauValueType, LuauWhileLoop,
 };
 
 const STATEMENT_INDENTATION: &str = "    ";
@@ -34,12 +34,21 @@ impl LuauTextWriter {
 
     fn write_program(&mut self, luau_program: &LuauProgram) {
         self.luau_text.push_str("--!strict\n\n");
+        for record_alias in luau_program.record_aliases() {
+            self.write_record_alias(record_alias);
+            self.luau_text.push('\n');
+        }
         for luau_function in luau_program.program_functions() {
             self.write_function(luau_function);
             self.luau_text.push('\n');
         }
-        self.write_expression(luau_program.entry_function_call());
-        self.luau_text.push('\n');
+        match luau_program.program_ending() {
+            LuauProgramEnding::EntrypointCall(entry_function_call) => {
+                self.write_expression(entry_function_call);
+                self.luau_text.push('\n');
+            }
+            LuauProgramEnding::NoEntrypointCall => {}
+        }
     }
 
     fn write_function(&mut self, luau_function: &LuauFunction) {
@@ -99,9 +108,48 @@ impl LuauTextWriter {
                 self.luau_text.push_str("const ");
                 self.luau_text.push_str(local_name);
                 self.luau_text.push_str(": ");
-                self.write_value_type(*value_type);
+                self.write_value_type(value_type.clone());
                 self.luau_text.push_str(" = ");
                 self.write_expression(initial_value);
+            }
+            LuauStatement::MutableLocal {
+                local_name,
+                value_type,
+                initial_value,
+            } => {
+                self.luau_text.push_str("local ");
+                self.luau_text.push_str(local_name);
+                self.luau_text.push_str(": ");
+                self.write_value_type(value_type.clone());
+                self.luau_text.push_str(" = ");
+                self.write_expression(initial_value);
+            }
+            LuauStatement::AssignLocal {
+                local_name,
+                assigned_value,
+            } => {
+                self.luau_text.push_str(local_name);
+                self.luau_text.push_str(" = ");
+                self.write_expression(assigned_value);
+            }
+            LuauStatement::AssignPlace(place_assignment) => {
+                self.luau_text
+                    .push_str(place_assignment.root_binding_name());
+                for step in place_assignment.steps() {
+                    match step {
+                        crate::generated_luau::LuauPlaceStep::Field(field_name) => {
+                            self.luau_text.push('.');
+                            self.luau_text.push_str(field_name);
+                        }
+                        crate::generated_luau::LuauPlaceStep::Index(index_expression) => {
+                            self.luau_text.push_str("[(");
+                            self.write_expression(index_expression);
+                            self.luau_text.push_str(") + 1]");
+                        }
+                    }
+                }
+                self.luau_text.push_str(" = ");
+                self.write_expression(place_assignment.assigned_value());
             }
             LuauStatement::CallFunctionAndIgnoreResult(function_call) => {
                 self.write_function_call(function_call);
@@ -110,8 +158,13 @@ impl LuauTextWriter {
                 self.luau_text.push_str("return ");
                 self.write_expression(returned_expression);
             }
+            LuauStatement::BreaksLoop => self.luau_text.push_str("break"),
+            LuauStatement::ContinuesLoop => self.luau_text.push_str("continue"),
             LuauStatement::IfElse(luau_if_else) => {
                 self.write_if_else((luau_if_else, indentation_level));
+            }
+            LuauStatement::WhileLoop(luau_while_loop) => {
+                self.write_while_loop((luau_while_loop, indentation_level));
             }
         }
     }
@@ -125,6 +178,16 @@ impl LuauTextWriter {
         self.write_indentation(indentation_level);
         self.luau_text.push_str("else\n");
         self.write_function_body((luau_if_else.else_body(), indentation_level + 1));
+        self.write_indentation(indentation_level);
+        self.luau_text.push_str("end");
+    }
+
+    fn write_while_loop(&mut self, while_loop_at_indentation: (&LuauWhileLoop, usize)) {
+        let (luau_while_loop, indentation_level) = while_loop_at_indentation;
+        self.luau_text.push_str("while ");
+        self.write_expression(luau_while_loop.condition());
+        self.luau_text.push_str(" do\n");
+        self.write_function_body((luau_while_loop.body(), indentation_level + 1));
         self.write_indentation(indentation_level);
         self.luau_text.push_str("end");
     }
@@ -165,6 +228,45 @@ impl LuauTextWriter {
                 LuauBooleanLiteral::True => self.luau_text.push_str("true"),
                 LuauBooleanLiteral::False => self.luau_text.push_str("false"),
             },
+            LuauExpression::RobloxServiceAcquisition(service_name) => {
+                self.luau_text.push_str("game:GetService(\"");
+                self.luau_text.push_str(service_name);
+                self.luau_text.push_str("\")");
+            }
+            LuauExpression::ArrayLiteral(array_literal) => self.write_array_literal(array_literal),
+            LuauExpression::RecordLiteral(record_literal) => {
+                self.write_record_literal(record_literal);
+            }
+            LuauExpression::FieldRead(field_read) => {
+                match field_read.base_expression() {
+                    LuauExpression::RecordLiteral(record_literal) => {
+                        self.luau_text.push('(');
+                        self.write_record_literal(record_literal);
+                        self.luau_text.push(')');
+                    }
+                    _ => self.write_expression_in((
+                        field_read.base_expression(),
+                        LuauExpressionEmbedding::OperationOperand {
+                            parent_precedence: LuauExpressionPrecedence::Primary,
+                            operand_side: LuauOperationOperandSide::Left,
+                        },
+                    )),
+                }
+                self.luau_text.push('.');
+                self.luau_text.push_str(field_read.field_name());
+            }
+            LuauExpression::ArrayRead(array_read) => {
+                self.write_expression_in((
+                    array_read.base_expression(),
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str("[(");
+                self.write_expression(array_read.index_expression());
+                self.luau_text.push_str(") + 1]");
+            }
             LuauExpression::FunctionCall(function_call) => {
                 self.write_function_call(function_call);
             }
@@ -366,7 +468,12 @@ impl LuauTextWriter {
             | LuauExpression::NumberLiteral(_)
             | LuauExpression::StringLiteral(_)
             | LuauExpression::BooleanLiteral(_)
-            | LuauExpression::FunctionCall(_) => LuauExpressionPrecedence::Primary,
+            | LuauExpression::RobloxServiceAcquisition(_)
+            | LuauExpression::FunctionCall(_)
+            | LuauExpression::RecordLiteral(_)
+            | LuauExpression::FieldRead(_)
+            | LuauExpression::ArrayLiteral(_)
+            | LuauExpression::ArrayRead(_) => LuauExpressionPrecedence::Primary,
         }
     }
 
@@ -386,7 +493,64 @@ impl LuauTextWriter {
             LuauValueType::Number => self.luau_text.push_str("number"),
             LuauValueType::String => self.luau_text.push_str("string"),
             LuauValueType::Boolean => self.luau_text.push_str("boolean"),
+            LuauValueType::Array(element_type) => {
+                self.luau_text.push('{');
+                self.write_value_type(*element_type);
+                self.luau_text.push('}');
+            }
+            LuauValueType::NamedRecord(record_name) => self.luau_text.push_str(&record_name),
+            LuauValueType::RobloxService(service_name) => self.luau_text.push_str(&service_name),
             LuauValueType::NoReturnedValues => self.luau_text.push_str("()"),
         }
+    }
+
+    fn write_record_alias(&mut self, record_alias: &LuauRecordAlias) {
+        self.luau_text.push_str("type ");
+        self.luau_text.push_str(record_alias.record_name());
+        self.luau_text.push_str(" = {\n");
+        for record_field in record_alias.record_fields() {
+            self.luau_text.push_str(STATEMENT_INDENTATION);
+            self.luau_text.push_str(record_field.field_name());
+            self.luau_text.push_str(": ");
+            self.write_value_type(record_field.value_type().clone());
+            self.luau_text.push_str(",\n");
+        }
+        self.luau_text.push_str("}\n");
+    }
+
+    fn write_record_literal(&mut self, record_literal: &LuauRecordLiteral) {
+        self.luau_text.push('{');
+        let Some((first_initializer, remaining_initializers)) =
+            record_literal.field_initializers().split_first()
+        else {
+            self.luau_text.push('}');
+            return;
+        };
+        self.luau_text.push_str(first_initializer.field_name());
+        self.luau_text.push_str(" = ");
+        self.write_expression(first_initializer.initialized_value());
+        for initializer in remaining_initializers {
+            self.luau_text.push_str(", ");
+            self.luau_text.push_str(initializer.field_name());
+            self.luau_text.push_str(" = ");
+            self.write_expression(initializer.initialized_value());
+        }
+        self.luau_text.push('}');
+    }
+
+    fn write_array_literal(&mut self, array_literal: &crate::generated_luau::LuauArrayLiteral) {
+        self.luau_text.push('{');
+        let Some((first_element, remaining_elements)) =
+            array_literal.element_expressions().split_first()
+        else {
+            self.luau_text.push('}');
+            return;
+        };
+        self.write_expression(first_element);
+        for element in remaining_elements {
+            self.luau_text.push_str(", ");
+            self.write_expression(element);
+        }
+        self.luau_text.push('}');
     }
 }

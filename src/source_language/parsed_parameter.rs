@@ -30,7 +30,7 @@ impl ParsedParameter {
     }
 
     /// Gives semantic checking the parameter's declared value type.
-    pub(crate) const fn value_type(&self) -> ParsedValueType {
-        self.value_type
+    pub(crate) fn value_type(&self) -> ParsedValueType {
+        self.value_type.clone()
     }
 }

@@ -1,5 +1,5 @@
 /// Names the value categories that survive lowering into typed Luau.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LuauValueType {
     /// Uses Luau's sole numeric representation.
     Number,
@@ -7,6 +7,12 @@ pub enum LuauValueType {
     String,
     /// Uses Luau's two-valued boolean representation.
     Boolean,
+    /// Uses Luau's homogeneous table notation.
+    Array(Box<Self>),
+    /// Uses a file-local Luau table type alias.
+    NamedRecord(String),
+    /// Uses the Roblox engine's built-in service type spelling.
+    RobloxService(String),
     /// Marks a function that produces no values.
     NoReturnedValues,
 }

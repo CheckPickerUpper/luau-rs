@@ -1,0 +1,50 @@
+name: Compiler change
+description: Propose one observable language, validation, or toolchain change.
+title: "compiler: "
+body:
+  - type: dropdown
+    id: compiler_stage
+    attributes:
+      label: Compiler stage
+      description: Choose the first stage whose public contract changes.
+      options:
+        - Source syntax and parsing
+        - Static checking and diagnostics
+        - Luau generation
+        - Runtime validation
+        - Project compilation
+        - Toolchain delivery
+    validations:
+      required: true
+  - type: textarea
+    id: observable_behavior
+    attributes:
+      label: Observable behavior
+      description: State what a Rust source author can now do, or what is now rejected, including the diagnostic location when rejection is the behavior.
+      placeholder: "A mutable local can be reassigned only with a value of its declared type. Reassigning an immutable local is rejected at the assignment target."
+    validations:
+      required: true
+  - type: textarea
+    id: blessed_surface
+    attributes:
+      label: Blessed surface
+      description: Name the one supported source spelling and emitted Luau behavior. Do not propose compatibility aliases or adapter paths.
+      placeholder: "Source: let mut total: number = 0; total = total + 1;\nLuau: local total: number = 0; total = total + 1"
+    validations:
+      required: true
+  - type: textarea
+    id: rejection_contract
+    attributes:
+      label: Invalid state made impossible
+      description: Describe the invalid program shape that the compiler must reject, and the source range the rejection identifies.
+      placeholder: "The checker rejects assigning a string to total and points at the assigned expression."
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Closure proof
+      description: List the integration fixture(s) and the required machine proof. Generated Luau changes require Full Moon parsing plus official Luau runtime, analyze, and compile validation.
+      placeholder: "- Public compile fixture covers valid and rejected source.\n- Full Moon accepts generated Luau.\n- Official Luau executes, analyzes, and compiles the generated fixture."
+    validations:
+      required: true

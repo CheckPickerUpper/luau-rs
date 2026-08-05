@@ -36,8 +36,8 @@ impl LuauFunction {
     }
 
     /// Supplies the explicit Luau return annotation.
-    pub(crate) const fn returned_value_type(&self) -> LuauValueType {
-        self.returned_value_type
+    pub(crate) fn returned_value_type(&self) -> LuauValueType {
+        self.returned_value_type.clone()
     }
 
     /// Gives the text writer the complete generated function scope.

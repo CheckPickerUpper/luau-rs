@@ -9,6 +9,7 @@ use crate::{
 pub(super) struct SourceProgramParser {
     remaining_tokens: Peekable<IntoIter<SourceToken>>,
     end_of_source_range: SourceRange,
+    pub(super) record_literals_are_allowed: bool,
 }
 
 /// Converts a complete token stream into an explicitly shaped source program.
@@ -28,10 +29,13 @@ impl SourceProgramParser {
         Self {
             remaining_tokens: source_tokens.into_iter().peekable(),
             end_of_source_range,
+            record_literals_are_allowed: true,
         }
     }
 
     fn parse_program(&mut self) -> Result<ParsedProgram, CompilationProblem> {
+        let mut parsed_imports = Vec::new();
+        let mut parsed_records = Vec::new();
         let mut parsed_functions = Vec::new();
         loop {
             match self.current_token_kind() {
@@ -40,11 +44,21 @@ impl SourceProgramParser {
                         Ok(end_of_source_token) => end_of_source_token,
                         Err(compilation_problem) => return Err(compilation_problem),
                     };
-                    return Ok(ParsedProgram::from_functions((
+                    return Ok(ParsedProgram::from_declarations((
+                        parsed_imports,
+                        parsed_records,
                         parsed_functions,
                         end_of_source_token.source_range(),
                     )));
                 }
+                Ok(SourceTokenKind::UseKeyword) => match self.parse_project_import() {
+                    Ok(parsed_import) => parsed_imports.push(parsed_import),
+                    Err(compilation_problem) => return Err(compilation_problem),
+                },
+                Ok(SourceTokenKind::StructKeyword) => match self.parse_record_declaration() {
+                    Ok(parsed_record) => parsed_records.push(parsed_record),
+                    Err(compilation_problem) => return Err(compilation_problem),
+                },
                 Ok(_) => match self.parse_function() {
                     Ok(parsed_function) => parsed_functions.push(parsed_function),
                     Err(compilation_problem) => return Err(compilation_problem),
@@ -72,10 +86,10 @@ impl SourceProgramParser {
             Err(compilation_problem) => return Err(compilation_problem),
         };
         let (token_kind, token_range) = source_token.into_token_at_range();
-        match token_kind {
-            SourceTokenKind::IdentifierName(identifier_name) => Ok((identifier_name, token_range)),
-            _ => Err(Self::problem_at_range(token_range)),
-        }
+        let SourceTokenKind::IdentifierName(identifier_name) = token_kind else {
+            return Err(Self::problem_at_range(token_range));
+        };
+        Ok((identifier_name, token_range))
     }
 
     /// Consumes a declaration name, including source keywords requiring a typed rejection later.
@@ -87,11 +101,13 @@ impl SourceProgramParser {
             Err(compilation_problem) => return Err(compilation_problem),
         };
         let (token_kind, token_range) = source_token.into_token_at_range();
-        match token_kind {
-            SourceTokenKind::IdentifierName(identifier_name) => Ok((identifier_name, token_range)),
-            SourceTokenKind::ReturnKeyword => Ok(("return".to_owned(), token_range)),
-            _ => Err(Self::problem_at_range(token_range)),
+        if let SourceTokenKind::IdentifierName(identifier_name) = token_kind {
+            return Ok((identifier_name, token_range));
         }
+        let SourceTokenKind::ReturnKeyword = token_kind else {
+            return Err(Self::problem_at_range(token_range));
+        };
+        Ok(("return".to_owned(), token_range))
     }
 
     /// Consumes one required grammar symbol or reports the encountered token range.
@@ -104,16 +120,26 @@ impl SourceProgramParser {
             Err(compilation_problem) => return Err(compilation_problem),
         };
         match (required_symbol, source_token.token_kind()) {
-            (SourceTokenKind::FunctionKeyword, SourceTokenKind::FunctionKeyword)
+            (SourceTokenKind::StructKeyword, SourceTokenKind::StructKeyword)
+            | (SourceTokenKind::FunctionKeyword, SourceTokenKind::FunctionKeyword)
+            | (SourceTokenKind::PublicKeyword, SourceTokenKind::PublicKeyword)
+            | (SourceTokenKind::UseKeyword, SourceTokenKind::UseKeyword)
             | (SourceTokenKind::LetKeyword, SourceTokenKind::LetKeyword)
+            | (SourceTokenKind::MutKeyword, SourceTokenKind::MutKeyword)
             | (SourceTokenKind::ReturnKeyword, SourceTokenKind::ReturnKeyword)
+            | (SourceTokenKind::BreakKeyword, SourceTokenKind::BreakKeyword)
+            | (SourceTokenKind::ContinueKeyword, SourceTokenKind::ContinueKeyword)
             | (SourceTokenKind::IfKeyword, SourceTokenKind::IfKeyword)
             | (SourceTokenKind::ElseKeyword, SourceTokenKind::ElseKeyword)
+            | (SourceTokenKind::WhileKeyword, SourceTokenKind::WhileKeyword)
             | (SourceTokenKind::LeftParenthesis, SourceTokenKind::LeftParenthesis)
             | (SourceTokenKind::RightParenthesis, SourceTokenKind::RightParenthesis)
             | (SourceTokenKind::LeftBrace, SourceTokenKind::LeftBrace)
             | (SourceTokenKind::RightBrace, SourceTokenKind::RightBrace)
+            | (SourceTokenKind::LeftBracket, SourceTokenKind::LeftBracket)
+            | (SourceTokenKind::RightBracket, SourceTokenKind::RightBracket)
             | (SourceTokenKind::Colon, SourceTokenKind::Colon)
+            | (SourceTokenKind::DoubleColon, SourceTokenKind::DoubleColon)
             | (SourceTokenKind::Comma, SourceTokenKind::Comma)
             | (SourceTokenKind::Semicolon, SourceTokenKind::Semicolon)
             | (SourceTokenKind::Arrow, SourceTokenKind::Arrow)
@@ -130,7 +156,8 @@ impl SourceProgramParser {
             | (SourceTokenKind::GreaterThan, SourceTokenKind::GreaterThan)
             | (SourceTokenKind::GreaterThanOrEqual, SourceTokenKind::GreaterThanOrEqual)
             | (SourceTokenKind::AmpersandAmpersand, SourceTokenKind::AmpersandAmpersand)
-            | (SourceTokenKind::PipePipe, SourceTokenKind::PipePipe) => Ok(source_token),
+            | (SourceTokenKind::PipePipe, SourceTokenKind::PipePipe)
+            | (SourceTokenKind::Dot, SourceTokenKind::Dot) => Ok(source_token),
             _ => Err(Self::problem_at_range(source_token.source_range())),
         }
     }
@@ -155,7 +182,7 @@ impl SourceProgramParser {
         Self::problem_at_range(self.end_of_source_range)
     }
 
-    const fn problem_at_range(source_range: SourceRange) -> CompilationProblem {
+    pub(super) const fn problem_at_range(source_range: SourceRange) -> CompilationProblem {
         CompilationProblem::from_problem_at_range((
             source_range,
             CompilationProblemReason::SourceDoesNotFollowLanguageRules,

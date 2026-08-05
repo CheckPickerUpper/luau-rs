@@ -43,11 +43,18 @@ pub fn split_source_into_tokens(source: &str) -> Result<Vec<SourceToken>, Compil
                     None => return Err(unexpected_syntax((start_byte, end_byte))),
                 };
                 let token_kind = match identifier.as_str() {
+                    "struct" => SourceTokenKind::StructKeyword,
                     "fn" => SourceTokenKind::FunctionKeyword,
+                    "pub" => SourceTokenKind::PublicKeyword,
+                    "use" => SourceTokenKind::UseKeyword,
                     "let" => SourceTokenKind::LetKeyword,
+                    "mut" => SourceTokenKind::MutKeyword,
                     "return" => SourceTokenKind::ReturnKeyword,
+                    "break" => SourceTokenKind::BreakKeyword,
+                    "continue" => SourceTokenKind::ContinueKeyword,
                     "if" => SourceTokenKind::IfKeyword,
                     "else" => SourceTokenKind::ElseKeyword,
+                    "while" => SourceTokenKind::WhileKeyword,
                     "true" => SourceTokenKind::BooleanLiteral(SourceBooleanLiteral::True),
                     "false" => SourceTokenKind::BooleanLiteral(SourceBooleanLiteral::False),
                     _ => SourceTokenKind::IdentifierName(identifier),
@@ -123,10 +130,27 @@ pub fn split_source_into_tokens(source: &str) -> Result<Vec<SourceToken>, Compil
                 SourceTokenKind::RightBrace,
                 (start_byte, start_byte + 1),
             ))),
-            ':' => source_tokens.push(make_source_token((
-                SourceTokenKind::Colon,
+            '[' => source_tokens.push(make_source_token((
+                SourceTokenKind::LeftBracket,
                 (start_byte, start_byte + 1),
             ))),
+            ']' => source_tokens.push(make_source_token((
+                SourceTokenKind::RightBracket,
+                (start_byte, start_byte + 1),
+            ))),
+            ':' => match characters.peek().copied() {
+                Some((next_start_byte, ':')) => {
+                    characters.next();
+                    source_tokens.push(make_source_token((
+                        SourceTokenKind::DoubleColon,
+                        (start_byte, next_start_byte + 1),
+                    )));
+                }
+                _ => source_tokens.push(make_source_token((
+                    SourceTokenKind::Colon,
+                    (start_byte, start_byte + 1),
+                ))),
+            },
             ',' => source_tokens.push(make_source_token((
                 SourceTokenKind::Comma,
                 (start_byte, start_byte + 1),
@@ -227,6 +251,10 @@ pub fn split_source_into_tokens(source: &str) -> Result<Vec<SourceToken>, Compil
                 }
                 None => return Err(unexpected_character(('|', start_byte, start_byte + 1))),
             },
+            '.' => source_tokens.push(make_source_token((
+                SourceTokenKind::Dot,
+                (start_byte, start_byte + 1),
+            ))),
             '-' => match characters.peek().copied() {
                 Some((next_start_byte, '>')) => {
                     characters.next();

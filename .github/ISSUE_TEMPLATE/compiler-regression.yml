@@ -1,0 +1,47 @@
+name: Compiler regression
+description: Report a compiler behavior that contradicts an existing or intended contract.
+title: "regression: "
+body:
+  - type: textarea
+    id: source_program
+    attributes:
+      label: Smallest source program
+      description: Provide the smallest source program that demonstrates the behavior.
+      render: rust
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected observable behavior
+      description: State whether compilation should succeed or reject, and the expected Luau output, runtime result, or diagnostic range.
+    validations:
+      required: true
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual observable behavior
+      description: Include generated Luau, runtime output, or diagnostic text.
+    validations:
+      required: true
+  - type: dropdown
+    id: validation_boundary
+    attributes:
+      label: Broken validation boundary
+      options:
+        - Public compilation API
+        - Full Moon Luau parsing
+        - Official Luau runtime
+        - Official luau-analyze
+        - Official luau-compile
+        - Source diagnostic range
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Reproduction command and result
+      description: Provide the command used and its complete relevant output.
+      placeholder: "cargo test --test generated_luau_passes_official_tools\n\nexpected: success\nactual: luau-analyze reports ..."
+    validations:
+      required: true

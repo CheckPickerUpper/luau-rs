@@ -1,0 +1,86 @@
+name: Pull request contract
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, ready_for_review, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    name: Require linked work, behavior, and proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const requiredSections = [
+              'Linked issue',
+              'Observable behavior',
+              'Proof',
+            ];
+            const headings = [...body.matchAll(/^##\s+(.+?)\s*$/gmi)];
+            const sectionContent = new Map();
+
+            for (let index = 0; index < headings.length; index += 1) {
+              const heading = headings[index];
+              const title = heading[1].trim().toLowerCase();
+              const start = heading.index + heading[0].length;
+              const end = index + 1 < headings.length
+                ? headings[index + 1].index
+                : body.length;
+              const content = body.slice(start, end).trim();
+              const entries = sectionContent.get(title) || [];
+              entries.push(content);
+              sectionContent.set(title, entries);
+            }
+
+            const errors = [];
+            const contentFor = (title) => sectionContent.get(title.toLowerCase()) || [];
+            for (const title of requiredSections) {
+              const entries = contentFor(title);
+              if (entries.length !== 1) {
+                errors.push(`Use exactly one \`## ${title}\` section.`);
+              } else if (entries[0].length === 0) {
+                errors.push(`\`## ${title}\` must not be empty.`);
+              }
+            }
+
+            const issueContent = contentFor('Linked issue')[0] || '';
+            const closingReference = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:#\d+|[\w.-]+\/[\w.-]+#\d+|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/\d+)\b/i;
+            if (!closingReference.test(issueContent)) {
+              errors.push('`## Linked issue` must contain a closing reference such as `Closes #25`.');
+            }
+
+            const behaviorContent = contentFor('Observable behavior')[0] || '';
+            const placeholderOnly = /^(?:tbd|todo|n\/a|none|same as issue)[.!\s]*$/i;
+            if (behaviorContent.length < 20 || placeholderOnly.test(behaviorContent)) {
+              errors.push('`## Observable behavior` must describe a concrete, user-observable result.');
+            }
+
+            const proofContent = contentFor('Proof')[0] || '';
+            const hasProofItem = /^\s*[-*+]\s+.+/m.test(proofContent);
+            const hasCommand = /`[^`\r\n]+`/.test(proofContent);
+            if (!hasProofItem || !hasCommand) {
+              errors.push('`## Proof` must contain at least one bullet with a backticked command or verification artifact.');
+            }
+
+            if (errors.length > 0) {
+              core.setFailed([
+                'Pull requests must use this body schema:',
+                '',
+                '## Linked issue',
+                'Closes #123',
+                '',
+                '## Observable behavior',
+                'Describe the user-visible result.',
+                '',
+                '## Proof',
+                '- `cargo test --all-targets --locked`',
+                '',
+                ...errors.map((error) => `- ${error}`),
+              ].join('\n'));
+            }

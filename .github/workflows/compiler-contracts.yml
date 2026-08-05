@@ -1,0 +1,43 @@
+name: Compiler contracts
+
+on:
+  push:
+    branches: [development, production]
+  pull_request:
+    branches: [development, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compiler-contracts-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Rust and Luau integration contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      LUAU_REVISION: af6afddc651f3e8a272b1742d7f56695f9a9a278
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Select stable Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Check formatting
+        run: cargo +stable fmt --check
+      - name: Deny Clippy warnings
+        run: cargo +stable clippy --all-targets --all-features --locked -- -D warnings
+      - name: Build pinned official Luau tools
+        run: |
+          git clone --filter=blob:none https://github.com/luau-lang/luau.git .ci/luau
+          git -C .ci/luau checkout --detach "$LUAU_REVISION"
+          git -C .ci/luau rev-parse HEAD
+          test "$(git -C .ci/luau rev-parse HEAD)" = "$LUAU_REVISION"
+          make -C .ci/luau config=release luau luau-analyze luau-compile
+      - name: Run compiler integration contracts
+        env:
+          LUAU_BIN: ${{ github.workspace }}/.ci/luau/build/release/luau
+          LUAU_ANALYZE_BIN: ${{ github.workspace }}/.ci/luau/build/release/luau-analyze
+          LUAU_COMPILE_BIN: ${{ github.workspace }}/.ci/luau/build/release/luau-compile
+        run: cargo +stable test --all-targets --locked

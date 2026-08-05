@@ -24,7 +24,7 @@ impl LuauParameter {
     }
 
     /// Exposes the lowered annotation to the Luau writer.
-    pub(crate) const fn value_type(&self) -> LuauValueType {
-        self.value_type
+    pub(crate) fn value_type(&self) -> LuauValueType {
+        self.value_type.clone()
     }
 }

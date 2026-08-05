@@ -1,6 +1,7 @@
 use crate::checked_program::{
-    CheckedBooleanLiteral, CheckedComparisonOperation, CheckedEqualityOperation,
-    CheckedLogicalNegation, CheckedLogicalOperation, CheckedNumericOperation,
+    CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedComparisonOperation,
+    CheckedEqualityOperation, CheckedFieldRead, CheckedLogicalNegation, CheckedLogicalOperation,
+    CheckedNumericOperation, CheckedRecordLiteral,
 };
 
 /// Represents expressions whose names and types have been validated.
@@ -13,6 +14,16 @@ pub enum CheckedExpression {
     StringLiteral(String),
     /// Preserves a checked boolean literal without string encoding.
     BooleanLiteral(CheckedBooleanLiteral),
+    /// Preserves one catalogued service acquisition for writer-owned `GetService` lowering.
+    RobloxServiceAcquisition(super::roblox_service::RobloxService),
+    /// Constructs a checked homogeneous array.
+    ArrayLiteral(CheckedArrayLiteral),
+    /// Constructs a record whose declared fields and initializer types were checked.
+    RecordLiteral(CheckedRecordLiteral),
+    /// Reads a declared field from a checked named record.
+    FieldRead(CheckedFieldRead),
+    /// Reads a checked array element.
+    ArrayRead(CheckedArrayRead),
     /// Retains a numeric operation whose operands are proven numeric.
     NumericOperation(CheckedNumericOperation),
     /// Retains a numeric comparison whose operands are proven numeric.

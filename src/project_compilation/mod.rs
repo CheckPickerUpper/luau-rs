@@ -1,0 +1,25 @@
+mod compile_project;
+mod compiled_project;
+mod generated_project_module;
+mod module_execution_side;
+mod project_compilation_outcome;
+mod project_compilation_problem;
+mod project_compilation_rejection;
+mod project_compilation_request;
+mod project_module_identity;
+mod project_module_role;
+mod project_module_source;
+mod project_output_path;
+
+pub use compile_project::compile_project;
+pub use compiled_project::CompiledProject;
+pub use generated_project_module::GeneratedProjectModule;
+pub use module_execution_side::ModuleExecutionSide;
+pub use project_compilation_outcome::ProjectCompilationOutcome;
+pub use project_compilation_problem::ProjectCompilationProblem;
+pub use project_compilation_rejection::ProjectCompilationRejection;
+pub use project_compilation_request::ProjectCompilationRequest;
+pub use project_module_identity::ProjectModuleIdentity;
+pub use project_module_role::ProjectModuleRole;
+pub use project_module_source::ProjectModuleSource;
+pub use project_output_path::ProjectOutputPath;

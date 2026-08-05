@@ -16,4 +16,10 @@ impl GeneratedLuauText {
     pub fn into_text(self) -> String {
         self.text
     }
+
+    /// @why Lets project compilation assemble deterministic module artifacts without cloning their generated source.
+    #[must_use]
+    pub fn as_text(&self) -> &str {
+        &self.text
+    }
 }

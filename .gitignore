@@ -1,10 +1,12 @@
 # Build output and locally cloned research dependencies.
 /target/
+/target-*/
 /references/checkouts/
 
 # Agent and editor state belongs to each contributor's local environment.
 /.claude/
 /.agents/
+/.ai-lab/
 /.codex/
 /.vscode/
 

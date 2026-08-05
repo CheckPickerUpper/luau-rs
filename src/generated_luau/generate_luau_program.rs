@@ -1,15 +1,17 @@
 use crate::{
     checked_program::{
         CheckedBooleanLiteral, CheckedExpression, CheckedFunction, CheckedFunctionBody,
-        CheckedFunctionCall, CheckedIfElse, CheckedParameter, CheckedProgram, CheckedStatement,
-        CheckedValueType,
+        CheckedFunctionCall, CheckedIfElse, CheckedParameter, CheckedProgram,
+        CheckedRecordDeclaration, CheckedStatement, CheckedValueType, CheckedWhileLoop,
     },
     generated_luau::{
-        LuauBooleanLiteral, LuauComparisonOperation, LuauComparisonOperator, LuauEqualityOperation,
-        LuauEqualityOperator, LuauExpression, LuauFunction, LuauFunctionBody, LuauFunctionCall,
-        LuauIfElse, LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator,
-        LuauNumericOperation, LuauNumericOperator, LuauParameter, LuauProgram, LuauStatement,
-        LuauValueType,
+        LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
+        LuauComparisonOperator, LuauEqualityOperation, LuauEqualityOperator, LuauExpression,
+        LuauFieldRead, LuauFunction, LuauFunctionBody, LuauFunctionCall, LuauIfElse,
+        LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator, LuauNumericOperation,
+        LuauNumericOperator, LuauParameter, LuauPlaceAssignment, LuauPlaceStep, LuauProgram,
+        LuauRecordAlias, LuauRecordField, LuauRecordFieldInitializer, LuauRecordLiteral,
+        LuauStatement, LuauValueType, LuauWhileLoop,
     },
 };
 
@@ -17,25 +19,70 @@ const ENTRY_FUNCTION_NAME: &str = "main";
 
 /// Lowers a semantically checked program into an owned Luau representation.
 pub fn generate_luau_program(checked_program: &CheckedProgram) -> LuauProgram {
-    LuauProgramGenerator::generate(checked_program)
+    LuauProgramGenerator::generate_executable(checked_program)
+}
+
+/// Lowers a checked library module without adding an eager entrypoint call.
+pub fn generate_luau_library(checked_program: &CheckedProgram) -> LuauProgram {
+    LuauProgramGenerator::generate_library(checked_program)
 }
 
 struct LuauProgramGenerator;
 
 /// Isolates recursive lowering from the target model and text writer.
 impl LuauProgramGenerator {
-    fn generate(checked_program: &CheckedProgram) -> LuauProgram {
-        let luau_functions = checked_program
-            .functions()
-            .iter()
-            .map(Self::generate_function)
-            .collect();
+    fn generate_executable(checked_program: &CheckedProgram) -> LuauProgram {
+        let luau_functions = Self::generate_functions(checked_program);
         let entry_function_call = LuauExpression::FunctionCall(LuauFunctionCall::from_call((
             ENTRY_FUNCTION_NAME.to_owned(),
             Vec::new(),
         )));
 
-        LuauProgram::from_program_parts((luau_functions, entry_function_call))
+        LuauProgram::from_program_parts((
+            Self::generate_record_aliases(checked_program),
+            luau_functions,
+            entry_function_call,
+        ))
+    }
+
+    fn generate_library(checked_program: &CheckedProgram) -> LuauProgram {
+        LuauProgram::from_library_declarations((
+            Self::generate_record_aliases(checked_program),
+            Self::generate_functions(checked_program),
+        ))
+    }
+
+    fn generate_record_aliases(checked_program: &CheckedProgram) -> Vec<LuauRecordAlias> {
+        checked_program
+            .records()
+            .iter()
+            .map(Self::generate_record_alias)
+            .collect()
+    }
+
+    fn generate_record_alias(checked_record: &CheckedRecordDeclaration) -> LuauRecordAlias {
+        LuauRecordAlias::from_alias((
+            checked_record.record_name().to_owned(),
+            checked_record
+                .record_fields()
+                .iter()
+                .map(|field| {
+                    LuauRecordField::from_field((
+                        field.field_name().to_owned(),
+                        Self::generate_value_type(field.value_type().clone()),
+                    ))
+                })
+                .collect(),
+        ))
+    }
+
+    fn generate_functions(checked_program: &CheckedProgram) -> Vec<LuauFunction> {
+        let luau_functions = checked_program
+            .functions()
+            .iter()
+            .map(Self::generate_function)
+            .collect();
+        luau_functions
     }
 
     fn generate_function(checked_function: &CheckedFunction) -> LuauFunction {
@@ -77,9 +124,43 @@ impl LuauProgramGenerator {
                 initial_value,
             } => LuauStatement::ImmutableLocal {
                 local_name: local_name.to_owned(),
-                value_type: Self::generate_value_type(*value_type),
+                value_type: Self::generate_value_type(value_type.clone()),
                 initial_value: Self::generate_expression(initial_value),
             },
+            CheckedStatement::MutableLocal {
+                local_name,
+                value_type,
+                initial_value,
+            } => LuauStatement::MutableLocal {
+                local_name: local_name.to_owned(),
+                value_type: Self::generate_value_type(value_type.clone()),
+                initial_value: Self::generate_expression(initial_value),
+            },
+            CheckedStatement::AssignLocal {
+                local_name,
+                assigned_value,
+            } => LuauStatement::AssignLocal {
+                local_name: local_name.to_owned(),
+                assigned_value: Self::generate_expression(assigned_value),
+            },
+            CheckedStatement::AssignPlace(place_assignment) => {
+                LuauStatement::AssignPlace(LuauPlaceAssignment::from_parts((
+                    place_assignment.root_binding_name().to_owned(),
+                    place_assignment
+                        .steps()
+                        .iter()
+                        .map(|step| match step {
+                            crate::checked_program::CheckedPlaceStep::Field(field_name) => {
+                                LuauPlaceStep::Field(field_name.to_owned())
+                            }
+                            crate::checked_program::CheckedPlaceStep::Index(index_expression) => {
+                                LuauPlaceStep::Index(Self::generate_expression(index_expression))
+                            }
+                        })
+                        .collect(),
+                    Self::generate_expression(place_assignment.assigned_value()),
+                )))
+            }
             CheckedStatement::CallFunctionAndIgnoreResult(checked_function_call) => {
                 LuauStatement::CallFunctionAndIgnoreResult(Self::generate_function_call(
                     checked_function_call,
@@ -88,8 +169,13 @@ impl LuauProgramGenerator {
             CheckedStatement::ReturnsValue(checked_expression) => {
                 LuauStatement::ReturnsValue(Self::generate_expression(checked_expression))
             }
+            CheckedStatement::BreaksLoop => LuauStatement::BreaksLoop,
+            CheckedStatement::ContinuesLoop => LuauStatement::ContinuesLoop,
             CheckedStatement::IfElse(checked_if_else) => {
                 LuauStatement::IfElse(Self::generate_if_else(checked_if_else))
+            }
+            CheckedStatement::WhileLoop(checked_while_loop) => {
+                LuauStatement::WhileLoop(Self::generate_while_loop(checked_while_loop))
             }
         }
     }
@@ -99,6 +185,13 @@ impl LuauProgramGenerator {
             Self::generate_expression(checked_if_else.condition()),
             Self::generate_function_body(checked_if_else.then_body()),
             Self::generate_function_body(checked_if_else.else_body()),
+        ))
+    }
+
+    fn generate_while_loop(checked_while_loop: &CheckedWhileLoop) -> LuauWhileLoop {
+        LuauWhileLoop::from_parts((
+            Self::generate_expression(checked_while_loop.condition()),
+            Self::generate_function_body(checked_while_loop.body()),
         ))
     }
 
@@ -119,6 +212,44 @@ impl LuauProgramGenerator {
                     CheckedBooleanLiteral::False => LuauBooleanLiteral::False,
                 };
                 LuauExpression::BooleanLiteral(luau_boolean_literal)
+            }
+            CheckedExpression::RobloxServiceAcquisition(roblox_service) => {
+                LuauExpression::RobloxServiceAcquisition(roblox_service.canonical_name().to_owned())
+            }
+            CheckedExpression::ArrayLiteral(array_literal) => {
+                LuauExpression::ArrayLiteral(LuauArrayLiteral::from_elements(
+                    array_literal
+                        .element_expressions()
+                        .iter()
+                        .map(Self::generate_expression)
+                        .collect(),
+                ))
+            }
+            CheckedExpression::RecordLiteral(record_literal) => {
+                LuauExpression::RecordLiteral(LuauRecordLiteral::from_initializers(
+                    record_literal
+                        .field_initializers()
+                        .iter()
+                        .map(|initializer| {
+                            LuauRecordFieldInitializer::from_initializer((
+                                initializer.field_name().to_owned(),
+                                Self::generate_expression(initializer.initialized_value()),
+                            ))
+                        })
+                        .collect(),
+                ))
+            }
+            CheckedExpression::FieldRead(field_read) => {
+                LuauExpression::FieldRead(LuauFieldRead::from_read((
+                    Box::new(Self::generate_expression(field_read.base_expression())),
+                    field_read.field_name().to_owned(),
+                )))
+            }
+            CheckedExpression::ArrayRead(array_read) => {
+                LuauExpression::ArrayRead(LuauArrayRead::from_read((
+                    Box::new(Self::generate_expression(array_read.base_expression())),
+                    Box::new(Self::generate_expression(array_read.index_expression())),
+                )))
             }
             CheckedExpression::NumericOperation(operation) => {
                 let generated_operator = match operation.operator() {
@@ -214,11 +345,18 @@ impl LuauProgramGenerator {
         ))
     }
 
-    const fn generate_value_type(checked_value_type: CheckedValueType) -> LuauValueType {
+    fn generate_value_type(checked_value_type: CheckedValueType) -> LuauValueType {
         match checked_value_type {
             CheckedValueType::Number => LuauValueType::Number,
             CheckedValueType::String => LuauValueType::String,
             CheckedValueType::Boolean => LuauValueType::Boolean,
+            CheckedValueType::Array(element_type) => {
+                LuauValueType::Array(Box::new(Self::generate_value_type(*element_type)))
+            }
+            CheckedValueType::NamedRecord(record_name) => LuauValueType::NamedRecord(record_name),
+            CheckedValueType::RobloxService(roblox_service) => {
+                LuauValueType::RobloxService(roblox_service.canonical_name().to_owned())
+            }
             CheckedValueType::NoReturnedValues => LuauValueType::NoReturnedValues,
         }
     }

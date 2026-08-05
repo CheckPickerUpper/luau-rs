@@ -67,8 +67,8 @@ impl DeclarationNameChecker {
                 Ordering::Less | Ordering::Greater => {}
             }
         }
-        for (visible_local_name, _) in check_context.local_bindings() {
-            match visible_local_name.as_str().cmp(local_name) {
+        for visible_local_binding in check_context.local_bindings() {
+            match visible_local_binding.local_name().cmp(local_name) {
                 Ordering::Equal => {
                     return Err(CompilationProblem::from_problem_at_range((
                         local_name_range,

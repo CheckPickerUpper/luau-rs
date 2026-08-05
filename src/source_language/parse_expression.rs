@@ -16,6 +16,16 @@ impl SourceProgramParser {
         self.parse_disjunction_expression()
     }
 
+    pub(super) fn parse_condition_expression(
+        &mut self,
+    ) -> Result<ParsedExpression, CompilationProblem> {
+        let record_literals_were_allowed = self.record_literals_are_allowed;
+        self.record_literals_are_allowed = false;
+        let parsed_expression = self.parse_expression();
+        self.record_literals_are_allowed = record_literals_were_allowed;
+        parsed_expression
+    }
+
     fn parse_disjunction_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
         let mut parsed_expression = match self.parse_conjunction_expression() {
             Ok(parsed_expression) => parsed_expression,
@@ -39,6 +49,32 @@ impl SourceProgramParser {
                         ParsedLogicalOperator::Disjunction,
                         operator_token.source_range(),
                     ));
+                }
+                Ok(SourceTokenKind::LeftBracket) => {
+                    match self.take_required_symbol(&SourceTokenKind::LeftBracket) {
+                        Ok(consumed_symbol) => drop(consumed_symbol),
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    }
+                    let index_expression = match self.parse_expression() {
+                        Ok(index_expression) => index_expression,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    let right_bracket =
+                        match self.take_required_symbol(&SourceTokenKind::RightBracket) {
+                            Ok(right_bracket) => right_bracket,
+                            Err(compilation_problem) => return Err(compilation_problem),
+                        };
+                    let expression_range = SourceRange::from_byte_range((
+                        parsed_expression.source_range().start_byte(),
+                        right_bracket.source_range().end_byte(),
+                    ));
+                    parsed_expression = ParsedExpression::ArrayRead(
+                        crate::source_language::ParsedArrayRead::from_read((
+                            Box::new(parsed_expression),
+                            Box::new(index_expression),
+                            expression_range,
+                        )),
+                    );
                 }
                 Ok(_) => break,
                 Err(compilation_problem) => return Err(compilation_problem),
@@ -204,6 +240,7 @@ impl SourceProgramParser {
 
     fn parse_unary_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
         match self.current_token_kind() {
+            Ok(SourceTokenKind::LeftBracket) => self.parse_array_literal(),
             Ok(SourceTokenKind::Bang) => {
                 let operator_token = match self.take_required_symbol(&SourceTokenKind::Bang) {
                     Ok(operator_token) => operator_token,
@@ -225,7 +262,7 @@ impl SourceProgramParser {
                     )),
                 ))
             }
-            Ok(_) => self.parse_primary_expression(),
+            Ok(_) => self.parse_postfix_expression(),
             Err(compilation_problem) => Err(compilation_problem),
         }
     }
@@ -316,6 +353,42 @@ impl SourceProgramParser {
         ))
     }
 
+    fn parse_postfix_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        let mut parsed_expression = match self.parse_primary_expression() {
+            Ok(parsed_expression) => parsed_expression,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        loop {
+            match self.current_token_kind() {
+                Ok(SourceTokenKind::Dot) => {
+                    match self.take_required_symbol(&SourceTokenKind::Dot) {
+                        Ok(consumed_symbol) => drop(consumed_symbol),
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    }
+                    let (field_name, field_name_range) = match self.take_identifier_name() {
+                        Ok(field_name_at_range) => field_name_at_range,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    let expression_range = SourceRange::from_byte_range((
+                        parsed_expression.source_range().start_byte(),
+                        field_name_range.end_byte(),
+                    ));
+                    parsed_expression = ParsedExpression::FieldRead(
+                        crate::source_language::ParsedFieldRead::from_read((
+                            Box::new(parsed_expression),
+                            field_name,
+                            field_name_range,
+                            expression_range,
+                        )),
+                    );
+                }
+                Ok(_) => break,
+                Err(compilation_problem) => return Err(compilation_problem),
+            }
+        }
+        Ok(parsed_expression)
+    }
+
     fn parse_primary_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
         match self.current_token_kind() {
             Ok(SourceTokenKind::LeftParenthesis) => {
@@ -323,10 +396,16 @@ impl SourceProgramParser {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
+                let record_literals_were_allowed = self.record_literals_are_allowed;
+                self.record_literals_are_allowed = true;
                 let grouped_expression = match self.parse_expression() {
                     Ok(grouped_expression) => grouped_expression,
-                    Err(compilation_problem) => return Err(compilation_problem),
+                    Err(compilation_problem) => {
+                        self.record_literals_are_allowed = record_literals_were_allowed;
+                        return Err(compilation_problem);
+                    }
                 };
+                self.record_literals_are_allowed = record_literals_were_allowed;
                 match self.take_required_symbol(&SourceTokenKind::RightParenthesis) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
@@ -359,45 +438,173 @@ impl SourceProgramParser {
                     literal_range: token_range,
                 })
             }
-            SourceTokenKind::IdentifierName(identifier_name) => match self.current_token_kind() {
-                Ok(SourceTokenKind::LeftParenthesis) => {
-                    match self.take_required_symbol(&SourceTokenKind::LeftParenthesis) {
-                        Ok(consumed_symbol) => drop(consumed_symbol),
-                        Err(compilation_problem) => return Err(compilation_problem),
+            SourceTokenKind::IdentifierName(identifier_name) => {
+                let record_literals_are_allowed = self.record_literals_are_allowed;
+                match self.current_token_kind() {
+                    Ok(SourceTokenKind::DoubleColon) if identifier_name == "roblox" => {
+                        self.parse_roblox_service_acquisition(token_range)
                     }
-                    let function_arguments = match self.parse_function_arguments() {
-                        Ok(function_arguments) => function_arguments,
-                        Err(compilation_problem) => return Err(compilation_problem),
-                    };
-                    let right_parenthesis =
-                        match self.take_required_symbol(&SourceTokenKind::RightParenthesis) {
-                            Ok(right_parenthesis) => right_parenthesis,
+                    Ok(SourceTokenKind::LeftBrace) if record_literals_are_allowed => {
+                        self.parse_record_literal((identifier_name, token_range))
+                    }
+                    Ok(SourceTokenKind::LeftParenthesis) => {
+                        match self.take_required_symbol(&SourceTokenKind::LeftParenthesis) {
+                            Ok(consumed_symbol) => drop(consumed_symbol),
+                            Err(compilation_problem) => return Err(compilation_problem),
+                        }
+                        let function_arguments = match self.parse_function_arguments() {
+                            Ok(function_arguments) => function_arguments,
                             Err(compilation_problem) => return Err(compilation_problem),
                         };
-                    let call_range = SourceRange::from_byte_range((
-                        token_range.start_byte(),
-                        right_parenthesis.source_range().end_byte(),
-                    ));
-                    Ok(ParsedExpression::FunctionCall(
-                        ParsedFunctionCall::from_call((
-                            identifier_name,
-                            token_range,
-                            function_arguments,
-                            call_range,
-                        )),
-                    ))
+                        let right_parenthesis =
+                            match self.take_required_symbol(&SourceTokenKind::RightParenthesis) {
+                                Ok(right_parenthesis) => right_parenthesis,
+                                Err(compilation_problem) => return Err(compilation_problem),
+                            };
+                        let call_range = SourceRange::from_byte_range((
+                            token_range.start_byte(),
+                            right_parenthesis.source_range().end_byte(),
+                        ));
+                        Ok(ParsedExpression::FunctionCall(
+                            ParsedFunctionCall::from_call((
+                                identifier_name,
+                                token_range,
+                                function_arguments,
+                                call_range,
+                            )),
+                        ))
+                    }
+                    Ok(_) => Ok(ParsedExpression::NameReference {
+                        referenced_name: identifier_name,
+                        name_range: token_range,
+                    }),
+                    Err(compilation_problem) => Err(compilation_problem),
                 }
-                Ok(_) => Ok(ParsedExpression::NameReference {
-                    referenced_name: identifier_name,
-                    name_range: token_range,
-                }),
-                Err(compilation_problem) => Err(compilation_problem),
-            },
+            }
             _ => Err(CompilationProblem::from_problem_at_range((
                 token_range,
                 crate::CompilationProblemReason::SourceDoesNotFollowLanguageRules,
             ))),
         }
+    }
+
+    fn parse_roblox_service_acquisition(
+        &mut self,
+        namespace_range: SourceRange,
+    ) -> Result<ParsedExpression, CompilationProblem> {
+        self.take_required_symbol(&SourceTokenKind::DoubleColon)?;
+        let (intrinsic_name, _) = self.take_identifier_name()?;
+        if intrinsic_name != "service" {
+            return Err(self.problem_at_current_token());
+        }
+        self.take_required_symbol(&SourceTokenKind::DoubleColon)?;
+        self.take_required_symbol(&SourceTokenKind::LessThan)?;
+        let (service_type_name, service_type_range) = self.take_identifier_name()?;
+        self.take_required_symbol(&SourceTokenKind::GreaterThan)?;
+        self.take_required_symbol(&SourceTokenKind::LeftParenthesis)?;
+        let right_parenthesis = self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
+        Ok(ParsedExpression::RobloxServiceAcquisition {
+            service_type_name,
+            service_type_range,
+            expression_range: SourceRange::from_byte_range((
+                namespace_range.start_byte(),
+                right_parenthesis.source_range().end_byte(),
+            )),
+        })
+    }
+
+    fn parse_array_literal(&mut self) -> Result<ParsedExpression, CompilationProblem> {
+        let left_bracket = self.take_required_symbol(&SourceTokenKind::LeftBracket)?;
+        if matches!(self.current_token_kind(), Ok(SourceTokenKind::RightBracket)) {
+            return Err(self.problem_at_current_token());
+        }
+        let mut element_expressions = Vec::new();
+        loop {
+            element_expressions.push(self.parse_expression()?);
+            match self.current_token_kind()? {
+                SourceTokenKind::Comma => {
+                    drop(self.take_required_symbol(&SourceTokenKind::Comma)?);
+                }
+                SourceTokenKind::RightBracket => break,
+                _ => return Err(self.problem_at_current_token()),
+            }
+        }
+        let right_bracket = self.take_required_symbol(&SourceTokenKind::RightBracket)?;
+        Ok(ParsedExpression::ArrayLiteral(
+            crate::source_language::ParsedArrayLiteral::from_elements((
+                element_expressions,
+                SourceRange::from_byte_range((
+                    left_bracket.source_range().start_byte(),
+                    right_bracket.source_range().end_byte(),
+                )),
+            )),
+        ))
+    }
+
+    fn parse_record_literal(
+        &mut self,
+        record_name_at_range: (String, SourceRange),
+    ) -> Result<ParsedExpression, CompilationProblem> {
+        let (record_name, record_name_range) = record_name_at_range;
+        match self.take_required_symbol(&SourceTokenKind::LeftBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let mut field_initializers = Vec::new();
+        loop {
+            match self.current_token_kind() {
+                Ok(SourceTokenKind::RightBrace) => break,
+                Ok(_) => {
+                    let (field_name, field_name_range) = match self.take_identifier_name() {
+                        Ok(field_name_at_range) => field_name_at_range,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    match self.take_required_symbol(&SourceTokenKind::Colon) {
+                        Ok(consumed_symbol) => drop(consumed_symbol),
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    }
+                    let initialized_value = match self.parse_expression() {
+                        Ok(initialized_value) => initialized_value,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    field_initializers.push(
+                        crate::source_language::ParsedRecordFieldInitializer::from_initializer((
+                            field_name,
+                            field_name_range,
+                            initialized_value,
+                        )),
+                    );
+                    match self.current_token_kind() {
+                        Ok(SourceTokenKind::Comma) => {
+                            match self.take_required_symbol(&SourceTokenKind::Comma) {
+                                Ok(consumed_symbol) => drop(consumed_symbol),
+                                Err(compilation_problem) => return Err(compilation_problem),
+                            }
+                        }
+                        Ok(SourceTokenKind::RightBrace) => {}
+                        Ok(_) => return Err(self.problem_at_current_token()),
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    }
+                }
+                Err(compilation_problem) => return Err(compilation_problem),
+            }
+        }
+        let right_brace = match self.take_required_symbol(&SourceTokenKind::RightBrace) {
+            Ok(right_brace) => right_brace,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        let literal_range = SourceRange::from_byte_range((
+            record_name_range.start_byte(),
+            right_brace.source_range().end_byte(),
+        ));
+        Ok(ParsedExpression::RecordLiteral(
+            crate::source_language::ParsedRecordLiteral::from_literal((
+                record_name,
+                record_name_range,
+                field_initializers,
+                literal_range,
+            )),
+        ))
     }
 
     fn parse_function_arguments(&mut self) -> Result<Vec<ParsedExpression>, CompilationProblem> {

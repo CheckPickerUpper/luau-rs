@@ -2,12 +2,14 @@ use std::cmp::Ordering;
 
 use crate::{
     checked_program::{
-        program_check_context::ProgramCheckContext, CheckedBooleanLiteral, CheckedExpression,
-        CheckedFunctionCall, CheckedNumericOperation, CheckedNumericOperator, CheckedValueType,
+        program_check_context::ProgramCheckContext, CheckedArrayLiteral, CheckedArrayRead,
+        CheckedBooleanLiteral, CheckedExpression, CheckedFieldRead, CheckedFunctionCall,
+        CheckedNumericOperation, CheckedNumericOperator, CheckedRecordFieldInitializer,
+        CheckedRecordLiteral, CheckedValueType,
     },
     source_language::{
-        ParsedExpression, ParsedFunctionCall, ParsedNumericOperation, ParsedNumericOperator,
-        SourceBooleanLiteral,
+        ParsedArrayLiteral, ParsedArrayRead, ParsedExpression, ParsedFieldRead, ParsedFunctionCall,
+        ParsedNumericOperation, ParsedNumericOperator, ParsedRecordLiteral, SourceBooleanLiteral,
     },
     ArgumentCount, CompilationProblem, CompilationProblemReason, SourceRange,
 };
@@ -62,6 +64,27 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     CheckedValueType::Boolean,
                 ))
             }
+            ParsedExpression::RobloxServiceAcquisition {
+                service_type_name,
+                service_type_range,
+                ..
+            } => {
+                let roblox_service = self
+                    .check_context
+                    .acquire_roblox_service((service_type_name, *service_type_range))?;
+                Ok((
+                    CheckedExpression::RobloxServiceAcquisition(roblox_service),
+                    CheckedValueType::RobloxService(roblox_service),
+                ))
+            }
+            ParsedExpression::ArrayLiteral(array_literal) => {
+                self.check_array_literal(array_literal)
+            }
+            ParsedExpression::RecordLiteral(record_literal) => {
+                self.check_record_literal(record_literal)
+            }
+            ParsedExpression::FieldRead(field_read) => self.check_field_read(field_read),
+            ParsedExpression::ArrayRead(array_read) => self.check_array_read(array_read),
             ParsedExpression::NumericOperation(operation) => {
                 self.check_numeric_operation(operation)
             }
@@ -85,6 +108,168 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 }
             }
         }
+    }
+
+    fn check_array_literal(
+        &mut self,
+        array_literal: &ParsedArrayLiteral,
+    ) -> Result<(CheckedExpression, CheckedValueType), CompilationProblem> {
+        let Some((first_element, remaining_elements)) =
+            array_literal.element_expressions().split_first()
+        else {
+            return Err(CompilationProblem::from_problem_at_range((
+                array_literal.literal_range(),
+                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+            )));
+        };
+        let (checked_first, element_type) = self.check_expression(first_element)?;
+        let mut checked_elements = vec![checked_first];
+        for element in remaining_elements {
+            let (checked_element, actual_type) = self.check_expression(element)?;
+            Self::require_matching_type((
+                actual_type,
+                element_type.clone(),
+                element.source_range(),
+            ))?;
+            checked_elements.push(checked_element);
+        }
+        Ok((
+            CheckedExpression::ArrayLiteral(CheckedArrayLiteral::from_elements(checked_elements)),
+            CheckedValueType::Array(Box::new(element_type)),
+        ))
+    }
+
+    fn check_array_read(
+        &mut self,
+        array_read: &ParsedArrayRead,
+    ) -> Result<(CheckedExpression, CheckedValueType), CompilationProblem> {
+        let (checked_base, base_type) = self.check_expression(array_read.base_expression())?;
+        let CheckedValueType::Array(element_type) = base_type else {
+            return Err(CompilationProblem::from_problem_at_range((
+                array_read.base_expression().source_range(),
+                CompilationProblemReason::TypesDoNotMatch,
+            )));
+        };
+        let (checked_index, index_type) = self.check_expression(array_read.index_expression())?;
+        Self::require_matching_type((
+            index_type,
+            CheckedValueType::Number,
+            array_read.index_expression().source_range(),
+        ))?;
+        Ok((
+            CheckedExpression::ArrayRead(CheckedArrayRead::from_read((
+                Box::new(checked_base),
+                Box::new(checked_index),
+            ))),
+            *element_type,
+        ))
+    }
+
+    fn check_record_literal(
+        &mut self,
+        record_literal: &ParsedRecordLiteral,
+    ) -> Result<(CheckedExpression, CheckedValueType), CompilationProblem> {
+        let declared_fields = self
+            .check_context
+            .checked_record_declaration((
+                record_literal.record_name(),
+                record_literal.record_name_range(),
+            ))?
+            .record_fields()
+            .iter()
+            .map(|field| (field.field_name().to_owned(), field.value_type().clone()))
+            .collect::<Vec<_>>();
+        let mut checked_initializers = Vec::new();
+        for field_initializer in record_literal.field_initializers() {
+            if checked_initializers.iter().any(
+                |checked_initializer: &CheckedRecordFieldInitializer| {
+                    checked_initializer.field_name() == field_initializer.field_name()
+                },
+            ) {
+                return Err(CompilationProblem::from_problem_at_range((
+                    field_initializer.field_name_range(),
+                    CompilationProblemReason::DuplicateRecordField,
+                )));
+            }
+            let Some((_, expected_value_type)) = declared_fields
+                .iter()
+                .find(|(field_name, _)| field_name == field_initializer.field_name())
+            else {
+                return Err(CompilationProblem::from_problem_at_range((
+                    field_initializer.field_name_range(),
+                    CompilationProblemReason::UnknownRecordField,
+                )));
+            };
+            let (checked_value, actual_type) =
+                self.check_expression(field_initializer.initialized_value())?;
+            match Self::require_matching_type((
+                actual_type,
+                expected_value_type.clone(),
+                field_initializer.initialized_value().source_range(),
+            )) {
+                Ok(()) => {}
+                Err(_) => {
+                    return Err(CompilationProblem::from_problem_at_range((
+                        field_initializer.initialized_value().source_range(),
+                        CompilationProblemReason::RecordFieldInitializerTypeMismatch,
+                    )));
+                }
+            }
+            checked_initializers.push(CheckedRecordFieldInitializer::from_initializer((
+                field_initializer.field_name().to_owned(),
+                checked_value,
+            )));
+        }
+        for (record_field_name, _) in &declared_fields {
+            if !checked_initializers
+                .iter()
+                .any(|checked_initializer| checked_initializer.field_name() == record_field_name)
+            {
+                return Err(CompilationProblem::from_problem_at_range((
+                    record_literal.record_name_range(),
+                    CompilationProblemReason::MissingRecordField,
+                )));
+            }
+        }
+        Ok((
+            CheckedExpression::RecordLiteral(CheckedRecordLiteral::from_initializers(
+                checked_initializers,
+            )),
+            CheckedValueType::NamedRecord(record_literal.record_name().to_owned()),
+        ))
+    }
+
+    fn check_field_read(
+        &mut self,
+        field_read: &ParsedFieldRead,
+    ) -> Result<(CheckedExpression, CheckedValueType), CompilationProblem> {
+        let (checked_base, base_type) = self.check_expression(field_read.base_expression())?;
+        let CheckedValueType::NamedRecord(record_name) = base_type else {
+            return Err(CompilationProblem::from_problem_at_range((
+                field_read.base_expression().source_range(),
+                CompilationProblemReason::FieldAccessRequiresRecord,
+            )));
+        };
+        let checked_value_type = self
+            .check_context
+            .checked_record_declaration((&record_name, field_read.field_name_range()))?
+            .record_fields()
+            .iter()
+            .find(|record_field| record_field.field_name() == field_read.field_name())
+            .map(|record_field| record_field.value_type().clone());
+        let Some(checked_value_type) = checked_value_type else {
+            return Err(CompilationProblem::from_problem_at_range((
+                field_read.field_name_range(),
+                CompilationProblemReason::UnknownRecordAccessField,
+            )));
+        };
+        Ok((
+            CheckedExpression::FieldRead(CheckedFieldRead::from_read((
+                Box::new(checked_base),
+                field_read.field_name().to_owned(),
+            ))),
+            checked_value_type,
+        ))
     }
 
     /// Checks both operands and preserves the stage-specific numeric operator.
@@ -175,7 +360,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             };
             match Self::require_matching_type((
                 actual_type,
-                *expected_type,
+                expected_type.clone(),
                 parsed_argument.source_range(),
             )) {
                 Ok(()) => {}
@@ -220,7 +405,12 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             Err(compilation_problem) => return Err(compilation_problem),
         };
         match argument_type {
-            CheckedValueType::Number | CheckedValueType::String | CheckedValueType::Boolean => {}
+            CheckedValueType::Number
+            | CheckedValueType::String
+            | CheckedValueType::Boolean
+            | CheckedValueType::NamedRecord(_)
+            | CheckedValueType::RobloxService(_)
+            | CheckedValueType::Array(_) => {}
             CheckedValueType::NoReturnedValues => {
                 return Err(CompilationProblem::from_problem_at_range((
                     parsed_argument.source_range(),
@@ -248,7 +438,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         {
             match visible_name.as_str().cmp(function_name) {
                 Ordering::Equal => {
-                    return Ok((parameter_types.clone(), *returned_value_type));
+                    return Ok((parameter_types.clone(), returned_value_type.clone()));
                 }
                 Ordering::Less | Ordering::Greater => {}
             }
@@ -275,9 +465,9 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         name_at_range: (&str, SourceRange),
     ) -> Result<CheckedValueType, CompilationProblem> {
         let (referenced_name, name_range) = name_at_range;
-        for (local_name, local_type) in self.check_context.local_bindings().iter().rev() {
-            match local_name.as_str().cmp(referenced_name) {
-                Ordering::Equal => return Ok(*local_type),
+        for local_binding in self.check_context.local_bindings().iter().rev() {
+            match local_binding.local_name().cmp(referenced_name) {
+                Ordering::Equal => return Ok(local_binding.value_type()),
                 Ordering::Less | Ordering::Greater => {}
             }
         }
@@ -288,7 +478,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
     }
 
     /// Rejects a value whose proven type differs from its required type.
-    pub(super) const fn require_matching_type(
+    pub(super) fn require_matching_type(
         type_requirement: (CheckedValueType, CheckedValueType, SourceRange),
     ) -> Result<(), CompilationProblem> {
         let (actual_type, expected_type, source_range) = type_requirement;
@@ -297,6 +487,22 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             | (CheckedValueType::String, CheckedValueType::String)
             | (CheckedValueType::Boolean, CheckedValueType::Boolean)
             | (CheckedValueType::NoReturnedValues, CheckedValueType::NoReturnedValues) => Ok(()),
+            (
+                CheckedValueType::NamedRecord(actual_name),
+                CheckedValueType::NamedRecord(expected_name),
+            ) if actual_name == expected_name => Ok(()),
+            (
+                CheckedValueType::RobloxService(actual_service),
+                CheckedValueType::RobloxService(expected_service),
+            ) if actual_service == expected_service => Ok(()),
+            (
+                CheckedValueType::Array(actual_element_type),
+                CheckedValueType::Array(expected_element_type),
+            ) => Self::require_matching_type((
+                *actual_element_type,
+                *expected_element_type,
+                source_range,
+            )),
             _ => Err(CompilationProblem::from_problem_at_range((
                 source_range,
                 CompilationProblemReason::TypesDoNotMatch,

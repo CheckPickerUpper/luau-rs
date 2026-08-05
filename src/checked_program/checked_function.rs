@@ -40,8 +40,8 @@ impl CheckedFunction {
     }
 
     /// Gives Luau generation the validated returned value type.
-    pub(crate) const fn returned_value_type(&self) -> CheckedValueType {
-        self.returned_value_type
+    pub(crate) fn returned_value_type(&self) -> CheckedValueType {
+        self.returned_value_type.clone()
     }
 
     /// Gives Luau generation the whole checked lexical scope of the function.

@@ -1,6 +1,7 @@
 use crate::generated_luau::{
-    LuauBooleanLiteral, LuauComparisonOperation, LuauEqualityOperation, LuauFunctionCall,
-    LuauLogicalNegation, LuauLogicalOperation, LuauNumericOperation,
+    LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
+    LuauEqualityOperation, LuauFieldRead, LuauFunctionCall, LuauLogicalNegation,
+    LuauLogicalOperation, LuauNumericOperation, LuauRecordLiteral,
 };
 
 /// Represents expressions after source-language meaning has been resolved.
@@ -14,6 +15,16 @@ pub enum LuauExpression {
     StringLiteral(String),
     /// Preserves a checked boolean literal for direct emission.
     BooleanLiteral(LuauBooleanLiteral),
+    /// Acquires a fixed Roblox service through the sole generated runtime bridge.
+    RobloxServiceAcquisition(String),
+    /// Constructs a target table whose positions match source array order.
+    ArrayLiteral(LuauArrayLiteral),
+    /// Constructs a checked record value as a Luau table literal.
+    RecordLiteral(LuauRecordLiteral),
+    /// Reads a validated table field with Luau dot access.
+    FieldRead(LuauFieldRead),
+    /// Reads a source zero-based array through Luau's one-based table indexing.
+    ArrayRead(LuauArrayRead),
     /// Retains a numeric operation in source order.
     NumericOperation(LuauNumericOperation),
     /// Retains a numeric comparison in source order.

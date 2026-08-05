@@ -11,5 +11,6 @@ pub use compilation_outcome::CompilationOutcome;
 pub use compilation_problem::CompilationProblem;
 pub use compilation_problem_reason::CompilationProblemReason;
 pub use compilation_rejection::CompilationRejection;
+pub use compile_source::compile_library_source;
 pub use compile_source::compile_source;
 pub use source_range::SourceRange;

@@ -25,7 +25,7 @@ impl CheckedParameter {
     }
 
     /// Gives Luau generation the validated parameter type.
-    pub(crate) const fn value_type(&self) -> CheckedValueType {
-        self.value_type
+    pub(crate) fn value_type(&self) -> CheckedValueType {
+        self.value_type.clone()
     }
 }

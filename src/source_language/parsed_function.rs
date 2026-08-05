@@ -5,6 +5,7 @@ use crate::{
 
 /// Owns one parsed function declaration with its typed signature and body.
 pub struct ParsedFunction {
+    visibility: ParsedFunctionVisibility,
     function_name: String,
     function_name_range: SourceRange,
     function_parameters: Vec<ParsedParameter>,
@@ -17,6 +18,7 @@ impl ParsedFunction {
     /// Builds a function only after its complete signature and body have parsed.
     pub(crate) fn from_declaration(
         declaration: (
+            ParsedFunctionVisibility,
             String,
             SourceRange,
             Vec<ParsedParameter>,
@@ -25,6 +27,7 @@ impl ParsedFunction {
         ),
     ) -> Self {
         let (
+            visibility,
             function_name,
             function_name_range,
             function_parameters,
@@ -32,12 +35,18 @@ impl ParsedFunction {
             function_body,
         ) = declaration;
         Self {
+            visibility,
             function_name,
             function_name_range,
             function_parameters,
             returned_value_type,
             function_body,
         }
+    }
+
+    /// Gives project import indexing the function's cross-module visibility.
+    pub(crate) const fn visibility(&self) -> ParsedFunctionVisibility {
+        self.visibility
     }
 
     /// Gives semantic checking the declared function identity.
@@ -56,12 +65,19 @@ impl ParsedFunction {
     }
 
     /// Gives semantic checking the function's declared returned value type.
-    pub(crate) const fn returned_value_type(&self) -> ParsedValueType {
-        self.returned_value_type
+    pub(crate) fn returned_value_type(&self) -> ParsedValueType {
+        self.returned_value_type.clone()
     }
 
     /// Gives semantic checking the complete scope of the function body.
     pub(crate) const fn function_body(&self) -> &ParsedFunctionBody {
         &self.function_body
     }
+}
+
+/// Distinguishes module-private declarations from functions exported by a library module.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ParsedFunctionVisibility {
+    Public,
+    Private,
 }

@@ -2,15 +2,37 @@ use crate::{
     source_language::{
         parse_source_program::SourceProgramParser, ParsedExpression, ParsedFunction,
         ParsedFunctionBody, ParsedIfElse, ParsedParameter, ParsedStatement, ParsedValueType,
-        SourceTokenKind,
+        ParsedWhileLoop, SourceTokenKind,
     },
     CompilationProblem,
 };
+
+enum ParsedLocalMutability {
+    Immutable,
+    Mutable,
+}
+
+struct FlattenedRecordFieldAssignmentTarget {
+    root_binding_name: String,
+    root_binding_range: crate::SourceRange,
+    reversed_steps: Vec<crate::source_language::ParsedPlaceStep>,
+}
 
 /// Parses function declarations, bodies, parameters, and non-return statements.
 impl SourceProgramParser {
     /// Parses one complete function declaration at the current token position.
     pub(super) fn parse_function(&mut self) -> Result<ParsedFunction, CompilationProblem> {
+        let visibility = match self.current_token_kind() {
+            Ok(SourceTokenKind::PublicKeyword) => {
+                match self.take_required_symbol(&SourceTokenKind::PublicKeyword) {
+                    Ok(consumed_symbol) => drop(consumed_symbol),
+                    Err(compilation_problem) => return Err(compilation_problem),
+                }
+                crate::source_language::ParsedFunctionVisibility::Public
+            }
+            Ok(_) => crate::source_language::ParsedFunctionVisibility::Private,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
         match self.take_required_symbol(&SourceTokenKind::FunctionKeyword) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
@@ -58,6 +80,7 @@ impl SourceProgramParser {
             Err(compilation_problem) => return Err(compilation_problem),
         }
         Ok(ParsedFunction::from_declaration((
+            visibility,
             function_name,
             function_name_range,
             function_parameters,
@@ -109,6 +132,21 @@ impl SourceProgramParser {
     }
 
     fn parse_value_type(&mut self) -> Result<ParsedValueType, CompilationProblem> {
+        if matches!(self.current_token_kind(), Ok(SourceTokenKind::LeftBracket)) {
+            match self.take_required_symbol(&SourceTokenKind::LeftBracket) {
+                Ok(consumed_symbol) => drop(consumed_symbol),
+                Err(compilation_problem) => return Err(compilation_problem),
+            }
+            let element_type = match self.parse_value_type() {
+                Ok(element_type) => element_type,
+                Err(compilation_problem) => return Err(compilation_problem),
+            };
+            match self.take_required_symbol(&SourceTokenKind::RightBracket) {
+                Ok(consumed_symbol) => drop(consumed_symbol),
+                Err(compilation_problem) => return Err(compilation_problem),
+            }
+            return Ok(ParsedValueType::Array(Box::new(element_type)));
+        }
         let (type_name, type_range) = match self.take_identifier_name() {
             Ok(type_name_at_range) => type_name_at_range,
             Err(compilation_problem) => return Err(compilation_problem),
@@ -117,11 +155,78 @@ impl SourceProgramParser {
             "number" => Ok(ParsedValueType::Number),
             "string" => Ok(ParsedValueType::String),
             "boolean" => Ok(ParsedValueType::Boolean),
-            _ => Err(CompilationProblem::from_problem_at_range((
-                type_range,
-                crate::CompilationProblemReason::SourceDoesNotFollowLanguageRules,
-            ))),
+            _ => Ok(ParsedValueType::NamedRecord {
+                record_name: type_name,
+                record_name_range: type_range,
+            }),
         }
+    }
+
+    pub(super) fn parse_record_declaration(
+        &mut self,
+    ) -> Result<crate::source_language::ParsedRecordDeclaration, CompilationProblem> {
+        match self.take_required_symbol(&SourceTokenKind::StructKeyword) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let (record_name, record_name_range) = match self.take_declaration_name() {
+            Ok(declaration_name) => declaration_name,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(&SourceTokenKind::LeftBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let mut record_fields = Vec::new();
+        loop {
+            match self.current_token_kind() {
+                Ok(SourceTokenKind::RightBrace) => break,
+                Ok(_) => {
+                    let (field_name, field_name_range) = match self.take_declaration_name() {
+                        Ok(declaration_name) => declaration_name,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    match self.take_required_symbol(&SourceTokenKind::Colon) {
+                        Ok(consumed_symbol) => drop(consumed_symbol),
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    }
+                    let value_type = match self.parse_value_type() {
+                        Ok(value_type) => value_type,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
+                    record_fields.push(
+                        crate::source_language::ParsedRecordField::from_declaration((
+                            field_name,
+                            field_name_range,
+                            value_type,
+                        )),
+                    );
+                    match self.current_token_kind() {
+                        Ok(SourceTokenKind::Comma) => {
+                            match self.take_required_symbol(&SourceTokenKind::Comma) {
+                                Ok(consumed_symbol) => drop(consumed_symbol),
+                                Err(compilation_problem) => return Err(compilation_problem),
+                            }
+                        }
+                        Ok(SourceTokenKind::RightBrace) => {}
+                        Ok(_) => return Err(self.problem_at_current_token()),
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    }
+                }
+                Err(compilation_problem) => return Err(compilation_problem),
+            }
+        }
+        match self.take_required_symbol(&SourceTokenKind::RightBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        Ok(
+            crate::source_language::ParsedRecordDeclaration::from_declaration((
+                record_name,
+                record_name_range,
+                record_fields,
+            )),
+        )
     }
 
     fn parse_function_body(&mut self) -> Result<ParsedFunctionBody, CompilationProblem> {
@@ -143,12 +248,26 @@ impl SourceProgramParser {
     fn parse_non_return_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
         match self.current_token_kind() {
             Ok(SourceTokenKind::ReturnKeyword) => self.parse_return_statement(),
+            Ok(SourceTokenKind::BreakKeyword) => self.parse_loop_exit_statement(true),
+            Ok(SourceTokenKind::ContinueKeyword) => self.parse_loop_exit_statement(false),
             Ok(SourceTokenKind::IfKeyword) => self.parse_if_else_statement(),
+            Ok(SourceTokenKind::WhileKeyword) => self.parse_while_loop_statement(),
             Ok(SourceTokenKind::LetKeyword) => {
                 match self.take_required_symbol(&SourceTokenKind::LetKeyword) {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
+                let local_mutability = match self.current_token_kind() {
+                    Ok(SourceTokenKind::MutKeyword) => {
+                        match self.take_required_symbol(&SourceTokenKind::MutKeyword) {
+                            Ok(consumed_symbol) => drop(consumed_symbol),
+                            Err(compilation_problem) => return Err(compilation_problem),
+                        }
+                        ParsedLocalMutability::Mutable
+                    }
+                    Ok(_) => ParsedLocalMutability::Immutable,
+                    Err(compilation_problem) => return Err(compilation_problem),
+                };
                 let (local_name, local_name_range) = match self.take_declaration_name() {
                     Ok(declaration_name) => declaration_name,
                     Err(compilation_problem) => return Err(compilation_problem),
@@ -173,12 +292,20 @@ impl SourceProgramParser {
                     Ok(consumed_symbol) => drop(consumed_symbol),
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
-                Ok(ParsedStatement::ImmutableLocal {
-                    local_name,
-                    local_name_range,
-                    value_type,
-                    initial_value,
-                })
+                match local_mutability {
+                    ParsedLocalMutability::Mutable => Ok(ParsedStatement::MutableLocal {
+                        local_name,
+                        local_name_range,
+                        value_type,
+                        initial_value,
+                    }),
+                    ParsedLocalMutability::Immutable => Ok(ParsedStatement::ImmutableLocal {
+                        local_name,
+                        local_name_range,
+                        value_type,
+                        initial_value,
+                    }),
+                }
             }
             Ok(_) => {
                 let statement_problem = self.problem_at_current_token();
@@ -186,18 +313,181 @@ impl SourceProgramParser {
                     Ok(expression) => expression,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
-                match self.take_required_symbol(&SourceTokenKind::Semicolon) {
-                    Ok(consumed_symbol) => drop(consumed_symbol),
-                    Err(compilation_problem) => return Err(compilation_problem),
-                }
                 match expression {
+                    ParsedExpression::NameReference {
+                        referenced_name,
+                        name_range,
+                    } => match self.current_token_kind() {
+                        Ok(SourceTokenKind::Equals) => {
+                            self.parse_local_assignment((referenced_name, name_range))
+                        }
+                        Ok(_) => Err(statement_problem),
+                        Err(compilation_problem) => Err(compilation_problem),
+                    },
                     ParsedExpression::FunctionCall(function_call) => {
+                        match self.take_required_symbol(&SourceTokenKind::Semicolon) {
+                            Ok(consumed_symbol) => drop(consumed_symbol),
+                            Err(compilation_problem) => return Err(compilation_problem),
+                        }
                         Ok(ParsedStatement::CallFunctionAndIgnoreResult(function_call))
                     }
-                    _ => Err(statement_problem),
+                    ParsedExpression::NumberLiteral(_)
+                    | ParsedExpression::StringLiteral(_)
+                    | ParsedExpression::BooleanLiteral { .. }
+                    | ParsedExpression::RobloxServiceAcquisition { .. }
+                    | ParsedExpression::ArrayLiteral(_)
+                    | ParsedExpression::RecordLiteral(_)
+                    | ParsedExpression::NumericOperation(_)
+                    | ParsedExpression::ComparisonOperation(_)
+                    | ParsedExpression::EqualityOperation(_)
+                    | ParsedExpression::LogicalNegation(_)
+                    | ParsedExpression::LogicalOperation(_) => Err(statement_problem),
+                    ParsedExpression::FieldRead(_) | ParsedExpression::ArrayRead(_) => {
+                        match self.current_token_kind() {
+                            Ok(SourceTokenKind::Equals) => {
+                                self.parse_place_assignment((expression, statement_problem))
+                            }
+                            Ok(_) => Err(statement_problem),
+                            Err(compilation_problem) => Err(compilation_problem),
+                        }
+                    }
                 }
             }
             Err(compilation_problem) => Err(compilation_problem),
+        }
+    }
+
+    fn parse_local_assignment(
+        &mut self,
+        local_name_at_range: (String, crate::SourceRange),
+    ) -> Result<ParsedStatement, CompilationProblem> {
+        let (local_name, local_name_range) = local_name_at_range;
+        match self.take_required_symbol(&SourceTokenKind::Equals) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let assigned_value = match self.parse_expression() {
+            Ok(assigned_value) => assigned_value,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(&SourceTokenKind::Semicolon) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        Ok(ParsedStatement::AssignLocal {
+            local_name,
+            local_name_range,
+            assigned_value,
+        })
+    }
+
+    fn parse_place_assignment(
+        &mut self,
+        target_and_problem: (ParsedExpression, CompilationProblem),
+    ) -> Result<ParsedStatement, CompilationProblem> {
+        let (target, statement_problem) = target_and_problem;
+        let Some(FlattenedRecordFieldAssignmentTarget {
+            root_binding_name,
+            root_binding_range,
+            mut reversed_steps,
+        }) = Self::flatten_place_assignment_target(target)
+        else {
+            return Err(statement_problem);
+        };
+        reversed_steps.reverse();
+        match self.take_required_symbol(&SourceTokenKind::Equals) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let assigned_value = match self.parse_expression() {
+            Ok(assigned_value) => assigned_value,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(&SourceTokenKind::Semicolon) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        Ok(ParsedStatement::AssignPlace(
+            crate::source_language::ParsedPlaceAssignment::from_parts((
+                root_binding_name,
+                root_binding_range,
+                reversed_steps,
+                assigned_value,
+            )),
+        ))
+    }
+
+    fn flatten_place_assignment_target(
+        target: ParsedExpression,
+    ) -> Option<FlattenedRecordFieldAssignmentTarget> {
+        let mut base_expression;
+        let mut reversed_steps;
+        match target {
+            ParsedExpression::FieldRead(field_read) => {
+                let (base, field_name, field_range, _) = field_read.into_read();
+                let base_range = base.source_range();
+                base_expression = base;
+                reversed_steps = vec![crate::source_language::ParsedPlaceStep::Field {
+                    field_name,
+                    field_range,
+                    base_range,
+                }];
+            }
+            ParsedExpression::ArrayRead(array_read) => {
+                let (base, index_expression, _) = array_read.into_read();
+                let base_range = base.source_range();
+                base_expression = base;
+                reversed_steps = vec![crate::source_language::ParsedPlaceStep::Index {
+                    index_expression,
+                    base_range,
+                }];
+            }
+            _ => return None,
+        }
+        loop {
+            match *base_expression {
+                ParsedExpression::FieldRead(field_read) => {
+                    let (next_base, field_name, field_range, _) = field_read.into_read();
+                    let base_range = next_base.source_range();
+                    reversed_steps.push(crate::source_language::ParsedPlaceStep::Field {
+                        field_name,
+                        field_range,
+                        base_range,
+                    });
+                    base_expression = next_base;
+                }
+                ParsedExpression::ArrayRead(array_read) => {
+                    let (next_base, index_expression, _) = array_read.into_read();
+                    let base_range = next_base.source_range();
+                    reversed_steps.push(crate::source_language::ParsedPlaceStep::Index {
+                        index_expression,
+                        base_range,
+                    });
+                    base_expression = next_base;
+                }
+                ParsedExpression::NameReference {
+                    referenced_name,
+                    name_range,
+                } => {
+                    return Some(FlattenedRecordFieldAssignmentTarget {
+                        root_binding_name: referenced_name,
+                        root_binding_range: name_range,
+                        reversed_steps,
+                    });
+                }
+                ParsedExpression::NumberLiteral(_)
+                | ParsedExpression::StringLiteral(_)
+                | ParsedExpression::BooleanLiteral { .. }
+                | ParsedExpression::RobloxServiceAcquisition { .. }
+                | ParsedExpression::RecordLiteral(_)
+                | ParsedExpression::ArrayLiteral(_)
+                | ParsedExpression::NumericOperation(_)
+                | ParsedExpression::ComparisonOperation(_)
+                | ParsedExpression::EqualityOperation(_)
+                | ParsedExpression::LogicalNegation(_)
+                | ParsedExpression::LogicalOperation(_)
+                | ParsedExpression::FunctionCall(_) => return None,
+            }
         }
     }
 
@@ -217,12 +507,36 @@ impl SourceProgramParser {
         Ok(ParsedStatement::ReturnsValue(returned_value))
     }
 
+    fn parse_loop_exit_statement(
+        &mut self,
+        exits_loop: bool,
+    ) -> Result<ParsedStatement, CompilationProblem> {
+        let keyword_kind = if exits_loop {
+            SourceTokenKind::BreakKeyword
+        } else {
+            SourceTokenKind::ContinueKeyword
+        };
+        let keyword_range = match self.take_required_symbol(&keyword_kind) {
+            Ok(consumed_symbol) => consumed_symbol.source_range(),
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(&SourceTokenKind::Semicolon) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        if exits_loop {
+            Ok(ParsedStatement::BreaksLoop(keyword_range))
+        } else {
+            Ok(ParsedStatement::ContinuesLoop(keyword_range))
+        }
+    }
+
     fn parse_if_else_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
         match self.take_required_symbol(&SourceTokenKind::IfKeyword) {
             Ok(consumed_symbol) => drop(consumed_symbol),
             Err(compilation_problem) => return Err(compilation_problem),
         }
-        let condition = match self.parse_expression() {
+        let condition = match self.parse_condition_expression() {
             Ok(condition) => condition,
             Err(compilation_problem) => return Err(compilation_problem),
         };
@@ -259,6 +573,35 @@ impl SourceProgramParser {
             condition,
             then_body,
             else_body,
+            condition_range,
+        ))))
+    }
+
+    fn parse_while_loop_statement(&mut self) -> Result<ParsedStatement, CompilationProblem> {
+        match self.take_required_symbol(&SourceTokenKind::WhileKeyword) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let condition = match self.parse_condition_expression() {
+            Ok(condition) => condition,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        let condition_range = condition.source_range();
+        match self.take_required_symbol(&SourceTokenKind::LeftBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        let body = match self.parse_function_body() {
+            Ok(body) => body,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        match self.take_required_symbol(&SourceTokenKind::RightBrace) {
+            Ok(consumed_symbol) => drop(consumed_symbol),
+            Err(compilation_problem) => return Err(compilation_problem),
+        }
+        Ok(ParsedStatement::WhileLoop(ParsedWhileLoop::from_parts((
+            condition,
+            body,
             condition_range,
         ))))
     }

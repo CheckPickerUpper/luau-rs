@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Compiler roadmap
+    url: https://github.com/CheckPickerUpper/luau-rs/issues/1
+    about: Check whether an existing roadmap slice already owns the requested behavior.

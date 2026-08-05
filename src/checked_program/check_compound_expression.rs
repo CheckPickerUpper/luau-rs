@@ -167,7 +167,7 @@ impl ExpressionChecker<'_, '_> {
         ))
     }
 
-    const fn require_matching_equality_operands(
+    fn require_matching_equality_operands(
         value_types_at_range: (CheckedValueType, CheckedValueType, SourceRange),
     ) -> Result<(), CompilationProblem> {
         let (left_type, right_type, operator_range) = value_types_at_range;
@@ -175,6 +175,22 @@ impl ExpressionChecker<'_, '_> {
             (CheckedValueType::Number, CheckedValueType::Number)
             | (CheckedValueType::String, CheckedValueType::String)
             | (CheckedValueType::Boolean, CheckedValueType::Boolean) => Ok(()),
+            (
+                CheckedValueType::NamedRecord(left_name),
+                CheckedValueType::NamedRecord(right_name),
+            ) if left_name == right_name => Ok(()),
+            (
+                CheckedValueType::RobloxService(left_service),
+                CheckedValueType::RobloxService(right_service),
+            ) if left_service == right_service => Ok(()),
+            (
+                CheckedValueType::Array(left_element_type),
+                CheckedValueType::Array(right_element_type),
+            ) => Self::require_matching_equality_operands((
+                *left_element_type,
+                *right_element_type,
+                operator_range,
+            )),
             (
                 CheckedValueType::NoReturnedValues
                 | CheckedValueType::Number
@@ -199,6 +215,18 @@ impl ExpressionChecker<'_, '_> {
                 | CheckedValueType::Boolean
                 | CheckedValueType::NoReturnedValues,
                 CheckedValueType::Number,
+            )
+            | (
+                CheckedValueType::NamedRecord(_)
+                | CheckedValueType::RobloxService(_)
+                | CheckedValueType::Array(_),
+                _,
+            )
+            | (
+                _,
+                CheckedValueType::NamedRecord(_)
+                | CheckedValueType::RobloxService(_)
+                | CheckedValueType::Array(_),
             ) => Err(CompilationProblem::from_problem_at_range((
                 operator_range,
                 CompilationProblemReason::TypesDoNotMatch,

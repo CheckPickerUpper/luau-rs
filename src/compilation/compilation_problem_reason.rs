@@ -28,5 +28,33 @@ pub enum CompilationProblemReason {
     },
     /// A checked expression does not satisfy its required type.
     TypesDoNotMatch,
+    /// A type name does not identify a record declared in this source file.
+    UnknownRecordType,
+    /// A record declaration or literal repeats a field name.
+    DuplicateRecordField,
+    /// A record literal provides a field outside its declared shape.
+    UnknownRecordField,
+    /// A record literal omits a field required by its declared shape.
+    MissingRecordField,
+    /// A record field initializer does not have the field's declared value type.
+    RecordFieldInitializerTypeMismatch,
+    /// A postfix read names no field declared by its record base type.
+    UnknownRecordAccessField,
+    /// A postfix field read uses a value that is not a named record.
+    FieldAccessRequiresRecord,
+    /// A public function exposes a record alias whose visibility ends at this source file.
+    FilePrivateRecordTypeCannotBePublic,
+    /// An assignment targets a binding whose declaration did not permit updates.
+    ImmutableBindingCannotBeAssigned,
+    /// A source module uses project-only imports outside the project compiler.
+    ProjectImportRequiresProjectCompilation,
+    /// An intrinsic names no service in the closed compiler catalog.
+    UnknownRobloxService,
+    /// A catalogued service was acquired from a module that cannot access it.
+    RobloxServiceUnavailableOnModuleExecutionSide,
+    /// Service acquisition is only meaningful when a project supplies an execution side.
+    RobloxServiceAcquisitionRequiresProjectCompilation,
+    /// Service types only describe locals initialized by the service intrinsic.
+    RobloxServiceTypeMayOnlyBeUsedForLocalAcquisition,
 }
 use crate::ArgumentCount;
