@@ -67,6 +67,10 @@ jobs:
             if (!hasProofItem || !hasCommand) {
               errors.push('`## Proof` must contain at least one bullet with a backticked command or verification artifact.');
             }
+            const hasCompilerContractProof = /\bcargo(?: \+stable)? test --all-targets --locked\b/.test(proofContent);
+            if (!hasCompilerContractProof) {
+              errors.push('`## Proof` must include the locked all-target compiler contract command.');
+            }
 
             if (errors.length > 0) {
               core.setFailed([
