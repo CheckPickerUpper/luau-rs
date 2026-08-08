@@ -10,6 +10,8 @@ mod project_module_identity;
 mod project_module_role;
 mod project_module_source;
 mod project_output_path;
+mod project_output_rejection;
+mod write_compiled_project;
 
 pub use compile_project::compile_project;
 pub use compiled_project::CompiledProject;
@@ -23,3 +25,5 @@ pub use project_module_identity::ProjectModuleIdentity;
 pub use project_module_role::ProjectModuleRole;
 pub use project_module_source::ProjectModuleSource;
 pub use project_output_path::ProjectOutputPath;
+pub use project_output_rejection::{ProjectOutputOperation, ProjectOutputRejection};
+pub use write_compiled_project::write_compiled_project_atomically;
