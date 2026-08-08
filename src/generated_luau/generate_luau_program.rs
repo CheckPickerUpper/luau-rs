@@ -1,17 +1,18 @@
 use crate::{
     checked_program::{
         CheckedBooleanLiteral, CheckedExpression, CheckedFunction, CheckedFunctionBody,
-        CheckedFunctionCall, CheckedIfElse, CheckedParameter, CheckedProgram,
-        CheckedRecordDeclaration, CheckedStatement, CheckedValueType, CheckedWhileLoop,
+        CheckedFunctionCall, CheckedFunctionLiteral, CheckedIfElse, CheckedParameter,
+        CheckedProgram, CheckedRecordDeclaration, CheckedStatement, CheckedValueType,
+        CheckedWhileLoop,
     },
     generated_luau::{
         LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
         LuauComparisonOperator, LuauEqualityOperation, LuauEqualityOperator, LuauExpression,
-        LuauFieldRead, LuauFunction, LuauFunctionBody, LuauFunctionCall, LuauIfElse,
-        LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator,
-        LuauNumericOperation, LuauNumericOperator, LuauParameter, LuauPlaceAssignment,
-        LuauPlaceStep, LuauProgram, LuauRecordAlias, LuauRecordField, LuauRecordFieldInitializer,
-        LuauRecordLiteral, LuauStatement, LuauValueType, LuauWhileLoop,
+        LuauFieldRead, LuauFunction, LuauFunctionBody, LuauFunctionCall, LuauFunctionLiteral,
+        LuauIfElse, LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation,
+        LuauLogicalOperator, LuauNumericOperation, LuauNumericOperator, LuauParameter,
+        LuauPlaceAssignment, LuauPlaceStep, LuauProgram, LuauRecordAlias, LuauRecordField,
+        LuauRecordFieldInitializer, LuauRecordLiteral, LuauStatement, LuauValueType, LuauWhileLoop,
     },
 };
 
@@ -200,6 +201,9 @@ impl LuauProgramGenerator {
             CheckedExpression::NameReference(reference_name) => {
                 LuauExpression::NameReference(reference_name.to_owned())
             }
+            CheckedExpression::FunctionReference(function_name) => {
+                LuauExpression::FunctionReference(function_name.to_owned())
+            }
             CheckedExpression::NumberLiteral(number_literal) => {
                 LuauExpression::NumberLiteral(number_literal.to_owned())
             }
@@ -348,7 +352,24 @@ impl LuauProgramGenerator {
             CheckedExpression::FunctionCall(checked_function_call) => {
                 LuauExpression::FunctionCall(Self::generate_function_call(checked_function_call))
             }
+            CheckedExpression::FunctionLiteral(function_literal) => {
+                LuauExpression::FunctionLiteral(Self::generate_function_literal(function_literal))
+            }
         }
+    }
+
+    fn generate_function_literal(
+        checked_function_literal: &CheckedFunctionLiteral,
+    ) -> LuauFunctionLiteral {
+        LuauFunctionLiteral::from_parts((
+            checked_function_literal
+                .function_parameters()
+                .iter()
+                .map(Self::generate_parameter)
+                .collect(),
+            Self::generate_value_type(checked_function_literal.returned_value_type()),
+            Self::generate_function_body(checked_function_literal.function_body()),
+        ))
     }
 
     fn generate_function_call(checked_function_call: &CheckedFunctionCall) -> LuauFunctionCall {
@@ -370,6 +391,16 @@ impl LuauProgramGenerator {
             CheckedValueType::Array(element_type) => {
                 LuauValueType::Array(Box::new(Self::generate_value_type(*element_type)))
             }
+            CheckedValueType::Function {
+                parameter_types,
+                returned_value_type,
+            } => LuauValueType::Function {
+                parameter_types: parameter_types
+                    .into_iter()
+                    .map(Self::generate_value_type)
+                    .collect(),
+                returned_value_type: Box::new(Self::generate_value_type(*returned_value_type)),
+            },
             CheckedValueType::NamedRecord(record_name) => LuauValueType::NamedRecord(record_name),
             CheckedValueType::RobloxService(roblox_service) => {
                 LuauValueType::RobloxService(roblox_service.canonical_name().to_owned())

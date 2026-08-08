@@ -2,15 +2,17 @@ use std::cmp::Ordering;
 
 use crate::{
     checked_program::{
-        program_check_context::ProgramCheckContext, CheckedArrayLiteral, CheckedArrayRead,
-        CheckedBooleanLiteral, CheckedExpression, CheckedFieldRead, CheckedFunctionCall,
-        CheckedInstanceConstruction, CheckedInstanceLookup, CheckedNumericOperation,
+        check_function::FunctionChecker, program_check_context::ProgramCheckContext,
+        CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedExpression,
+        CheckedFieldRead, CheckedFunctionCall, CheckedInstanceConstruction, CheckedInstanceLookup,
+        CheckedNumericOperation,
         CheckedNumericOperator, CheckedRecordFieldInitializer, CheckedRecordLiteral,
         CheckedValueType,
     },
     source_language::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedExpression, ParsedFieldRead, ParsedFunctionCall,
-        ParsedNumericOperation, ParsedNumericOperator, ParsedRecordLiteral, SourceBooleanLiteral,
+        ParsedFunctionLiteral, ParsedNumericOperation, ParsedNumericOperator, ParsedRecordLiteral,
+        SourceBooleanLiteral,
     },
     ArgumentCount, CompilationProblem, CompilationProblemReason, SourceRange,
 };
@@ -38,13 +40,24 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             ParsedExpression::NameReference {
                 referenced_name,
                 name_range,
-            } => match self.resolve_local((referenced_name, *name_range)) {
-                Ok(resolved_type) => Ok((
-                    CheckedExpression::NameReference(referenced_name.to_owned()),
-                    resolved_type,
-                )),
-                Err(compilation_problem) => Err(compilation_problem),
-            },
+            } => {
+                if let Ok(resolved_type) = self.resolve_local((referenced_name, *name_range)) {
+                    Ok((
+                        CheckedExpression::NameReference(referenced_name.to_owned()),
+                        resolved_type,
+                    ))
+                } else {
+                    let (parameter_types, returned_value_type) =
+                        self.resolve_function_signature((referenced_name, *name_range))?;
+                    Ok((
+                        CheckedExpression::FunctionReference(referenced_name.to_owned()),
+                        CheckedValueType::Function {
+                            parameter_types,
+                            returned_value_type: Box::new(returned_value_type),
+                        },
+                    ))
+                }
+            }
             ParsedExpression::NumberLiteral(parsed_literal) => Ok((
                 CheckedExpression::NumberLiteral(parsed_literal.literal_spelling().to_owned()),
                 CheckedValueType::Number,
@@ -182,7 +195,26 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     Err(compilation_problem) => Err(compilation_problem),
                 }
             }
+            ParsedExpression::FunctionLiteral(function_literal) => {
+                self.check_function_literal(function_literal)
+            }
         }
+    }
+
+    fn check_function_literal(
+        &mut self,
+        parsed_function_literal: &ParsedFunctionLiteral,
+    ) -> Result<(CheckedExpression, CheckedValueType), CompilationProblem> {
+        let mut function_checker = FunctionChecker::from_context(self.check_context);
+        let (checked_literal, returned_value_type, parameter_types) =
+            function_checker.check_function_literal(parsed_function_literal)?;
+        Ok((
+            CheckedExpression::FunctionLiteral(checked_literal),
+            CheckedValueType::Function {
+                parameter_types,
+                returned_value_type: Box::new(returned_value_type),
+            },
+        ))
     }
 
     fn check_array_literal(
@@ -494,6 +526,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
             | CheckedValueType::RobloxInstance(_)
+            | CheckedValueType::Function { .. }
             | CheckedValueType::Array(_) => {}
             CheckedValueType::NoReturnedValues => {
                 return Err(CompilationProblem::from_problem_at_range((
@@ -517,6 +550,25 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         name_at_range: (&str, SourceRange),
     ) -> Result<(Vec<CheckedValueType>, CheckedValueType), CompilationProblem> {
         let (function_name, function_name_range) = name_at_range;
+        if let Some(local_binding) = self
+            .check_context
+            .local_bindings()
+            .iter()
+            .rev()
+            .find(|local_binding| local_binding.local_name() == function_name)
+        {
+            let CheckedValueType::Function {
+                parameter_types,
+                returned_value_type,
+            } = local_binding.value_type()
+            else {
+                return Err(CompilationProblem::from_problem_at_range((
+                    function_name_range,
+                    CompilationProblemReason::TypesDoNotMatch,
+                )));
+            };
+            return Ok((parameter_types, *returned_value_type));
+        }
         for (visible_name, parameter_types, returned_value_type) in
             self.check_context.visible_function_signatures()
         {
@@ -591,6 +643,20 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 *expected_element_type,
                 source_range,
             )),
+            (
+                CheckedValueType::Function {
+                    parameter_types: actual_parameter_types,
+                    returned_value_type: actual_returned_value_type,
+                },
+                CheckedValueType::Function {
+                    parameter_types: expected_parameter_types,
+                    returned_value_type: expected_returned_value_type,
+                },
+            ) if actual_parameter_types == expected_parameter_types
+                && actual_returned_value_type == expected_returned_value_type =>
+            {
+                Ok(())
+            }
             _ => Err(CompilationProblem::from_problem_at_range((
                 source_range,
                 CompilationProblemReason::TypesDoNotMatch,

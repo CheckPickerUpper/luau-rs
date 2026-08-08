@@ -1,10 +1,11 @@
 use crate::generated_luau::{
     GeneratedLuauText, LuauBooleanLiteral, LuauComparisonOperation, LuauComparisonOperator,
     LuauEqualityOperation, LuauEqualityOperator, LuauExpression, LuauExpressionEmbedding,
-    LuauExpressionPrecedence, LuauFunction, LuauFunctionBody, LuauFunctionCall, LuauIfElse,
-    LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator, LuauNumericOperation,
-    LuauNumericOperator, LuauOperationOperandSide, LuauParameter, LuauProgram, LuauProgramEnding,
-    LuauRecordAlias, LuauRecordLiteral, LuauStatement, LuauValueType, LuauWhileLoop,
+    LuauExpressionPrecedence, LuauFunction, LuauFunctionBody, LuauFunctionCall,
+    LuauFunctionLiteral, LuauIfElse, LuauLogicalNegation, LuauLogicalOperation,
+    LuauLogicalOperator, LuauNumericOperation, LuauNumericOperator, LuauOperationOperandSide,
+    LuauParameter, LuauProgram, LuauProgramEnding, LuauRecordAlias, LuauRecordLiteral,
+    LuauStatement, LuauValueType, LuauWhileLoop,
 };
 
 const STATEMENT_INDENTATION: &str = "    ";
@@ -18,6 +19,7 @@ pub fn write_luau_text(luau_program: &LuauProgram) -> GeneratedLuauText {
 
 struct LuauTextWriter {
     luau_text: String,
+    current_indentation_level: usize,
 }
 
 /// Centralizes layout and precedence decisions for generated Luau.
@@ -25,6 +27,7 @@ impl LuauTextWriter {
     const fn new() -> Self {
         Self {
             luau_text: String::new(),
+            current_indentation_level: 0,
         }
     }
 
@@ -69,7 +72,10 @@ impl LuauTextWriter {
         let (luau_function_body, indentation_level) = body_at_indentation;
         for luau_statement in luau_function_body.body_statements() {
             self.write_indentation(indentation_level);
+            let previous_indentation_level = self.current_indentation_level;
+            self.current_indentation_level = indentation_level;
             self.write_statement((luau_statement, indentation_level));
+            self.current_indentation_level = previous_indentation_level;
             self.luau_text.push('\n');
         }
     }
@@ -218,6 +224,9 @@ impl LuauTextWriter {
             LuauExpression::NameReference(reference_name) => {
                 self.luau_text.push_str(reference_name);
             }
+            LuauExpression::FunctionReference(function_name) => {
+                self.luau_text.push_str(function_name);
+            }
             LuauExpression::NumberLiteral(number_literal) => {
                 self.luau_text.push_str(number_literal);
             }
@@ -304,10 +313,27 @@ impl LuauTextWriter {
             LuauExpression::FunctionCall(function_call) => {
                 self.write_function_call(function_call);
             }
+            LuauExpression::FunctionLiteral(function_literal) => {
+                self.write_function_literal(function_literal);
+            }
         }
         if needs_parentheses {
             self.luau_text.push(')');
         }
+    }
+
+    fn write_function_literal(&mut self, function_literal: &LuauFunctionLiteral) {
+        self.luau_text.push_str("function(");
+        self.write_parameters(function_literal.function_parameters());
+        self.luau_text.push_str("): ");
+        self.write_value_type(function_literal.returned_value_type());
+        self.luau_text.push('\n');
+        self.write_function_body((
+            function_literal.function_body(),
+            self.current_indentation_level + 1,
+        ));
+        self.write_indentation(self.current_indentation_level);
+        self.luau_text.push_str("end");
     }
 
     fn write_function_call(&mut self, function_call: &LuauFunctionCall) {
@@ -499,6 +525,7 @@ impl LuauTextWriter {
             },
             LuauExpression::LogicalNegation(_) => LuauExpressionPrecedence::Negation,
             LuauExpression::NameReference(_)
+            | LuauExpression::FunctionReference(_)
             | LuauExpression::NumberLiteral(_)
             | LuauExpression::StringLiteral(_)
             | LuauExpression::BooleanLiteral(_)
@@ -509,7 +536,8 @@ impl LuauTextWriter {
             | LuauExpression::RecordLiteral(_)
             | LuauExpression::FieldRead(_)
             | LuauExpression::ArrayLiteral(_)
-            | LuauExpression::ArrayRead(_) => LuauExpressionPrecedence::Primary,
+            | LuauExpression::ArrayRead(_)
+            | LuauExpression::FunctionLiteral(_) => LuauExpressionPrecedence::Primary,
         }
     }
 
@@ -534,10 +562,30 @@ impl LuauTextWriter {
                 self.write_value_type(*element_type);
                 self.luau_text.push('}');
             }
+            LuauValueType::Function {
+                parameter_types,
+                returned_value_type,
+            } => {
+                self.luau_text.push('(');
+                self.write_value_types(&parameter_types);
+                self.luau_text.push_str(") -> ");
+                self.write_value_type(*returned_value_type);
+            }
             LuauValueType::NamedRecord(record_name) => self.luau_text.push_str(&record_name),
             LuauValueType::RobloxService(service_name) => self.luau_text.push_str(&service_name),
             LuauValueType::RobloxInstance(instance_name) => self.luau_text.push_str(&instance_name),
             LuauValueType::NoReturnedValues => self.luau_text.push_str("()"),
+        }
+    }
+
+    fn write_value_types(&mut self, value_types: &[LuauValueType]) {
+        let Some((first_value_type, remaining_value_types)) = value_types.split_first() else {
+            return;
+        };
+        self.write_value_type(first_value_type.clone());
+        for value_type in remaining_value_types {
+            self.luau_text.push_str(", ");
+            self.write_value_type(value_type.clone());
         }
     }
 

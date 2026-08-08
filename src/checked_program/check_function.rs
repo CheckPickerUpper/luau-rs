@@ -2,13 +2,13 @@ use crate::{
     checked_program::{
         check_declaration_names::DeclarationNameChecker, check_expression::ExpressionChecker,
         program_check_context::ProgramCheckContext, CheckedFunction, CheckedFunctionBody,
-        CheckedIfElse, CheckedLocalBinding, CheckedParameter, CheckedPlaceAssignment,
-        CheckedPlaceStep, CheckedStatement, CheckedValueType, CheckedWhileLoop,
-        LocalAssignmentContract,
+        CheckedFunctionLiteral, CheckedIfElse, CheckedLocalBinding, CheckedParameter,
+        CheckedPlaceAssignment, CheckedPlaceStep, CheckedStatement, CheckedValueType,
+        CheckedWhileLoop, LocalAssignmentContract,
     },
     source_language::{
-        ParsedFunction, ParsedFunctionBody, ParsedIfElse, ParsedPlaceAssignment, ParsedPlaceStep,
-        ParsedStatement, ParsedWhileLoop,
+        ParsedFunction, ParsedFunctionBody, ParsedFunctionLiteral, ParsedIfElse,
+        ParsedPlaceAssignment, ParsedPlaceStep, ParsedStatement, ParsedWhileLoop,
     },
     CompilationProblem, CompilationProblemReason,
 };
@@ -163,6 +163,7 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
             | CheckedValueType::RobloxInstance(_)
+            | CheckedValueType::Function { .. }
             | CheckedValueType::Array(_)
                 if !function_completion.is_exactly_returns() =>
             {
@@ -177,6 +178,7 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
             | CheckedValueType::RobloxInstance(_)
+            | CheckedValueType::Function { .. }
             | CheckedValueType::Array(_)
             | CheckedValueType::NoReturnedValues => {}
         }
@@ -186,6 +188,93 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             self.check_context.expected_returned_value_type(),
             checked_function_body,
         )))
+    }
+
+    pub(super) fn check_function_literal(
+        &mut self,
+        parsed_function_literal: &ParsedFunctionLiteral,
+    ) -> Result<
+        (
+            CheckedFunctionLiteral,
+            CheckedValueType,
+            Vec<CheckedValueType>,
+        ),
+        CompilationProblem,
+    > {
+        let enclosing_returned_value_type = self.check_context.expected_returned_value_type();
+        let local_scope_boundary = self.check_context.local_scope_boundary();
+        let checked_returned_value_type = match self
+            .check_context
+            .begin_nested_function(&parsed_function_literal.returned_value_type())
+        {
+            Ok(checked_returned_value_type) => checked_returned_value_type,
+            Err(compilation_problem) => return Err(compilation_problem),
+        };
+        let result =
+            self.check_function_literal_body(parsed_function_literal, checked_returned_value_type);
+        self.check_context.end_local_scope(local_scope_boundary);
+        self.check_context
+            .restore_expected_returned_value_type(enclosing_returned_value_type);
+        result
+    }
+
+    fn check_function_literal_body(
+        &mut self,
+        parsed_function_literal: &ParsedFunctionLiteral,
+        checked_returned_value_type: CheckedValueType,
+    ) -> Result<
+        (
+            CheckedFunctionLiteral,
+            CheckedValueType,
+            Vec<CheckedValueType>,
+        ),
+        CompilationProblem,
+    > {
+        let mut checked_parameters = Vec::new();
+        for parsed_parameter in parsed_function_literal.function_parameters() {
+            let parsed_value_type = parsed_parameter.value_type();
+            ProgramCheckContext::reject_service_type_outside_local_acquisition(&parsed_value_type)?;
+            DeclarationNameChecker::check_local_name((
+                self.check_context,
+                parsed_parameter.parameter_name(),
+                parsed_parameter.parameter_name_range(),
+            ))?;
+            let checked_value_type = self.check_context.resolve_value_type(&parsed_value_type)?;
+            self.check_context
+                .add_local_binding(CheckedLocalBinding::Immutable {
+                    local_name: parsed_parameter.parameter_name().to_owned(),
+                    value_type: checked_value_type.clone(),
+                });
+            checked_parameters.push(CheckedParameter::from_checked_declaration((
+                parsed_parameter.parameter_name().to_owned(),
+                checked_value_type,
+            )));
+        }
+        let (checked_function_body, function_completion) =
+            self.check_function_body(parsed_function_literal.function_body())?;
+        if !matches!(
+            checked_returned_value_type,
+            CheckedValueType::NoReturnedValues
+        ) && !function_completion.is_exactly_returns()
+        {
+            return Err(CompilationProblem::from_problem_at_range((
+                parsed_function_literal.expression_range(),
+                CompilationProblemReason::MissingReturn,
+            )));
+        }
+        let parameter_types = checked_parameters
+            .iter()
+            .map(CheckedParameter::value_type)
+            .collect();
+        Ok((
+            CheckedFunctionLiteral::from_parts((
+                checked_parameters,
+                checked_returned_value_type.clone(),
+                checked_function_body,
+            )),
+            checked_returned_value_type,
+            parameter_types,
+        ))
     }
 
     fn check_function_body(

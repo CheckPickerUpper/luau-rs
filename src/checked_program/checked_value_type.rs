@@ -9,6 +9,11 @@ pub enum CheckedValueType {
     Boolean,
     /// Represents a homogeneous, zero-based source array.
     Array(Box<Self>),
+    /// Represents a callable value with an exact parameter and return signature.
+    Function {
+        parameter_types: Vec<Self>,
+        returned_value_type: Box<Self>,
+    },
     /// Represents a checked reference to a file-private record alias.
     NamedRecord(String),
     /// Represents a service that can only be used as a directly acquired local value.

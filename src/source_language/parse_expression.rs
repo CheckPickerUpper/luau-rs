@@ -412,6 +412,7 @@ impl SourceProgramParser {
                 }
                 Ok(grouped_expression)
             }
+            Ok(SourceTokenKind::FunctionKeyword) => self.parse_function_literal(),
             Ok(_) => self.parse_ungrouped_primary_expression(),
             Err(compilation_problem) => Err(compilation_problem),
         }

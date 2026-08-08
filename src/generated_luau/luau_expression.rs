@@ -1,6 +1,7 @@
 use crate::generated_luau::{
     LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
-    LuauEqualityOperation, LuauFieldRead, LuauFunctionCall, LuauInstanceConstruction,
+    LuauEqualityOperation, LuauFieldRead, LuauFunctionCall, LuauFunctionLiteral,
+    LuauInstanceConstruction,
     LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation, LuauNumericOperation,
     LuauRecordLiteral,
 };
@@ -10,6 +11,8 @@ use crate::generated_luau::{
 pub enum LuauExpression {
     /// Reads a previously resolved local or parameter.
     NameReference(String),
+    /// Refers to a visible generated function declaration.
+    FunctionReference(String),
     /// Preserves the checked literal spelling for emission.
     NumberLiteral(String),
     /// Preserves a lexer-validated quoted string for lossless emission.
@@ -42,4 +45,6 @@ pub enum LuauExpression {
     LogicalOperation(LuauLogicalOperation),
     /// Invokes a resolved function with ordered arguments.
     FunctionCall(LuauFunctionCall),
+    /// Emits an anonymous function expression that closes over active Luau locals.
+    FunctionLiteral(LuauFunctionLiteral),
 }

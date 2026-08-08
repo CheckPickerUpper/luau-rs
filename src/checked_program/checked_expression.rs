@@ -1,6 +1,7 @@
 use crate::checked_program::{
     CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedComparisonOperation,
-    CheckedEqualityOperation, CheckedFieldRead, CheckedInstanceConstruction, CheckedInstanceLookup,
+    CheckedEqualityOperation, CheckedFieldRead, CheckedFunctionLiteral, CheckedInstanceConstruction,
+    CheckedInstanceLookup,
     CheckedLogicalNegation, CheckedLogicalOperation, CheckedNumericOperation, CheckedRecordLiteral,
 };
 
@@ -8,6 +9,8 @@ use crate::checked_program::{
 pub enum CheckedExpression {
     /// Refers to a resolved local value.
     NameReference(String),
+    /// Refers to a previously visible function declaration as a first-class value.
+    FunctionReference(String),
     /// Preserves a validated numeric literal spelling.
     NumberLiteral(String),
     /// Preserves a validated quoted string spelling.
@@ -40,5 +43,7 @@ pub enum CheckedExpression {
     LogicalOperation(CheckedLogicalOperation),
     /// Calls a resolved function with validated argument types.
     FunctionCall(CheckedFunctionCall),
+    /// Retains a checked closure and its lexical body.
+    FunctionLiteral(CheckedFunctionLiteral),
 }
 use crate::checked_program::CheckedFunctionCall;

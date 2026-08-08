@@ -1,8 +1,9 @@
 use crate::{
     source_language::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedComparisonOperation, ParsedEqualityOperation,
-        ParsedFieldRead, ParsedFunctionCall, ParsedLiteral, ParsedLogicalNegation,
-        ParsedLogicalOperation, ParsedNumericOperation, ParsedRecordLiteral, SourceBooleanLiteral,
+        ParsedFieldRead, ParsedFunctionCall, ParsedFunctionLiteral, ParsedLiteral,
+        ParsedLogicalNegation, ParsedLogicalOperation, ParsedNumericOperation, ParsedRecordLiteral,
+        SourceBooleanLiteral,
     },
     SourceRange,
 };
@@ -64,6 +65,8 @@ pub enum ParsedExpression {
     LogicalOperation(ParsedLogicalOperation),
     /// Calls a named function and retains the name location for call failures.
     FunctionCall(ParsedFunctionCall),
+    /// Defines an anonymous function that may capture active lexical bindings.
+    FunctionLiteral(ParsedFunctionLiteral),
 }
 
 /// Keeps diagnostic attribution available for every value-producing grammar form.
@@ -95,6 +98,7 @@ impl ParsedExpression {
             Self::LogicalNegation(negation) => negation.expression_range(),
             Self::LogicalOperation(operation) => operation.expression_range(),
             Self::FunctionCall(function_call) => function_call.source_range(),
+            Self::FunctionLiteral(function_literal) => function_literal.expression_range(),
         }
     }
 }

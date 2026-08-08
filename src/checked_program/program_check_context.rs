@@ -113,6 +113,25 @@ impl<'a> ProgramCheckContext<'a> {
         Ok(())
     }
 
+    /// Starts a nested closure without discarding the outer bindings it may capture.
+    pub(super) fn begin_nested_function(
+        &mut self,
+        returned_value_type: &ParsedValueType,
+    ) -> Result<CheckedValueType, CompilationProblem> {
+        Self::reject_service_type_outside_local_acquisition(returned_value_type)?;
+        let checked_returned_value_type = self.resolve_value_type(returned_value_type)?;
+        self.expected_returned_value_type = checked_returned_value_type.clone();
+        Ok(checked_returned_value_type)
+    }
+
+    /// Restores the enclosing function's return contract after a nested closure is checked.
+    pub(super) fn restore_expected_returned_value_type(
+        &mut self,
+        expected_returned_value_type: CheckedValueType,
+    ) {
+        self.expected_returned_value_type = expected_returned_value_type;
+    }
+
     /// Makes the current function visible before its body is checked so recursion remains valid.
     pub(super) fn add_visible_function(
         &mut self,
@@ -178,6 +197,16 @@ impl<'a> ProgramCheckContext<'a> {
             ParsedValueType::Array(element_type) => Ok(CheckedValueType::Array(Box::new(
                 self.resolve_value_type(element_type)?,
             ))),
+            ParsedValueType::Function {
+                parameter_types,
+                returned_value_type,
+            } => Ok(CheckedValueType::Function {
+                parameter_types: parameter_types
+                    .iter()
+                    .map(|parameter_type| self.resolve_value_type(parameter_type))
+                    .collect::<Result<_, _>>()?,
+                returned_value_type: Box::new(self.resolve_value_type(returned_value_type)?),
+            }),
             ParsedValueType::NoReturnedValues => Ok(CheckedValueType::NoReturnedValues),
             ParsedValueType::NamedRecord {
                 record_name,
@@ -266,7 +295,7 @@ impl<'a> ProgramCheckContext<'a> {
         })
     }
 
-    fn reject_service_type_outside_local_acquisition(
+    pub(super) fn reject_service_type_outside_local_acquisition(
         parsed_value_type: &ParsedValueType,
     ) -> Result<(), CompilationProblem> {
         let Some(service_type_range) = Self::service_type_range(parsed_value_type) else {
@@ -281,6 +310,13 @@ impl<'a> ProgramCheckContext<'a> {
     fn service_type_range(parsed_value_type: &ParsedValueType) -> Option<SourceRange> {
         match parsed_value_type {
             ParsedValueType::Array(element_type) => Self::service_type_range(element_type),
+            ParsedValueType::Function {
+                parameter_types,
+                returned_value_type,
+            } => parameter_types
+                .iter()
+                .find_map(Self::service_type_range)
+                .or_else(|| Self::service_type_range(returned_value_type)),
             ParsedValueType::NamedRecord {
                 record_name,
                 record_name_range,

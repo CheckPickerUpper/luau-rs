@@ -509,6 +509,16 @@ fn checked_value_type(
         crate::source_language::ParsedValueType::Array(element_type) => {
             CheckedValueType::Array(Box::new(checked_value_type(*element_type)))
         }
+        crate::source_language::ParsedValueType::Function {
+            parameter_types,
+            returned_value_type,
+        } => CheckedValueType::Function {
+            parameter_types: parameter_types
+                .into_iter()
+                .map(checked_value_type)
+                .collect(),
+            returned_value_type: Box::new(checked_value_type(*returned_value_type)),
+        },
         crate::source_language::ParsedValueType::NoReturnedValues => {
             CheckedValueType::NoReturnedValues
         }

@@ -196,6 +196,20 @@ impl ExpressionChecker<'_, '_> {
                 operator_range,
             )),
             (
+                CheckedValueType::Function {
+                    parameter_types: left_parameter_types,
+                    returned_value_type: left_returned_value_type,
+                },
+                CheckedValueType::Function {
+                    parameter_types: right_parameter_types,
+                    returned_value_type: right_returned_value_type,
+                },
+            ) if left_parameter_types == right_parameter_types
+                && left_returned_value_type == right_returned_value_type =>
+            {
+                Ok(())
+            }
+            (
                 CheckedValueType::NoReturnedValues
                 | CheckedValueType::Number
                 | CheckedValueType::String
@@ -224,6 +238,7 @@ impl ExpressionChecker<'_, '_> {
                 CheckedValueType::NamedRecord(_)
                 | CheckedValueType::RobloxService(_)
                 | CheckedValueType::RobloxInstance(_)
+                | CheckedValueType::Function { .. }
                 | CheckedValueType::Array(_),
                 _,
             )
@@ -232,6 +247,7 @@ impl ExpressionChecker<'_, '_> {
                 CheckedValueType::NamedRecord(_)
                 | CheckedValueType::RobloxService(_)
                 | CheckedValueType::RobloxInstance(_)
+                | CheckedValueType::Function { .. }
                 | CheckedValueType::Array(_),
             ) => Err(CompilationProblem::from_problem_at_range((
                 operator_range,

@@ -1,8 +1,8 @@
 use crate::{
     source_language::{
         parse_source_program::SourceProgramParser, ParsedExpression, ParsedFunction,
-        ParsedFunctionBody, ParsedIfElse, ParsedParameter, ParsedStatement, ParsedValueType,
-        ParsedWhileLoop, SourceTokenKind,
+        ParsedFunctionBody, ParsedFunctionLiteral, ParsedIfElse, ParsedParameter, ParsedStatement,
+        ParsedValueType, ParsedWhileLoop, SourceTokenKind,
     },
     CompilationProblem,
 };
@@ -20,6 +20,38 @@ struct FlattenedRecordFieldAssignmentTarget {
 
 /// Parses function declarations, bodies, parameters, and non-return statements.
 impl SourceProgramParser {
+    pub(super) fn parse_function_literal(
+        &mut self,
+    ) -> Result<ParsedExpression, CompilationProblem> {
+        let function_keyword_range = self
+            .take_required_symbol(&SourceTokenKind::FunctionKeyword)?
+            .source_range();
+        self.take_required_symbol(&SourceTokenKind::LeftParenthesis)?;
+        let function_parameters = self.parse_function_parameters()?;
+        self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
+        let returned_value_type = match self.current_token_kind()? {
+            SourceTokenKind::Arrow => {
+                self.take_required_symbol(&SourceTokenKind::Arrow)?;
+                self.parse_value_type()?
+            }
+            _ => ParsedValueType::NoReturnedValues,
+        };
+        self.take_required_symbol(&SourceTokenKind::LeftBrace)?;
+        let function_body = self.parse_function_body()?;
+        let right_brace = self.take_required_symbol(&SourceTokenKind::RightBrace)?;
+        Ok(ParsedExpression::FunctionLiteral(
+            ParsedFunctionLiteral::from_parts((
+                function_parameters,
+                returned_value_type,
+                function_body,
+                crate::SourceRange::from_byte_range((
+                    function_keyword_range.start_byte(),
+                    right_brace.source_range().end_byte(),
+                )),
+            )),
+        ))
+    }
+
     /// Parses one complete function declaration at the current token position.
     pub(super) fn parse_function(&mut self) -> Result<ParsedFunction, CompilationProblem> {
         let visibility = match self.current_token_kind() {
@@ -132,6 +164,42 @@ impl SourceProgramParser {
     }
 
     fn parse_value_type(&mut self) -> Result<ParsedValueType, CompilationProblem> {
+        if matches!(
+            self.current_token_kind(),
+            Ok(SourceTokenKind::FunctionKeyword)
+        ) {
+            self.take_required_symbol(&SourceTokenKind::FunctionKeyword)?;
+            self.take_required_symbol(&SourceTokenKind::LeftParenthesis)?;
+            let mut parameter_types = Vec::new();
+            loop {
+                if matches!(
+                    self.current_token_kind()?,
+                    SourceTokenKind::RightParenthesis
+                ) {
+                    break;
+                }
+                parameter_types.push(self.parse_value_type()?);
+                match self.current_token_kind()? {
+                    SourceTokenKind::Comma => {
+                        self.take_required_symbol(&SourceTokenKind::Comma)?;
+                    }
+                    SourceTokenKind::RightParenthesis => {}
+                    _ => return Err(self.problem_at_current_token()),
+                }
+            }
+            self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
+            let returned_value_type =
+                if matches!(self.current_token_kind()?, SourceTokenKind::Arrow) {
+                    self.take_required_symbol(&SourceTokenKind::Arrow)?;
+                    self.parse_value_type()?
+                } else {
+                    ParsedValueType::NoReturnedValues
+                };
+            return Ok(ParsedValueType::Function {
+                parameter_types,
+                returned_value_type: Box::new(returned_value_type),
+            });
+        }
         if matches!(self.current_token_kind(), Ok(SourceTokenKind::LeftBracket)) {
             match self.take_required_symbol(&SourceTokenKind::LeftBracket) {
                 Ok(consumed_symbol) => drop(consumed_symbol),
@@ -343,7 +411,8 @@ impl SourceProgramParser {
                     | ParsedExpression::ComparisonOperation(_)
                     | ParsedExpression::EqualityOperation(_)
                     | ParsedExpression::LogicalNegation(_)
-                    | ParsedExpression::LogicalOperation(_) => Err(statement_problem),
+                    | ParsedExpression::LogicalOperation(_)
+                    | ParsedExpression::FunctionLiteral(_) => Err(statement_problem),
                     ParsedExpression::FieldRead(_) | ParsedExpression::ArrayRead(_) => {
                         match self.current_token_kind() {
                             Ok(SourceTokenKind::Equals) => {
@@ -490,7 +559,8 @@ impl SourceProgramParser {
                 | ParsedExpression::EqualityOperation(_)
                 | ParsedExpression::LogicalNegation(_)
                 | ParsedExpression::LogicalOperation(_)
-                | ParsedExpression::FunctionCall(_) => return None,
+                | ParsedExpression::FunctionCall(_)
+                | ParsedExpression::FunctionLiteral(_) => return None,
             }
         }
     }

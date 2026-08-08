@@ -9,6 +9,11 @@ pub enum LuauValueType {
     Boolean,
     /// Uses Luau's homogeneous table notation.
     Array(Box<Self>),
+    /// Uses Luau's typed callback notation.
+    Function {
+        parameter_types: Vec<Self>,
+        returned_value_type: Box<Self>,
+    },
     /// Uses a file-local Luau table type alias.
     NamedRecord(String),
     /// Uses the Roblox engine's built-in service type spelling.

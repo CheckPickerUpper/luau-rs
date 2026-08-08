@@ -9,6 +9,11 @@ pub enum ParsedValueType {
     Boolean,
     /// Represents a homogeneous, zero-based source array.
     Array(Box<Self>),
+    /// Represents a typed callback value with ordered parameters and a return contract.
+    Function {
+        parameter_types: Vec<Self>,
+        returned_value_type: Box<Self>,
+    },
     /// Names a record declared in the current source file.
     NamedRecord {
         record_name: String,
@@ -25,11 +30,15 @@ impl ParsedValueType {
                 record_name,
                 record_name_range,
             } => Some((record_name, *record_name_range)),
-            Self::Number
-            | Self::String
-            | Self::Boolean
-            | Self::Array(_)
-            | Self::NoReturnedValues => None,
+            Self::Array(element_type) => element_type.named_record_parts(),
+            Self::Function {
+                parameter_types,
+                returned_value_type,
+            } => parameter_types
+                .iter()
+                .find_map(Self::named_record_parts)
+                .or_else(|| returned_value_type.named_record_parts()),
+            Self::Number | Self::String | Self::Boolean | Self::NoReturnedValues => None,
         }
     }
 }
