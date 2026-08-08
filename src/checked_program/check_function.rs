@@ -1,9 +1,11 @@
+use crate::SourceRange;
 use crate::{
     checked_program::{
         check_declaration_names::DeclarationNameChecker, check_expression::ExpressionChecker,
-        program_check_context::ProgramCheckContext, CheckedFunction, CheckedFunctionBody,
-        CheckedIfElse, CheckedLocalBinding, CheckedParameter, CheckedPlaceAssignment,
-        CheckedPlaceStep, CheckedStatement, CheckedValueType, CheckedWhileLoop,
+        program_check_context::ProgramCheckContext, CheckedExpression, CheckedFunction,
+        CheckedFunctionBody, CheckedIfElse, CheckedLocalBinding, CheckedParameter,
+        CheckedPlaceAssignment, CheckedPlaceStep, CheckedStatement, CheckedValueType,
+        CheckedWhileLoop,
     },
     source_language::{
         ParsedFunction, ParsedFunctionBody, ParsedIfElse, ParsedPlaceAssignment, ParsedPlaceStep,
@@ -230,10 +232,11 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     Ok(()) => {}
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
-                let checked_value_type = match self.check_context.resolve_value_type(value_type) {
-                    Ok(checked_value_type) => checked_value_type,
-                    Err(compilation_problem) => return Err(compilation_problem),
-                };
+                let checked_value_type =
+                    match self.check_context.resolve_local_value_type(value_type) {
+                        Ok(checked_value_type) => checked_value_type,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
                 let (checked_initial_value, actual_type) = {
                     let mut expression_checker =
                         ExpressionChecker::from_context(self.check_context);
@@ -250,6 +253,11 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     Ok(()) => {}
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
+                Self::require_direct_service_acquisition((
+                    &checked_value_type,
+                    &checked_initial_value,
+                    initial_value.source_range(),
+                ))?;
                 self.check_context
                     .add_local_binding(CheckedLocalBinding::Immutable {
                         local_name: local_name.to_owned(),
@@ -278,10 +286,11 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     Ok(()) => {}
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
-                let checked_value_type = match self.check_context.resolve_value_type(value_type) {
-                    Ok(checked_value_type) => checked_value_type,
-                    Err(compilation_problem) => return Err(compilation_problem),
-                };
+                let checked_value_type =
+                    match self.check_context.resolve_local_value_type(value_type) {
+                        Ok(checked_value_type) => checked_value_type,
+                        Err(compilation_problem) => return Err(compilation_problem),
+                    };
                 let (checked_initial_value, actual_type) = {
                     let mut expression_checker =
                         ExpressionChecker::from_context(self.check_context);
@@ -298,6 +307,11 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     Ok(()) => {}
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
+                Self::require_direct_service_acquisition((
+                    &checked_value_type,
+                    &checked_initial_value,
+                    initial_value.source_range(),
+                ))?;
                 self.check_context
                     .add_local_binding(CheckedLocalBinding::Mutable {
                         local_name: local_name.to_owned(),
@@ -423,18 +437,43 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
         };
         match ExpressionChecker::require_matching_type((
             actual_type,
-            expected_type,
+            expected_type.clone(),
             assigned_value.source_range(),
         )) {
-            Ok(()) => Ok((
-                CheckedStatement::AssignLocal {
-                    local_name: local_name.to_owned(),
-                    assigned_value: checked_assigned_value,
-                },
-                BodyControlFlows::reaches_end(),
-            )),
+            Ok(()) => {
+                Self::require_direct_service_acquisition((
+                    &expected_type,
+                    &checked_assigned_value,
+                    assigned_value.source_range(),
+                ))?;
+                Ok((
+                    CheckedStatement::AssignLocal {
+                        local_name: local_name.to_owned(),
+                        assigned_value: checked_assigned_value,
+                    },
+                    BodyControlFlows::reaches_end(),
+                ))
+            }
             Err(compilation_problem) => Err(compilation_problem),
         }
+    }
+
+    const fn require_direct_service_acquisition(
+        initializer_parts: (&CheckedValueType, &CheckedExpression, SourceRange),
+    ) -> Result<(), CompilationProblem> {
+        let (checked_value_type, checked_initial_value, initial_value_range) = initializer_parts;
+        if matches!(checked_value_type, CheckedValueType::RobloxService(_))
+            && !matches!(
+                checked_initial_value,
+                CheckedExpression::RobloxServiceAcquisition(_)
+            )
+        {
+            return Err(CompilationProblem::from_problem_at_range((
+                initial_value_range,
+                CompilationProblemReason::RobloxServiceTypeMayOnlyBeUsedForLocalAcquisition,
+            )));
+        }
+        Ok(())
     }
 
     fn check_place_assignment(

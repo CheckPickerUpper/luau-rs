@@ -203,6 +203,20 @@ impl<'a> ProgramCheckContext<'a> {
         }
     }
 
+    /// Resolves a local declaration while keeping service handles at their acquisition boundary.
+    pub(super) fn resolve_local_value_type(
+        &self,
+        parsed_value_type: &ParsedValueType,
+    ) -> Result<CheckedValueType, CompilationProblem> {
+        if let Some(service_type_range) = Self::nested_service_type_range(parsed_value_type) {
+            return Err(CompilationProblem::from_problem_at_range((
+                service_type_range,
+                CompilationProblemReason::RobloxServiceTypeMayOnlyBeUsedForLocalAcquisition,
+            )));
+        }
+        self.resolve_value_type(parsed_value_type)
+    }
+
     /// Resolves one intrinsic service only when project compilation supplies the module side.
     pub(super) fn acquire_roblox_service(
         &self,
@@ -255,6 +269,17 @@ impl<'a> ProgramCheckContext<'a> {
                 record_name,
                 record_name_range,
             } if RobloxService::from_type_name(record_name).is_some() => Some(*record_name_range),
+            ParsedValueType::Number
+            | ParsedValueType::String
+            | ParsedValueType::Boolean
+            | ParsedValueType::NamedRecord { .. }
+            | ParsedValueType::NoReturnedValues => None,
+        }
+    }
+
+    fn nested_service_type_range(parsed_value_type: &ParsedValueType) -> Option<SourceRange> {
+        match parsed_value_type {
+            ParsedValueType::Array(element_type) => Self::service_type_range(element_type),
             ParsedValueType::Number
             | ParsedValueType::String
             | ParsedValueType::Boolean
