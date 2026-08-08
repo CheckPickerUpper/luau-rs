@@ -14,9 +14,10 @@ pub use compilation::{
 };
 pub use generated_luau::GeneratedLuauText;
 pub use project_compilation::{
-    compile_project, write_compiled_project_atomically, CompiledProject, GeneratedProjectModule,
-    ModuleExecutionSide, ProjectCompilationOutcome, ProjectCompilationProblem,
-    ProjectCompilationRejection, ProjectCompilationRequest, ProjectModuleIdentity,
-    ProjectModuleRole, ProjectModuleSource, ProjectOutputOperation, ProjectOutputPath,
-    ProjectOutputRejection,
+    compile_project, write_compiled_project_atomically, write_rojo_project_mapping,
+    CompiledProject, GeneratedProjectModule, ModuleExecutionSide, ProjectCompilationOutcome,
+    ProjectCompilationProblem, ProjectCompilationRejection, ProjectCompilationRequest,
+    ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource, ProjectOutputOperation,
+    ProjectOutputPath, ProjectOutputRejection, RojoMappingField, RojoMappingProblem,
+    RojoMappingRejection,
 };

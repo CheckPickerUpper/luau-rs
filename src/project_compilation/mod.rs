@@ -11,6 +11,8 @@ mod project_module_role;
 mod project_module_source;
 mod project_output_path;
 mod project_output_rejection;
+mod rojo_mapping;
+mod rojo_mapping_rejection;
 mod write_compiled_project;
 
 pub use compile_project::compile_project;
@@ -26,4 +28,6 @@ pub use project_module_role::ProjectModuleRole;
 pub use project_module_source::ProjectModuleSource;
 pub use project_output_path::ProjectOutputPath;
 pub use project_output_rejection::{ProjectOutputOperation, ProjectOutputRejection};
+pub use rojo_mapping::write_rojo_project_mapping;
+pub use rojo_mapping_rejection::{RojoMappingField, RojoMappingProblem, RojoMappingRejection};
 pub use write_compiled_project::write_compiled_project_atomically;
