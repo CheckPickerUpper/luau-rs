@@ -2,8 +2,8 @@ use crate::{
     checked_program::{
         CheckedBooleanLiteral, CheckedExpression, CheckedFunction, CheckedFunctionBody,
         CheckedFunctionCall, CheckedFunctionLiteral, CheckedIfElse, CheckedParameter,
-        CheckedProgram, CheckedRecordDeclaration, CheckedStatement, CheckedValueType,
-        CheckedWhileLoop,
+        CheckedProgram, CheckedRecordDeclaration, CheckedRobloxRemoteOperation, CheckedStatement,
+        CheckedValueType, CheckedWhileLoop,
     },
     generated_luau::{
         LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
@@ -12,7 +12,8 @@ use crate::{
         LuauIfElse, LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation,
         LuauLogicalOperator, LuauNumericOperation, LuauNumericOperator, LuauParameter,
         LuauPlaceAssignment, LuauPlaceStep, LuauProgram, LuauRecordAlias, LuauRecordField,
-        LuauRecordFieldInitializer, LuauRecordLiteral, LuauStatement, LuauValueType, LuauWhileLoop,
+        LuauRecordFieldInitializer, LuauRecordLiteral, LuauRobloxRemoteOperation, LuauStatement,
+        LuauValueType, LuauWhileLoop,
     },
 };
 
@@ -166,6 +167,9 @@ impl LuauProgramGenerator {
                 LuauStatement::CallFunctionAndIgnoreResult(Self::generate_function_call(
                     checked_function_call,
                 ))
+            }
+            CheckedStatement::RobloxRemoteOperation(operation) => {
+                LuauStatement::RobloxRemoteOperation(Self::generate_remote_operation(operation))
             }
             CheckedStatement::ReturnsValue(checked_expression) => {
                 LuauStatement::ReturnsValue(Self::generate_expression(checked_expression))
@@ -355,6 +359,78 @@ impl LuauProgramGenerator {
             CheckedExpression::FunctionLiteral(function_literal) => {
                 LuauExpression::FunctionLiteral(Self::generate_function_literal(function_literal))
             }
+            CheckedExpression::RobloxRemoteOperation(operation) => {
+                LuauExpression::RobloxRemoteOperation(Self::generate_remote_operation(operation))
+            }
+        }
+    }
+
+    fn generate_remote_operation(
+        checked_operation: &CheckedRobloxRemoteOperation,
+    ) -> LuauRobloxRemoteOperation {
+        match checked_operation {
+            CheckedRobloxRemoteOperation::Connect {
+                remote_expression,
+                callback_expression,
+                execution_side,
+            } => LuauRobloxRemoteOperation::Connect {
+                remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                callback_expression: Box::new(Self::generate_expression(callback_expression)),
+                execution_side: *execution_side,
+            },
+            CheckedRobloxRemoteOperation::Disconnect {
+                connection_expression,
+            } => LuauRobloxRemoteOperation::Disconnect {
+                connection_expression: Box::new(Self::generate_expression(connection_expression)),
+            },
+            CheckedRobloxRemoteOperation::FireServer {
+                remote_expression,
+                payload_expression,
+            } => LuauRobloxRemoteOperation::FireServer {
+                remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                payload_expression: Box::new(Self::generate_expression(payload_expression)),
+            },
+            CheckedRobloxRemoteOperation::FireClient {
+                remote_expression,
+                player_expression,
+                payload_expression,
+            } => LuauRobloxRemoteOperation::FireClient {
+                remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                player_expression: Box::new(Self::generate_expression(player_expression)),
+                payload_expression: Box::new(Self::generate_expression(payload_expression)),
+            },
+            CheckedRobloxRemoteOperation::FireAllClients {
+                remote_expression,
+                payload_expression,
+            } => LuauRobloxRemoteOperation::FireAllClients {
+                remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                payload_expression: Box::new(Self::generate_expression(payload_expression)),
+            },
+            CheckedRobloxRemoteOperation::InvokeServer {
+                remote_expression,
+                payload_expression,
+            } => LuauRobloxRemoteOperation::InvokeServer {
+                remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                payload_expression: Box::new(Self::generate_expression(payload_expression)),
+            },
+            CheckedRobloxRemoteOperation::InvokeClient {
+                remote_expression,
+                player_expression,
+                payload_expression,
+            } => LuauRobloxRemoteOperation::InvokeClient {
+                remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                player_expression: Box::new(Self::generate_expression(player_expression)),
+                payload_expression: Box::new(Self::generate_expression(payload_expression)),
+            },
+            CheckedRobloxRemoteOperation::SetCallback {
+                remote_expression,
+                callback_expression,
+                execution_side,
+            } => LuauRobloxRemoteOperation::SetCallback {
+                remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                callback_expression: Box::new(Self::generate_expression(callback_expression)),
+                execution_side: *execution_side,
+            },
         }
     }
 
@@ -408,6 +484,7 @@ impl LuauProgramGenerator {
             CheckedValueType::RobloxInstance(roblox_instance) => {
                 LuauValueType::RobloxInstance(roblox_instance.canonical_name().to_owned())
             }
+            CheckedValueType::RobloxConnection => LuauValueType::RobloxConnection,
             CheckedValueType::NoReturnedValues => LuauValueType::NoReturnedValues,
         }
     }

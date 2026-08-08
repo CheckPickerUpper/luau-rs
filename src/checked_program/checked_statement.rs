@@ -1,5 +1,6 @@
 use crate::checked_program::{
-    CheckedExpression, CheckedFunctionCall, CheckedIfElse, CheckedValueType, CheckedWhileLoop,
+    CheckedExpression, CheckedFunctionCall, CheckedIfElse, CheckedRobloxRemoteOperation,
+    CheckedValueType, CheckedWhileLoop,
 };
 
 /// Represents only validated forms allowed inside a function body.
@@ -25,6 +26,8 @@ pub enum CheckedStatement {
     AssignPlace(crate::checked_program::CheckedPlaceAssignment),
     /// Invokes a validated function where the source discards any returned value.
     CallFunctionAndIgnoreResult(CheckedFunctionCall),
+    /// Performs a validated remote operation where the source discards any returned value.
+    RobloxRemoteOperation(CheckedRobloxRemoteOperation),
     /// Returns an expression whose type matches the enclosing function contract.
     ReturnsValue(CheckedExpression),
     /// Exits the innermost enclosing loop.

@@ -20,6 +20,8 @@ pub enum CheckedValueType {
     RobloxService(super::roblox_service::RobloxService),
     /// Represents one catalogued Roblox Instance class.
     RobloxInstance(super::roblox_instance::RobloxInstance),
+    /// Represents the engine-supplied connection returned by an event subscription.
+    RobloxConnection,
     /// Represents a validated no-value return.
     NoReturnedValues,
 }

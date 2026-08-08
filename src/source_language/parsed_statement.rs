@@ -1,6 +1,7 @@
 use crate::{
     source_language::{
-        ParsedExpression, ParsedFunctionCall, ParsedIfElse, ParsedValueType, ParsedWhileLoop,
+        ParsedExpression, ParsedFunctionCall, ParsedIfElse, ParsedRobloxRemoteOperation,
+        ParsedValueType, ParsedWhileLoop,
     },
     SourceRange,
 };
@@ -31,6 +32,8 @@ pub enum ParsedStatement {
     AssignPlace(crate::source_language::ParsedPlaceAssignment),
     /// Invokes a function where the source discards any returned value.
     CallFunctionAndIgnoreResult(ParsedFunctionCall),
+    /// Performs an explicit remote operation where the source discards any returned value.
+    RobloxRemoteOperation(ParsedRobloxRemoteOperation),
     /// Returns one expression from the enclosing function or branch.
     ReturnsValue(ParsedExpression),
     /// Exits the innermost enclosing loop at this source location.
@@ -59,6 +62,7 @@ impl ParsedStatement {
             } => *local_name_range,
             Self::AssignPlace(place_assignment) => place_assignment.source_range(),
             Self::CallFunctionAndIgnoreResult(function_call) => function_call.source_range(),
+            Self::RobloxRemoteOperation(operation) => operation.expression_range(),
             Self::ReturnsValue(returned_expression) => returned_expression.source_range(),
             Self::BreaksLoop(keyword_range) | Self::ContinuesLoop(keyword_range) => *keyword_range,
             Self::IfElse(parsed_if_else) => parsed_if_else.condition_range(),

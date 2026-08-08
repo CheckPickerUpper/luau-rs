@@ -1,5 +1,6 @@
 use crate::generated_luau::{
-    LuauExpression, LuauFunctionCall, LuauIfElse, LuauValueType, LuauWhileLoop,
+    LuauExpression, LuauFunctionCall, LuauIfElse, LuauRobloxRemoteOperation, LuauValueType,
+    LuauWhileLoop,
 };
 
 /// Represents statements using only constructs supported by the Luau writer.
@@ -34,6 +35,8 @@ pub enum LuauStatement {
     AssignPlace(crate::generated_luau::LuauPlaceAssignment),
     /// Invokes a function only for its effects.
     CallFunctionAndIgnoreResult(LuauFunctionCall),
+    /// Emits a remote operation only for its effects.
+    RobloxRemoteOperation(LuauRobloxRemoteOperation),
     /// Returns one generated expression from the enclosing Luau function.
     ReturnsValue(LuauExpression),
     /// Exits the innermost generated loop.

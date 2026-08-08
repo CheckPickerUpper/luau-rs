@@ -6,14 +6,16 @@ use crate::{
         CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedExpression,
         CheckedFieldRead, CheckedFunctionCall, CheckedInstanceConstruction, CheckedInstanceLookup,
         CheckedNumericOperation, CheckedNumericOperator, CheckedRecordFieldInitializer,
-        CheckedRecordLiteral, CheckedValueType,
+        CheckedRobloxRemoteOperation, CheckedValueType, RobloxInstance,
+        CheckedRecordLiteral,
     },
     source_language::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedExpression, ParsedFieldRead, ParsedFunctionCall,
         ParsedFunctionLiteral, ParsedNumericOperation, ParsedNumericOperator, ParsedRecordLiteral,
-        SourceBooleanLiteral,
+        ParsedRobloxRemoteOperation, ParsedRobloxRemoteOperationKind, SourceBooleanLiteral,
     },
-    ArgumentCount, CompilationProblem, CompilationProblemReason, SourceRange,
+    ArgumentCount, CompilationProblem, CompilationProblemReason, ModuleExecutionSide,
+    RemoteExecutionSide, SourceRange,
 };
 
 /// Validates expressions and calls against the active program and function scopes.
@@ -96,7 +98,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 parent_expression,
                 ..
             } => {
-                let roblox_instance = ProgramCheckContext::acquire_roblox_instance((
+                let roblox_instance = ProgramCheckContext::acquire_constructible_roblox_instance((
                     instance_type_name,
                     *instance_type_range,
                 ))?;
@@ -197,6 +199,389 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             ParsedExpression::FunctionLiteral(function_literal) => {
                 self.check_function_literal(function_literal)
             }
+            ParsedExpression::RobloxRemoteOperation(operation) => {
+                let (checked_operation, returned_value_type) =
+                    self.check_roblox_remote_operation(operation)?;
+                Ok((
+                    CheckedExpression::RobloxRemoteOperation(checked_operation),
+                    returned_value_type,
+                ))
+            }
+        }
+    }
+
+    /// Checks one explicit remote operation while preserving its direct lowering shape.
+    pub(super) fn check_roblox_remote_operation(
+        &mut self,
+        operation: &ParsedRobloxRemoteOperation,
+    ) -> Result<(CheckedRobloxRemoteOperation, CheckedValueType), CompilationProblem> {
+        if matches!(
+            operation.operation_kind(),
+            ParsedRobloxRemoteOperationKind::SetCallback
+        ) {
+            return Err(CompilationProblem::from_problem_at_range((
+                operation.expression_range(),
+                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+            )));
+        }
+        self.check_remote_operation(operation)
+    }
+
+    /// Checks a remote operation in a statement position where callback assignment is valid.
+    pub(super) fn check_roblox_remote_statement(
+        &mut self,
+        operation: &ParsedRobloxRemoteOperation,
+    ) -> Result<(CheckedRobloxRemoteOperation, CheckedValueType), CompilationProblem> {
+        self.check_remote_operation(operation)
+    }
+
+    fn check_remote_operation(
+        &mut self,
+        operation: &ParsedRobloxRemoteOperation,
+    ) -> Result<(CheckedRobloxRemoteOperation, CheckedValueType), CompilationProblem> {
+        match operation.operation_kind() {
+            ParsedRobloxRemoteOperationKind::Connect => {
+                Self::require_argument_count(operation, 2)?;
+                let execution_side =
+                    self.require_module_remote_side(operation.expression_range())?;
+                let remote_type = Self::remote_type(operation)?;
+                Self::require_remote_class(
+                    remote_type,
+                    RobloxInstance::RemoteEvent,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 0)?,
+                    RobloxInstance::RemoteEvent,
+                )?;
+                let callback_expression = self.check_callback_argument(
+                    Self::operation_argument(operation, 1)?,
+                    Self::remote_callback_type(execution_side, CheckedValueType::NoReturnedValues),
+                )?;
+                Ok((
+                    CheckedRobloxRemoteOperation::Connect {
+                        remote_expression: Box::new(remote_expression),
+                        callback_expression: Box::new(callback_expression),
+                        execution_side,
+                    },
+                    CheckedValueType::RobloxConnection,
+                ))
+            }
+            ParsedRobloxRemoteOperationKind::Disconnect => {
+                Self::require_argument_count(operation, 1)?;
+                let connection_expression =
+                    self.check_connection_argument(Self::operation_argument(operation, 0)?)?;
+                Ok((
+                    CheckedRobloxRemoteOperation::Disconnect {
+                        connection_expression: Box::new(connection_expression),
+                    },
+                    CheckedValueType::NoReturnedValues,
+                ))
+            }
+            ParsedRobloxRemoteOperationKind::FireServer => {
+                Self::require_argument_count(operation, 2)?;
+                self.require_remote_side(operation, RemoteExecutionSide::Client)?;
+                Self::require_remote_class(
+                    Self::remote_type(operation)?,
+                    RobloxInstance::RemoteEvent,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 0)?,
+                    RobloxInstance::RemoteEvent,
+                )?;
+                let payload_expression =
+                    self.check_remote_payload_argument(Self::operation_argument(operation, 1)?)?;
+                Ok((
+                    CheckedRobloxRemoteOperation::FireServer {
+                        remote_expression: Box::new(remote_expression),
+                        payload_expression: Box::new(payload_expression),
+                    },
+                    CheckedValueType::NoReturnedValues,
+                ))
+            }
+            ParsedRobloxRemoteOperationKind::FireClient => {
+                Self::require_argument_count(operation, 3)?;
+                self.require_remote_side(operation, RemoteExecutionSide::Server)?;
+                Self::require_remote_class(
+                    Self::remote_type(operation)?,
+                    RobloxInstance::RemoteEvent,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 0)?,
+                    RobloxInstance::RemoteEvent,
+                )?;
+                let player_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 1)?,
+                    RobloxInstance::Player,
+                )?;
+                let payload_expression =
+                    self.check_remote_payload_argument(Self::operation_argument(operation, 2)?)?;
+                Ok((
+                    CheckedRobloxRemoteOperation::FireClient {
+                        remote_expression: Box::new(remote_expression),
+                        player_expression: Box::new(player_expression),
+                        payload_expression: Box::new(payload_expression),
+                    },
+                    CheckedValueType::NoReturnedValues,
+                ))
+            }
+            ParsedRobloxRemoteOperationKind::FireAllClients => {
+                Self::require_argument_count(operation, 2)?;
+                self.require_remote_side(operation, RemoteExecutionSide::Server)?;
+                Self::require_remote_class(
+                    Self::remote_type(operation)?,
+                    RobloxInstance::RemoteEvent,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 0)?,
+                    RobloxInstance::RemoteEvent,
+                )?;
+                let payload_expression =
+                    self.check_remote_payload_argument(Self::operation_argument(operation, 1)?)?;
+                Ok((
+                    CheckedRobloxRemoteOperation::FireAllClients {
+                        remote_expression: Box::new(remote_expression),
+                        payload_expression: Box::new(payload_expression),
+                    },
+                    CheckedValueType::NoReturnedValues,
+                ))
+            }
+            ParsedRobloxRemoteOperationKind::InvokeServer => {
+                Self::require_argument_count(operation, 2)?;
+                self.require_remote_side(operation, RemoteExecutionSide::Client)?;
+                Self::require_remote_class(
+                    Self::remote_type(operation)?,
+                    RobloxInstance::RemoteFunction,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteFunction,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 0)?,
+                    RobloxInstance::RemoteFunction,
+                )?;
+                let payload_expression =
+                    self.check_remote_payload_argument(Self::operation_argument(operation, 1)?)?;
+                Ok((
+                    CheckedRobloxRemoteOperation::InvokeServer {
+                        remote_expression: Box::new(remote_expression),
+                        payload_expression: Box::new(payload_expression),
+                    },
+                    CheckedValueType::String,
+                ))
+            }
+            ParsedRobloxRemoteOperationKind::InvokeClient => {
+                Self::require_argument_count(operation, 3)?;
+                self.require_remote_side(operation, RemoteExecutionSide::Server)?;
+                Self::require_remote_class(
+                    Self::remote_type(operation)?,
+                    RobloxInstance::RemoteFunction,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteFunction,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 0)?,
+                    RobloxInstance::RemoteFunction,
+                )?;
+                let player_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 1)?,
+                    RobloxInstance::Player,
+                )?;
+                let payload_expression =
+                    self.check_remote_payload_argument(Self::operation_argument(operation, 2)?)?;
+                Ok((
+                    CheckedRobloxRemoteOperation::InvokeClient {
+                        remote_expression: Box::new(remote_expression),
+                        player_expression: Box::new(player_expression),
+                        payload_expression: Box::new(payload_expression),
+                    },
+                    CheckedValueType::String,
+                ))
+            }
+            ParsedRobloxRemoteOperationKind::SetCallback => {
+                Self::require_argument_count(operation, 2)?;
+                let execution_side =
+                    self.require_module_remote_side(operation.expression_range())?;
+                Self::require_remote_class(
+                    Self::remote_type(operation)?,
+                    RobloxInstance::RemoteFunction,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteFunction,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    Self::operation_argument(operation, 0)?,
+                    RobloxInstance::RemoteFunction,
+                )?;
+                let callback_expression = self.check_callback_argument(
+                    Self::operation_argument(operation, 1)?,
+                    Self::remote_callback_type(execution_side, CheckedValueType::String),
+                )?;
+                Ok((
+                    CheckedRobloxRemoteOperation::SetCallback {
+                        remote_expression: Box::new(remote_expression),
+                        callback_expression: Box::new(callback_expression),
+                        execution_side,
+                    },
+                    CheckedValueType::NoReturnedValues,
+                ))
+            }
+        }
+    }
+
+    fn operation_argument(
+        operation: &ParsedRobloxRemoteOperation,
+        argument_index: usize,
+    ) -> Result<&ParsedExpression, CompilationProblem> {
+        operation.arguments().get(argument_index).ok_or_else(|| {
+            CompilationProblem::from_problem_at_range((
+                operation.expression_range(),
+                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+            ))
+        })
+    }
+
+    fn require_argument_count(
+        operation: &ParsedRobloxRemoteOperation,
+        expected: usize,
+    ) -> Result<(), CompilationProblem> {
+        let actual = operation.arguments().len();
+        if actual == expected {
+            return Ok(());
+        }
+        Err(CompilationProblem::from_problem_at_range((
+            operation.expression_range(),
+            CompilationProblemReason::WrongArgumentCount {
+                expected: ArgumentCount::from_number_of_arguments(expected),
+                actual: ArgumentCount::from_number_of_arguments(actual),
+            },
+        )))
+    }
+
+    fn remote_type(
+        operation: &ParsedRobloxRemoteOperation,
+    ) -> Result<(RobloxInstance, SourceRange), CompilationProblem> {
+        let Some((remote_type_name, remote_type_range)) = operation.remote_type() else {
+            return Err(CompilationProblem::from_problem_at_range((
+                operation.expression_range(),
+                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+            )));
+        };
+        Ok((
+            ProgramCheckContext::acquire_roblox_instance((remote_type_name, remote_type_range))?,
+            remote_type_range,
+        ))
+    }
+
+    fn require_remote_class(
+        actual: (RobloxInstance, SourceRange),
+        expected: RobloxInstance,
+        reason: CompilationProblemReason,
+    ) -> Result<(), CompilationProblem> {
+        if actual.0 == expected {
+            return Ok(());
+        }
+        Err(CompilationProblem::from_problem_at_range((
+            actual.1, reason,
+        )))
+    }
+
+    const fn require_module_remote_side(
+        &self,
+        source_range: SourceRange,
+    ) -> Result<RemoteExecutionSide, CompilationProblem> {
+        match self.check_context.execution_side() {
+            None => Err(CompilationProblem::from_problem_at_range((
+                source_range,
+                CompilationProblemReason::RobloxRemoteRequiresProjectCompilation,
+            ))),
+            Some(ModuleExecutionSide::Shared) => Err(CompilationProblem::from_problem_at_range((
+                source_range,
+                CompilationProblemReason::RobloxRemoteRequiresConcreteExecutionSide,
+            ))),
+            Some(ModuleExecutionSide::Server) => Ok(RemoteExecutionSide::Server),
+            Some(ModuleExecutionSide::Client) => Ok(RemoteExecutionSide::Client),
+        }
+    }
+
+    fn require_remote_side(
+        &self,
+        operation: &ParsedRobloxRemoteOperation,
+        required_side: RemoteExecutionSide,
+    ) -> Result<(), CompilationProblem> {
+        let actual_side = self.require_module_remote_side(operation.expression_range())?;
+        if actual_side == required_side {
+            return Ok(());
+        }
+        Err(CompilationProblem::from_problem_at_range((
+            operation.expression_range(),
+            CompilationProblemReason::RobloxRemoteWrongExecutionSide,
+        )))
+    }
+
+    fn check_remote_instance_argument(
+        &mut self,
+        parsed_expression: &ParsedExpression,
+        expected_instance: RobloxInstance,
+    ) -> Result<CheckedExpression, CompilationProblem> {
+        let (checked_expression, actual_type) = self.check_expression(parsed_expression)?;
+        Self::require_matching_type((
+            actual_type,
+            CheckedValueType::RobloxInstance(expected_instance),
+            parsed_expression.source_range(),
+        ))?;
+        Ok(checked_expression)
+    }
+
+    fn check_connection_argument(
+        &mut self,
+        parsed_expression: &ParsedExpression,
+    ) -> Result<CheckedExpression, CompilationProblem> {
+        let (checked_expression, actual_type) = self.check_expression(parsed_expression)?;
+        if !matches!(actual_type, CheckedValueType::RobloxConnection) {
+            return Err(CompilationProblem::from_problem_at_range((
+                parsed_expression.source_range(),
+                CompilationProblemReason::RobloxConnectionExpected,
+            )));
+        }
+        Ok(checked_expression)
+    }
+
+    fn check_remote_payload_argument(
+        &mut self,
+        parsed_expression: &ParsedExpression,
+    ) -> Result<CheckedExpression, CompilationProblem> {
+        let (checked_expression, checked_value_type) = self.check_expression(parsed_expression)?;
+        self.check_context
+            .require_remote_payload_type(&checked_value_type, parsed_expression.source_range())?;
+        Ok(checked_expression)
+    }
+
+    fn check_callback_argument(
+        &mut self,
+        parsed_expression: &ParsedExpression,
+        expected_callback_type: CheckedValueType,
+    ) -> Result<CheckedExpression, CompilationProblem> {
+        let (checked_expression, actual_type) = self.check_expression(parsed_expression)?;
+        Self::require_matching_type((
+            actual_type,
+            expected_callback_type,
+            parsed_expression.source_range(),
+        ))?;
+        Ok(checked_expression)
+    }
+
+    fn remote_callback_type(
+        execution_side: RemoteExecutionSide,
+        returned_value_type: CheckedValueType,
+    ) -> CheckedValueType {
+        let server_callback = matches!(execution_side, RemoteExecutionSide::Server);
+        let mut parameter_types = Vec::new();
+        if server_callback {
+            parameter_types.push(CheckedValueType::RobloxInstance(RobloxInstance::Player));
+        }
+        parameter_types.push(CheckedValueType::String);
+        CheckedValueType::Function {
+            parameter_types,
+            returned_value_type: Box::new(returned_value_type),
         }
     }
 
@@ -525,6 +910,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
             | CheckedValueType::RobloxInstance(_)
+            | CheckedValueType::RobloxConnection
             | CheckedValueType::Function { .. }
             | CheckedValueType::Array(_) => {}
             CheckedValueType::NoReturnedValues => {
@@ -621,7 +1007,8 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             (CheckedValueType::Number, CheckedValueType::Number)
             | (CheckedValueType::String, CheckedValueType::String)
             | (CheckedValueType::Boolean, CheckedValueType::Boolean)
-            | (CheckedValueType::NoReturnedValues, CheckedValueType::NoReturnedValues) => Ok(()),
+            | (CheckedValueType::NoReturnedValues, CheckedValueType::NoReturnedValues)
+            | (CheckedValueType::RobloxConnection, CheckedValueType::RobloxConnection) => Ok(()),
             (
                 CheckedValueType::NamedRecord(actual_name),
                 CheckedValueType::NamedRecord(expected_name),

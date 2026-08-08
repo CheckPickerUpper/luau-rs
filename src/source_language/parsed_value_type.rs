@@ -22,23 +22,3 @@ pub enum ParsedValueType {
     /// Represents a function that returns no value.
     NoReturnedValues,
 }
-
-impl ParsedValueType {
-    pub(crate) fn named_record_parts(&self) -> Option<(&str, crate::SourceRange)> {
-        match self {
-            Self::NamedRecord {
-                record_name,
-                record_name_range,
-            } => Some((record_name, *record_name_range)),
-            Self::Array(element_type) => element_type.named_record_parts(),
-            Self::Function {
-                parameter_types,
-                returned_value_type,
-            } => parameter_types
-                .iter()
-                .find_map(Self::named_record_parts)
-                .or_else(|| returned_value_type.named_record_parts()),
-            Self::Number | Self::String | Self::Boolean | Self::NoReturnedValues => None,
-        }
-    }
-}

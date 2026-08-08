@@ -399,6 +399,13 @@ impl SourceProgramParser {
                         }
                         Ok(ParsedStatement::CallFunctionAndIgnoreResult(function_call))
                     }
+                    ParsedExpression::RobloxRemoteOperation(operation) => {
+                        match self.take_required_symbol(&SourceTokenKind::Semicolon) {
+                            Ok(consumed_symbol) => drop(consumed_symbol),
+                            Err(compilation_problem) => return Err(compilation_problem),
+                        }
+                        Ok(ParsedStatement::RobloxRemoteOperation(operation))
+                    }
                     ParsedExpression::NumberLiteral(_)
                     | ParsedExpression::StringLiteral(_)
                     | ParsedExpression::BooleanLiteral { .. }
@@ -560,7 +567,8 @@ impl SourceProgramParser {
                 | ParsedExpression::LogicalNegation(_)
                 | ParsedExpression::LogicalOperation(_)
                 | ParsedExpression::FunctionCall(_)
-                | ParsedExpression::FunctionLiteral(_) => return None,
+                | ParsedExpression::FunctionLiteral(_)
+                | ParsedExpression::RobloxRemoteOperation(_) => return None,
             }
         }
     }

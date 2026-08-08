@@ -100,8 +100,9 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
         if parsed_function.visibility() == crate::source_language::ParsedFunctionVisibility::Public
         {
             for parsed_parameter in parsed_function.function_parameters() {
-                if let Some((_, record_name_range)) =
-                    parsed_parameter.value_type().named_record_parts()
+                if let Some(record_name_range) = self
+                    .check_context
+                    .file_private_record_type_range(&parsed_parameter.value_type())
                 {
                     return Err(CompilationProblem::from_problem_at_range((
                         record_name_range,
@@ -109,8 +110,9 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     )));
                 }
             }
-            if let Some((_, record_name_range)) =
-                parsed_function.returned_value_type().named_record_parts()
+            if let Some(record_name_range) = self
+                .check_context
+                .file_private_record_type_range(&parsed_function.returned_value_type())
             {
                 return Err(CompilationProblem::from_problem_at_range((
                     record_name_range,
@@ -163,6 +165,7 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
             | CheckedValueType::RobloxInstance(_)
+            | CheckedValueType::RobloxConnection
             | CheckedValueType::Function { .. }
             | CheckedValueType::Array(_)
                 if !function_completion.is_exactly_returns() =>
@@ -178,6 +181,7 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
             | CheckedValueType::RobloxInstance(_)
+            | CheckedValueType::RobloxConnection
             | CheckedValueType::Function { .. }
             | CheckedValueType::Array(_)
             | CheckedValueType::NoReturnedValues => {}
@@ -428,6 +432,15 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     )),
                     Err(compilation_problem) => Err(compilation_problem),
                 }
+            }
+            ParsedStatement::RobloxRemoteOperation(operation) => {
+                let mut expression_checker = ExpressionChecker::from_context(self.check_context);
+                let (checked_operation, _) =
+                    expression_checker.check_roblox_remote_statement(operation)?;
+                Ok((
+                    CheckedStatement::RobloxRemoteOperation(checked_operation),
+                    BodyControlFlows::reaches_end(),
+                ))
             }
             ParsedStatement::ReturnsValue(returned_value) => {
                 let (checked_expression, actual_type) = {

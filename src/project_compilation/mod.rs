@@ -10,6 +10,7 @@ mod project_module_identity;
 mod project_module_role;
 mod project_module_source;
 mod project_output_path;
+mod remote_execution_side;
 
 pub use compile_project::compile_project;
 pub use compiled_project::CompiledProject;
@@ -23,3 +24,4 @@ pub use project_module_identity::ProjectModuleIdentity;
 pub use project_module_role::ProjectModuleRole;
 pub use project_module_source::ProjectModuleSource;
 pub use project_output_path::ProjectOutputPath;
+pub use remote_execution_side::RemoteExecutionSide;

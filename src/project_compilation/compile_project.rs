@@ -1,7 +1,7 @@
 use crate::{
     checked_program::{
         check_project_entrypoint, check_project_library, CheckedValueType,
-        ImportedFunctionSignature,
+        ImportedFunctionSignature, RobloxInstance, RobloxService,
     },
     generated_luau::{generate_luau_library, generate_luau_program, write_luau_text},
     source_language::{
@@ -523,7 +523,21 @@ fn checked_value_type(
             CheckedValueType::NoReturnedValues
         }
         crate::source_language::ParsedValueType::NamedRecord { record_name, .. } => {
-            CheckedValueType::NamedRecord(record_name)
+            RobloxService::from_type_name(&record_name).map_or_else(
+                || {
+                    RobloxInstance::from_type_name(&record_name).map_or_else(
+                        || {
+                            if record_name == "RBXScriptConnection" {
+                                CheckedValueType::RobloxConnection
+                            } else {
+                                CheckedValueType::NamedRecord(record_name)
+                            }
+                        },
+                        CheckedValueType::RobloxInstance,
+                    )
+                },
+                CheckedValueType::RobloxService,
+            )
         }
     }
 }

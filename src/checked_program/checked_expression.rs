@@ -3,6 +3,7 @@ use crate::checked_program::{
     CheckedEqualityOperation, CheckedFieldRead, CheckedFunctionLiteral,
     CheckedInstanceConstruction, CheckedInstanceLookup, CheckedLogicalNegation,
     CheckedLogicalOperation, CheckedNumericOperation, CheckedRecordLiteral,
+    CheckedRobloxRemoteOperation,
 };
 
 /// Represents expressions whose names and types have been validated.
@@ -45,5 +46,7 @@ pub enum CheckedExpression {
     FunctionCall(CheckedFunctionCall),
     /// Retains a checked closure and its lexical body.
     FunctionLiteral(CheckedFunctionLiteral),
+    /// Retains a checked operation at a direction-specific Roblox remote boundary.
+    RobloxRemoteOperation(CheckedRobloxRemoteOperation),
 }
 use crate::checked_program::CheckedFunctionCall;

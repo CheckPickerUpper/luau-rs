@@ -2,7 +2,8 @@ use crate::generated_luau::{
     LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
     LuauEqualityOperation, LuauFieldRead, LuauFunctionCall, LuauFunctionLiteral,
     LuauInstanceConstruction, LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation,
-    LuauNumericOperation, LuauRecordLiteral,
+    LuauRecordLiteral, LuauRobloxRemoteOperation,
+    LuauNumericOperation,
 };
 
 /// Represents expressions after source-language meaning has been resolved.
@@ -46,4 +47,6 @@ pub enum LuauExpression {
     FunctionCall(LuauFunctionCall),
     /// Emits an anonymous function expression that closes over active Luau locals.
     FunctionLiteral(LuauFunctionLiteral),
+    /// Emits one direction-checked Roblox remote operation.
+    RobloxRemoteOperation(LuauRobloxRemoteOperation),
 }

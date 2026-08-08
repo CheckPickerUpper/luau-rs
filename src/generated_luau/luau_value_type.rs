@@ -20,6 +20,8 @@ pub enum LuauValueType {
     RobloxService(String),
     /// Uses the Roblox engine's built-in Instance class type spelling.
     RobloxInstance(String),
+    /// Uses Roblox's connection object type spelling.
+    RobloxConnection,
     /// Marks a function that produces no values.
     NoReturnedValues,
 }

@@ -15,5 +15,5 @@ pub use project_compilation::{
     compile_project, CompiledProject, GeneratedProjectModule, ModuleExecutionSide,
     ProjectCompilationOutcome, ProjectCompilationProblem, ProjectCompilationRejection,
     ProjectCompilationRequest, ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource,
-    ProjectOutputPath,
+    ProjectOutputPath, RemoteExecutionSide,
 };

@@ -4,7 +4,7 @@ use crate::{
         CheckedRecordField, CheckedValueType, RobloxInstance,
     },
     source_language::{ParsedFunction, ParsedProgram, ParsedValueType},
-    CompilationProblem, CompilationProblemReason, SourceRange,
+    CompilationProblem, CompilationProblemReason, ModuleExecutionSide, SourceRange,
 };
 
 /// States whether semantic checking has a Roblox execution side for service acquisition.
@@ -185,6 +185,41 @@ impl<'a> ProgramCheckContext<'a> {
         self.expected_returned_value_type.clone()
     }
 
+    /// Finds a source-file record hidden inside a public type without hardcoding engine types.
+    pub(super) fn file_private_record_type_range(
+        &self,
+        parsed_value_type: &ParsedValueType,
+    ) -> Option<SourceRange> {
+        match parsed_value_type {
+            ParsedValueType::Array(element_type) => {
+                self.file_private_record_type_range(element_type)
+            }
+            ParsedValueType::Function {
+                parameter_types,
+                returned_value_type,
+            } => parameter_types
+                .iter()
+                .find_map(|parameter_type| self.file_private_record_type_range(parameter_type))
+                .or_else(|| self.file_private_record_type_range(returned_value_type)),
+            ParsedValueType::NamedRecord {
+                record_name,
+                record_name_range,
+            } if self
+                .parsed_program
+                .parsed_records()
+                .iter()
+                .any(|record| record.record_name() == record_name) =>
+            {
+                Some(*record_name_range)
+            }
+            ParsedValueType::Number
+            | ParsedValueType::String
+            | ParsedValueType::Boolean
+            | ParsedValueType::NamedRecord { .. }
+            | ParsedValueType::NoReturnedValues => None,
+        }
+    }
+
     /// Resolves a source type against the record aliases declared in this source file.
     pub(super) fn resolve_value_type(
         &self,
@@ -217,6 +252,9 @@ impl<'a> ProgramCheckContext<'a> {
                 }
                 if let Some(roblox_instance) = RobloxInstance::from_type_name(record_name) {
                     return Ok(CheckedValueType::RobloxInstance(roblox_instance));
+                }
+                if record_name == "RBXScriptConnection" {
+                    return Ok(CheckedValueType::RobloxConnection);
                 }
                 if self
                     .parsed_program
@@ -293,6 +331,95 @@ impl<'a> ProgramCheckContext<'a> {
                 CompilationProblemReason::UnknownRobloxInstance,
             ))
         })
+    }
+
+    /// Resolves an Instance class and rejects engine-supplied classes in construction syntax.
+    pub(super) fn acquire_constructible_roblox_instance(
+        instance_type_at_range: (&str, SourceRange),
+    ) -> Result<RobloxInstance, CompilationProblem> {
+        let (instance_type_name, instance_type_range) = instance_type_at_range;
+        let roblox_instance =
+            Self::acquire_roblox_instance((instance_type_name, instance_type_range))?;
+        if !roblox_instance.can_construct() {
+            return Err(CompilationProblem::from_problem_at_range((
+                instance_type_range,
+                CompilationProblemReason::RobloxInstanceCannotBeConstructed,
+            )));
+        }
+        Ok(roblox_instance)
+    }
+
+    /// Returns a concrete module side when project compilation supplied one.
+    pub(super) const fn execution_side(&self) -> Option<ModuleExecutionSide> {
+        match self.service_acquisition_context {
+            ServiceAcquisitionContext::Standalone => None,
+            ServiceAcquisitionContext::Project(execution_side) => Some(execution_side),
+        }
+    }
+
+    /// Rejects values that cannot cross a remote boundary as deterministic wire data.
+    pub(super) fn require_remote_payload_type(
+        &self,
+        checked_value_type: &CheckedValueType,
+        source_range: SourceRange,
+    ) -> Result<(), CompilationProblem> {
+        self.require_remote_payload_type_with_stack(
+            checked_value_type,
+            source_range,
+            &mut Vec::new(),
+        )
+    }
+
+    fn require_remote_payload_type_with_stack(
+        &self,
+        checked_value_type: &CheckedValueType,
+        source_range: SourceRange,
+        visiting_records: &mut Vec<String>,
+    ) -> Result<(), CompilationProblem> {
+        match checked_value_type {
+            CheckedValueType::Number | CheckedValueType::String | CheckedValueType::Boolean => {
+                Ok(())
+            }
+            CheckedValueType::Array(element_type) => self.require_remote_payload_type_with_stack(
+                element_type,
+                source_range,
+                visiting_records,
+            ),
+            CheckedValueType::NamedRecord(record_name) => {
+                if visiting_records.iter().any(|name| name == record_name) {
+                    return Err(CompilationProblem::from_problem_at_range((
+                        source_range,
+                        CompilationProblemReason::RobloxPayloadTypeNotAllowed,
+                    )));
+                }
+                let field_types = self
+                    .checked_record_declaration((record_name, source_range))?
+                    .record_fields()
+                    .iter()
+                    .map(|field| field.value_type().clone())
+                    .collect::<Vec<_>>();
+                visiting_records.push(record_name.clone());
+                for field_type in &field_types {
+                    self.require_remote_payload_type_with_stack(
+                        field_type,
+                        source_range,
+                        visiting_records,
+                    )?;
+                }
+                visiting_records.pop();
+                Ok(())
+            }
+            CheckedValueType::Function { .. }
+            | CheckedValueType::RobloxService(_)
+            | CheckedValueType::RobloxInstance(_)
+            | CheckedValueType::RobloxConnection
+            | CheckedValueType::NoReturnedValues => {
+                Err(CompilationProblem::from_problem_at_range((
+                    source_range,
+                    CompilationProblemReason::RobloxPayloadTypeNotAllowed,
+                )))
+            }
+        }
     }
 
     pub(super) fn reject_service_type_outside_local_acquisition(

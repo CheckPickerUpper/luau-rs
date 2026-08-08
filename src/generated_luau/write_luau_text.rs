@@ -5,7 +5,7 @@ use crate::generated_luau::{
     LuauFunctionLiteral, LuauIfElse, LuauLogicalNegation, LuauLogicalOperation,
     LuauLogicalOperator, LuauNumericOperation, LuauNumericOperator, LuauOperationOperandSide,
     LuauParameter, LuauProgram, LuauProgramEnding, LuauRecordAlias, LuauRecordLiteral,
-    LuauStatement, LuauValueType, LuauWhileLoop,
+    LuauRobloxRemoteOperation, LuauStatement, LuauValueType, LuauWhileLoop,
 };
 
 const STATEMENT_INDENTATION: &str = "    ";
@@ -159,6 +159,9 @@ impl LuauTextWriter {
             }
             LuauStatement::CallFunctionAndIgnoreResult(function_call) => {
                 self.write_function_call(function_call);
+            }
+            LuauStatement::RobloxRemoteOperation(operation) => {
+                self.write_remote_operation(operation);
             }
             LuauStatement::ReturnsValue(returned_expression) => {
                 self.luau_text.push_str("return ");
@@ -316,6 +319,9 @@ impl LuauTextWriter {
             LuauExpression::FunctionLiteral(function_literal) => {
                 self.write_function_literal(function_literal);
             }
+            LuauExpression::RobloxRemoteOperation(operation) => {
+                self.write_remote_operation(operation);
+            }
         }
         if needs_parentheses {
             self.luau_text.push(')');
@@ -341,6 +347,141 @@ impl LuauTextWriter {
         self.luau_text.push('(');
         self.write_call_arguments(function_call.function_arguments());
         self.luau_text.push(')');
+    }
+
+    fn write_remote_operation(&mut self, operation: &LuauRobloxRemoteOperation) {
+        match operation {
+            LuauRobloxRemoteOperation::Connect {
+                remote_expression,
+                callback_expression,
+                execution_side,
+            } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(match execution_side {
+                    crate::RemoteExecutionSide::Client => ".OnClientEvent:Connect(",
+                    crate::RemoteExecutionSide::Server => ".OnServerEvent:Connect(",
+                });
+                self.write_expression(callback_expression);
+                self.luau_text.push(')');
+            }
+            LuauRobloxRemoteOperation::Disconnect {
+                connection_expression,
+            } => {
+                self.write_expression_in((
+                    connection_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(":Disconnect()");
+            }
+            LuauRobloxRemoteOperation::FireServer {
+                remote_expression,
+                payload_expression,
+            } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(":FireServer(");
+                self.write_expression(payload_expression);
+                self.luau_text.push(')');
+            }
+            LuauRobloxRemoteOperation::FireClient {
+                remote_expression,
+                player_expression,
+                payload_expression,
+            } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(":FireClient(");
+                self.write_expression(player_expression);
+                self.luau_text.push_str(", ");
+                self.write_expression(payload_expression);
+                self.luau_text.push(')');
+            }
+            LuauRobloxRemoteOperation::FireAllClients {
+                remote_expression,
+                payload_expression,
+            } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(":FireAllClients(");
+                self.write_expression(payload_expression);
+                self.luau_text.push(')');
+            }
+            LuauRobloxRemoteOperation::InvokeServer {
+                remote_expression,
+                payload_expression,
+            } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(":InvokeServer(");
+                self.write_expression(payload_expression);
+                self.luau_text.push(')');
+            }
+            LuauRobloxRemoteOperation::InvokeClient {
+                remote_expression,
+                player_expression,
+                payload_expression,
+            } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(":InvokeClient(");
+                self.write_expression(player_expression);
+                self.luau_text.push_str(", ");
+                self.write_expression(payload_expression);
+                self.luau_text.push(')');
+            }
+            LuauRobloxRemoteOperation::SetCallback {
+                remote_expression,
+                callback_expression,
+                execution_side,
+            } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(match execution_side {
+                    crate::RemoteExecutionSide::Client => ".OnClientInvoke = ",
+                    crate::RemoteExecutionSide::Server => ".OnServerInvoke = ",
+                });
+                self.write_expression(callback_expression);
+            }
+        }
     }
 
     fn write_numeric_operation(&mut self, operation: &LuauNumericOperation) {
@@ -537,7 +678,8 @@ impl LuauTextWriter {
             | LuauExpression::FieldRead(_)
             | LuauExpression::ArrayLiteral(_)
             | LuauExpression::ArrayRead(_)
-            | LuauExpression::FunctionLiteral(_) => LuauExpressionPrecedence::Primary,
+            | LuauExpression::FunctionLiteral(_)
+            | LuauExpression::RobloxRemoteOperation(_) => LuauExpressionPrecedence::Primary,
         }
     }
 
@@ -574,6 +716,7 @@ impl LuauTextWriter {
             LuauValueType::NamedRecord(record_name) => self.luau_text.push_str(&record_name),
             LuauValueType::RobloxService(service_name) => self.luau_text.push_str(&service_name),
             LuauValueType::RobloxInstance(instance_name) => self.luau_text.push_str(&instance_name),
+            LuauValueType::RobloxConnection => self.luau_text.push_str("RBXScriptConnection"),
             LuauValueType::NoReturnedValues => self.luau_text.push_str("()"),
         }
     }

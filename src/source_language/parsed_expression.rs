@@ -3,7 +3,7 @@ use crate::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedComparisonOperation, ParsedEqualityOperation,
         ParsedFieldRead, ParsedFunctionCall, ParsedFunctionLiteral, ParsedLiteral,
         ParsedLogicalNegation, ParsedLogicalOperation, ParsedNumericOperation, ParsedRecordLiteral,
-        SourceBooleanLiteral,
+        ParsedRobloxRemoteOperation, SourceBooleanLiteral,
     },
     SourceRange,
 };
@@ -67,6 +67,8 @@ pub enum ParsedExpression {
     FunctionCall(ParsedFunctionCall),
     /// Defines an anonymous function that may capture active lexical bindings.
     FunctionLiteral(ParsedFunctionLiteral),
+    /// Crosses a direction-specific Roblox remote boundary through an explicit intrinsic.
+    RobloxRemoteOperation(ParsedRobloxRemoteOperation),
 }
 
 /// Keeps diagnostic attribution available for every value-producing grammar form.
@@ -99,6 +101,7 @@ impl ParsedExpression {
             Self::LogicalOperation(operation) => operation.expression_range(),
             Self::FunctionCall(function_call) => function_call.source_range(),
             Self::FunctionLiteral(function_literal) => function_literal.expression_range(),
+            Self::RobloxRemoteOperation(operation) => operation.expression_range(),
         }
     }
 }

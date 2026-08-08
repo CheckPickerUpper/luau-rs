@@ -60,5 +60,21 @@ pub enum CompilationProblemReason {
     UnknownRobloxInstance,
     /// A typed Instance member is not present in the class catalog.
     UnknownRobloxInstanceMember,
+    /// A source acquisition asks the compiler to construct an engine-supplied Instance.
+    RobloxInstanceCannotBeConstructed,
+    /// Remote operations require project compilation to determine their execution side.
+    RobloxRemoteRequiresProjectCompilation,
+    /// A shared module cannot select a direction-specific remote operation.
+    RobloxRemoteRequiresConcreteExecutionSide,
+    /// A remote operation is unavailable on the module's execution side.
+    RobloxRemoteWrongExecutionSide,
+    /// The operation requires a catalogued `RemoteEvent`.
+    RobloxRemoteOperationRequiresRemoteEvent,
+    /// The operation requires a catalogued `RemoteFunction`.
+    RobloxRemoteOperationRequiresRemoteFunction,
+    /// A remote payload contains a value outside the safe wire-data subset.
+    RobloxPayloadTypeNotAllowed,
+    /// A disconnect operation requires an `RBXScriptConnection` value.
+    RobloxConnectionExpected,
 }
 use crate::ArgumentCount;

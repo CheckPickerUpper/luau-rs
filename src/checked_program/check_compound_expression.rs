@@ -174,7 +174,8 @@ impl ExpressionChecker<'_, '_> {
         match (left_type, right_type) {
             (CheckedValueType::Number, CheckedValueType::Number)
             | (CheckedValueType::String, CheckedValueType::String)
-            | (CheckedValueType::Boolean, CheckedValueType::Boolean) => Ok(()),
+            | (CheckedValueType::Boolean, CheckedValueType::Boolean)
+            | (CheckedValueType::RobloxConnection, CheckedValueType::RobloxConnection) => Ok(()),
             (
                 CheckedValueType::NamedRecord(left_name),
                 CheckedValueType::NamedRecord(right_name),
@@ -238,6 +239,7 @@ impl ExpressionChecker<'_, '_> {
                 CheckedValueType::NamedRecord(_)
                 | CheckedValueType::RobloxService(_)
                 | CheckedValueType::RobloxInstance(_)
+                | CheckedValueType::RobloxConnection
                 | CheckedValueType::Function { .. }
                 | CheckedValueType::Array(_),
                 _,
@@ -247,6 +249,7 @@ impl ExpressionChecker<'_, '_> {
                 CheckedValueType::NamedRecord(_)
                 | CheckedValueType::RobloxService(_)
                 | CheckedValueType::RobloxInstance(_)
+                | CheckedValueType::RobloxConnection
                 | CheckedValueType::Function { .. }
                 | CheckedValueType::Array(_),
             ) => Err(CompilationProblem::from_problem_at_range((

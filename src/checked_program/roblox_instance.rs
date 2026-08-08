@@ -13,6 +13,8 @@ pub enum RobloxInstance {
     RemoteEvent,
     /// Represents a callable remote function.
     RemoteFunction,
+    /// Represents a player supplied by Roblox at a remote boundary.
+    Player,
 }
 
 impl RobloxInstance {
@@ -23,6 +25,7 @@ impl RobloxInstance {
             "Model" => Some(Self::Model),
             "RemoteEvent" => Some(Self::RemoteEvent),
             "RemoteFunction" => Some(Self::RemoteFunction),
+            "Player" => Some(Self::Player),
             _ => None,
         }
     }
@@ -34,7 +37,13 @@ impl RobloxInstance {
             Self::Model => "Model",
             Self::RemoteEvent => "RemoteEvent",
             Self::RemoteFunction => "RemoteFunction",
+            Self::Player => "Player",
         }
+    }
+
+    /// Distinguishes source-created Instances from engine-supplied boundary values.
+    pub(crate) const fn can_construct(self) -> bool {
+        !matches!(self, Self::Player)
     }
 
     pub(crate) fn property_type(self, property_name: &str) -> Option<CheckedValueType> {

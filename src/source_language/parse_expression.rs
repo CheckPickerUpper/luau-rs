@@ -4,7 +4,8 @@ use crate::{
         ParsedComparisonOperator, ParsedEqualityOperation, ParsedEqualityOperator,
         ParsedExpression, ParsedFunctionCall, ParsedLiteral, ParsedLogicalNegation,
         ParsedLogicalOperation, ParsedLogicalOperator, ParsedNumericOperation,
-        ParsedNumericOperator, SourceToken, SourceTokenKind,
+        ParsedNumericOperator, ParsedRobloxRemoteOperation, ParsedRobloxRemoteOperationKind,
+        SourceToken, SourceTokenKind,
     },
     CompilationProblem, SourceRange,
 };
@@ -495,13 +496,21 @@ impl SourceProgramParser {
     ) -> Result<ParsedExpression, CompilationProblem> {
         self.take_required_symbol(&SourceTokenKind::DoubleColon)?;
         let (intrinsic_name, _) = self.take_identifier_name()?;
-        self.take_required_symbol(&SourceTokenKind::DoubleColon)?;
-        self.take_required_symbol(&SourceTokenKind::LessThan)?;
-        let (instance_type_name, instance_type_range) = self.take_identifier_name()?;
-        self.take_required_symbol(&SourceTokenKind::GreaterThan)?;
+        let remote_type = if intrinsic_name == "disconnect" {
+            None
+        } else {
+            self.take_required_symbol(&SourceTokenKind::DoubleColon)?;
+            self.take_required_symbol(&SourceTokenKind::LessThan)?;
+            let remote_type = self.take_identifier_name()?;
+            self.take_required_symbol(&SourceTokenKind::GreaterThan)?;
+            Some(remote_type)
+        };
         self.take_required_symbol(&SourceTokenKind::LeftParenthesis)?;
         match intrinsic_name.as_str() {
             "service" => {
+                let Some((instance_type_name, instance_type_range)) = remote_type else {
+                    return Err(self.problem_at_current_token());
+                };
                 let right_parenthesis =
                     self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
                 Ok(ParsedExpression::RobloxServiceAcquisition {
@@ -514,6 +523,9 @@ impl SourceProgramParser {
                 })
             }
             "instance" => {
+                let Some((instance_type_name, instance_type_range)) = remote_type else {
+                    return Err(self.problem_at_current_token());
+                };
                 let mut arguments = self.parse_function_arguments()?.into_iter();
                 let parent_expression = arguments.next().map(Box::new);
                 if arguments.next().is_some() {
@@ -532,6 +544,9 @@ impl SourceProgramParser {
                 })
             }
             "wait_for_child" => {
+                let Some((instance_type_name, instance_type_range)) = remote_type else {
+                    return Err(self.problem_at_current_token());
+                };
                 let arguments = self.parse_function_arguments()?;
                 let right_parenthesis =
                     self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
@@ -555,6 +570,34 @@ impl SourceProgramParser {
                         right_parenthesis.source_range().end_byte(),
                     )),
                 })
+            }
+            "connect" | "disconnect" | "fire_server" | "fire_client" | "fire_all_clients"
+            | "invoke_server" | "invoke_client" | "set_callback" => {
+                let arguments = self.parse_function_arguments()?;
+                let right_parenthesis =
+                    self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
+                let operation_kind = match intrinsic_name.as_str() {
+                    "connect" => ParsedRobloxRemoteOperationKind::Connect,
+                    "disconnect" => ParsedRobloxRemoteOperationKind::Disconnect,
+                    "fire_server" => ParsedRobloxRemoteOperationKind::FireServer,
+                    "fire_client" => ParsedRobloxRemoteOperationKind::FireClient,
+                    "fire_all_clients" => ParsedRobloxRemoteOperationKind::FireAllClients,
+                    "invoke_server" => ParsedRobloxRemoteOperationKind::InvokeServer,
+                    "invoke_client" => ParsedRobloxRemoteOperationKind::InvokeClient,
+                    "set_callback" => ParsedRobloxRemoteOperationKind::SetCallback,
+                    _ => return Err(self.problem_at_current_token()),
+                };
+                Ok(ParsedExpression::RobloxRemoteOperation(
+                    ParsedRobloxRemoteOperation::from_parts((
+                        operation_kind,
+                        remote_type,
+                        arguments,
+                        SourceRange::from_byte_range((
+                            namespace_range.start_byte(),
+                            right_parenthesis.source_range().end_byte(),
+                        )),
+                    )),
+                ))
             }
             _ => Err(self.problem_at_current_token()),
         }

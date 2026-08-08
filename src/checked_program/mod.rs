@@ -31,6 +31,7 @@ mod checked_record_declaration;
 mod checked_record_field;
 mod checked_record_field_initializer;
 mod checked_record_literal;
+mod checked_roblox_remote_operation;
 #[path = "checked_program.rs"]
 mod checked_source_program;
 mod checked_statement;
@@ -74,8 +75,10 @@ pub use checked_record_declaration::CheckedRecordDeclaration;
 pub use checked_record_field::CheckedRecordField;
 pub use checked_record_field_initializer::CheckedRecordFieldInitializer;
 pub use checked_record_literal::CheckedRecordLiteral;
+pub use checked_roblox_remote_operation::CheckedRobloxRemoteOperation;
 pub use checked_source_program::CheckedProgram;
 pub use checked_statement::CheckedStatement;
 pub use checked_value_type::CheckedValueType;
 pub use checked_while_loop::CheckedWhileLoop;
 pub use roblox_instance::RobloxInstance;
+pub use roblox_service::RobloxService;

@@ -29,6 +29,7 @@ mod parsed_record_declaration;
 mod parsed_record_field;
 mod parsed_record_field_initializer;
 mod parsed_record_literal;
+mod parsed_roblox_remote_operation;
 mod parsed_statement;
 mod parsed_value_type;
 mod parsed_while_loop;
@@ -66,6 +67,9 @@ pub use parsed_record_declaration::ParsedRecordDeclaration;
 pub use parsed_record_field::ParsedRecordField;
 pub use parsed_record_field_initializer::ParsedRecordFieldInitializer;
 pub use parsed_record_literal::ParsedRecordLiteral;
+pub use parsed_roblox_remote_operation::{
+    ParsedRobloxRemoteOperation, ParsedRobloxRemoteOperationKind,
+};
 pub use parsed_statement::ParsedStatement;
 pub use parsed_value_type::ParsedValueType;
 pub use parsed_while_loop::ParsedWhileLoop;
