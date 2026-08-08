@@ -29,6 +29,20 @@ pub enum ParsedExpression {
         service_type_range: SourceRange,
         expression_range: SourceRange,
     },
+    /// Constructs one class from the closed Roblox Instance catalog.
+    RobloxInstanceAcquisition {
+        instance_type_name: String,
+        instance_type_range: SourceRange,
+        expression_range: SourceRange,
+    },
+    /// Performs an explicitly yielding typed hierarchy lookup.
+    RobloxInstanceWaitForChild {
+        instance_type_name: String,
+        instance_type_range: SourceRange,
+        parent_expression: Box<Self>,
+        child_name_expression: Box<Self>,
+        expression_range: SourceRange,
+    },
     /// Constructs a non-empty homogeneous array.
     ArrayLiteral(ParsedArrayLiteral),
     /// Constructs a named record with a checked set of field initializers.
@@ -62,6 +76,12 @@ impl ParsedExpression {
             }
             Self::BooleanLiteral { literal_range, .. } => *literal_range,
             Self::RobloxServiceAcquisition {
+                expression_range, ..
+            }
+            | Self::RobloxInstanceAcquisition {
+                expression_range, ..
+            }
+            | Self::RobloxInstanceWaitForChild {
                 expression_range, ..
             } => *expression_range,
             Self::ArrayLiteral(array_literal) => array_literal.literal_range(),

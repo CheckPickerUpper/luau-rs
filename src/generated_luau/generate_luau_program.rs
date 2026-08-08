@@ -8,10 +8,10 @@ use crate::{
         LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
         LuauComparisonOperator, LuauEqualityOperation, LuauEqualityOperator, LuauExpression,
         LuauFieldRead, LuauFunction, LuauFunctionBody, LuauFunctionCall, LuauIfElse,
-        LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator, LuauNumericOperation,
-        LuauNumericOperator, LuauParameter, LuauPlaceAssignment, LuauPlaceStep, LuauProgram,
-        LuauRecordAlias, LuauRecordField, LuauRecordFieldInitializer, LuauRecordLiteral,
-        LuauStatement, LuauValueType, LuauWhileLoop,
+        LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation, LuauLogicalOperator,
+        LuauNumericOperation, LuauNumericOperator, LuauParameter, LuauPlaceAssignment,
+        LuauPlaceStep, LuauProgram, LuauRecordAlias, LuauRecordField, LuauRecordFieldInitializer,
+        LuauRecordLiteral, LuauStatement, LuauValueType, LuauWhileLoop,
     },
 };
 
@@ -216,6 +216,18 @@ impl LuauProgramGenerator {
             CheckedExpression::RobloxServiceAcquisition(roblox_service) => {
                 LuauExpression::RobloxServiceAcquisition(roblox_service.canonical_name().to_owned())
             }
+            CheckedExpression::RobloxInstanceAcquisition(roblox_instance) => {
+                LuauExpression::RobloxInstanceAcquisition(
+                    roblox_instance.canonical_name().to_owned(),
+                )
+            }
+            CheckedExpression::RobloxInstanceWaitForChild(lookup) => {
+                LuauExpression::RobloxInstanceWaitForChild(LuauInstanceLookup::from_parts((
+                    lookup.instance().canonical_name().to_owned(),
+                    Box::new(Self::generate_expression(lookup.parent_expression())),
+                    Box::new(Self::generate_expression(lookup.child_name_expression())),
+                )))
+            }
             CheckedExpression::ArrayLiteral(array_literal) => {
                 LuauExpression::ArrayLiteral(LuauArrayLiteral::from_elements(
                     array_literal
@@ -356,6 +368,9 @@ impl LuauProgramGenerator {
             CheckedValueType::NamedRecord(record_name) => LuauValueType::NamedRecord(record_name),
             CheckedValueType::RobloxService(roblox_service) => {
                 LuauValueType::RobloxService(roblox_service.canonical_name().to_owned())
+            }
+            CheckedValueType::RobloxInstance(roblox_instance) => {
+                LuauValueType::RobloxInstance(roblox_instance.canonical_name().to_owned())
             }
             CheckedValueType::NoReturnedValues => LuauValueType::NoReturnedValues,
         }

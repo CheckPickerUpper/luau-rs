@@ -13,6 +13,8 @@ pub enum LuauValueType {
     NamedRecord(String),
     /// Uses the Roblox engine's built-in service type spelling.
     RobloxService(String),
+    /// Uses the Roblox engine's built-in Instance class type spelling.
+    RobloxInstance(String),
     /// Marks a function that produces no values.
     NoReturnedValues,
 }

@@ -1,7 +1,7 @@
 use crate::{
     checked_program::{
         roblox_service::RobloxService, CheckedLocalBinding, CheckedRecordDeclaration,
-        CheckedRecordField, CheckedValueType,
+        CheckedRecordField, CheckedValueType, RobloxInstance,
     },
     source_language::{ParsedFunction, ParsedProgram, ParsedValueType},
     CompilationProblem, CompilationProblemReason, SourceRange,
@@ -186,6 +186,9 @@ impl<'a> ProgramCheckContext<'a> {
                 if let Some(roblox_service) = RobloxService::from_type_name(record_name) {
                     return Ok(CheckedValueType::RobloxService(roblox_service));
                 }
+                if let Some(roblox_instance) = RobloxInstance::from_type_name(record_name) {
+                    return Ok(CheckedValueType::RobloxInstance(roblox_instance));
+                }
                 if self
                     .parsed_program
                     .parsed_records()
@@ -248,6 +251,19 @@ impl<'a> ProgramCheckContext<'a> {
                 )))
             }
         }
+    }
+
+    /// Resolves one class only when the closed Roblox Instance catalog names it.
+    pub(super) fn acquire_roblox_instance(
+        instance_type_at_range: (&str, SourceRange),
+    ) -> Result<RobloxInstance, CompilationProblem> {
+        let (instance_type_name, instance_type_range) = instance_type_at_range;
+        RobloxInstance::from_type_name(instance_type_name).ok_or_else(|| {
+            CompilationProblem::from_problem_at_range((
+                instance_type_range,
+                CompilationProblemReason::UnknownRobloxInstance,
+            ))
+        })
     }
 
     fn reject_service_type_outside_local_acquisition(

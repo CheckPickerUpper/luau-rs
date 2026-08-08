@@ -56,5 +56,9 @@ pub enum CompilationProblemReason {
     RobloxServiceAcquisitionRequiresProjectCompilation,
     /// Service types only describe locals initialized by the service intrinsic.
     RobloxServiceTypeMayOnlyBeUsedForLocalAcquisition,
+    /// An intrinsic names no class in the closed Roblox Instance catalog.
+    UnknownRobloxInstance,
+    /// A typed Instance member is not present in the class catalog.
+    UnknownRobloxInstanceMember,
 }
 use crate::ArgumentCount;

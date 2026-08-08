@@ -4,8 +4,8 @@ use crate::{
     checked_program::{
         program_check_context::ProgramCheckContext, CheckedArrayLiteral, CheckedArrayRead,
         CheckedBooleanLiteral, CheckedExpression, CheckedFieldRead, CheckedFunctionCall,
-        CheckedNumericOperation, CheckedNumericOperator, CheckedRecordFieldInitializer,
-        CheckedRecordLiteral, CheckedValueType,
+        CheckedInstanceLookup, CheckedNumericOperation, CheckedNumericOperator,
+        CheckedRecordFieldInitializer, CheckedRecordLiteral, CheckedValueType,
     },
     source_language::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedExpression, ParsedFieldRead, ParsedFunctionCall,
@@ -75,6 +75,56 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 Ok((
                     CheckedExpression::RobloxServiceAcquisition(roblox_service),
                     CheckedValueType::RobloxService(roblox_service),
+                ))
+            }
+            ParsedExpression::RobloxInstanceAcquisition {
+                instance_type_name,
+                instance_type_range,
+                ..
+            } => {
+                let roblox_instance = ProgramCheckContext::acquire_roblox_instance((
+                    instance_type_name,
+                    *instance_type_range,
+                ))?;
+                Ok((
+                    CheckedExpression::RobloxInstanceAcquisition(roblox_instance),
+                    CheckedValueType::RobloxInstance(roblox_instance),
+                ))
+            }
+            ParsedExpression::RobloxInstanceWaitForChild {
+                instance_type_name,
+                instance_type_range,
+                parent_expression,
+                child_name_expression,
+                ..
+            } => {
+                let roblox_instance = ProgramCheckContext::acquire_roblox_instance((
+                    instance_type_name,
+                    *instance_type_range,
+                ))?;
+                let (checked_parent, parent_type) = self.check_expression(parent_expression)?;
+                if !matches!(parent_type, CheckedValueType::RobloxInstance(_)) {
+                    return Err(CompilationProblem::from_problem_at_range((
+                        parent_expression.source_range(),
+                        CompilationProblemReason::FieldAccessRequiresRecord,
+                    )));
+                }
+                let (checked_child_name, child_name_type) =
+                    self.check_expression(child_name_expression)?;
+                Self::require_matching_type((
+                    child_name_type,
+                    CheckedValueType::String,
+                    child_name_expression.source_range(),
+                ))?;
+                Ok((
+                    CheckedExpression::RobloxInstanceWaitForChild(
+                        CheckedInstanceLookup::from_parts((
+                            roblox_instance,
+                            Box::new(checked_parent),
+                            Box::new(checked_child_name),
+                        )),
+                    ),
+                    CheckedValueType::RobloxInstance(roblox_instance),
                 ))
             }
             ParsedExpression::ArrayLiteral(array_literal) => {
@@ -244,23 +294,31 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         field_read: &ParsedFieldRead,
     ) -> Result<(CheckedExpression, CheckedValueType), CompilationProblem> {
         let (checked_base, base_type) = self.check_expression(field_read.base_expression())?;
-        let CheckedValueType::NamedRecord(record_name) = base_type else {
-            return Err(CompilationProblem::from_problem_at_range((
-                field_read.base_expression().source_range(),
-                CompilationProblemReason::FieldAccessRequiresRecord,
-            )));
+        let (checked_value_type, unknown_field_reason) = match base_type {
+            CheckedValueType::NamedRecord(record_name) => (
+                self.check_context
+                    .checked_record_declaration((&record_name, field_read.field_name_range()))?
+                    .record_fields()
+                    .iter()
+                    .find(|record_field| record_field.field_name() == field_read.field_name())
+                    .map(|record_field| record_field.value_type().clone()),
+                CompilationProblemReason::UnknownRecordAccessField,
+            ),
+            CheckedValueType::RobloxInstance(roblox_instance) => (
+                roblox_instance.property_type(field_read.field_name()),
+                CompilationProblemReason::UnknownRobloxInstanceMember,
+            ),
+            _ => {
+                return Err(CompilationProblem::from_problem_at_range((
+                    field_read.base_expression().source_range(),
+                    CompilationProblemReason::FieldAccessRequiresRecord,
+                )));
+            }
         };
-        let checked_value_type = self
-            .check_context
-            .checked_record_declaration((&record_name, field_read.field_name_range()))?
-            .record_fields()
-            .iter()
-            .find(|record_field| record_field.field_name() == field_read.field_name())
-            .map(|record_field| record_field.value_type().clone());
         let Some(checked_value_type) = checked_value_type else {
             return Err(CompilationProblem::from_problem_at_range((
                 field_read.field_name_range(),
-                CompilationProblemReason::UnknownRecordAccessField,
+                unknown_field_reason,
             )));
         };
         Ok((
@@ -410,6 +468,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             | CheckedValueType::Boolean
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
+            | CheckedValueType::RobloxInstance(_)
             | CheckedValueType::Array(_) => {}
             CheckedValueType::NoReturnedValues => {
                 return Err(CompilationProblem::from_problem_at_range((
@@ -495,6 +554,10 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 CheckedValueType::RobloxService(actual_service),
                 CheckedValueType::RobloxService(expected_service),
             ) if actual_service == expected_service => Ok(()),
+            (
+                CheckedValueType::RobloxInstance(actual_instance),
+                CheckedValueType::RobloxInstance(expected_instance),
+            ) if actual_instance == expected_instance => Ok(()),
             (
                 CheckedValueType::Array(actual_element_type),
                 CheckedValueType::Array(expected_element_type),

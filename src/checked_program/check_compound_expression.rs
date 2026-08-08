@@ -184,6 +184,10 @@ impl ExpressionChecker<'_, '_> {
                 CheckedValueType::RobloxService(right_service),
             ) if left_service == right_service => Ok(()),
             (
+                CheckedValueType::RobloxInstance(left_instance),
+                CheckedValueType::RobloxInstance(right_instance),
+            ) if left_instance == right_instance => Ok(()),
+            (
                 CheckedValueType::Array(left_element_type),
                 CheckedValueType::Array(right_element_type),
             ) => Self::require_matching_equality_operands((
@@ -219,6 +223,7 @@ impl ExpressionChecker<'_, '_> {
             | (
                 CheckedValueType::NamedRecord(_)
                 | CheckedValueType::RobloxService(_)
+                | CheckedValueType::RobloxInstance(_)
                 | CheckedValueType::Array(_),
                 _,
             )
@@ -226,6 +231,7 @@ impl ExpressionChecker<'_, '_> {
                 _,
                 CheckedValueType::NamedRecord(_)
                 | CheckedValueType::RobloxService(_)
+                | CheckedValueType::RobloxInstance(_)
                 | CheckedValueType::Array(_),
             ) => Err(CompilationProblem::from_problem_at_range((
                 operator_range,

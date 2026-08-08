@@ -335,6 +335,8 @@ impl SourceProgramParser {
                     | ParsedExpression::StringLiteral(_)
                     | ParsedExpression::BooleanLiteral { .. }
                     | ParsedExpression::RobloxServiceAcquisition { .. }
+                    | ParsedExpression::RobloxInstanceAcquisition { .. }
+                    | ParsedExpression::RobloxInstanceWaitForChild { .. }
                     | ParsedExpression::ArrayLiteral(_)
                     | ParsedExpression::RecordLiteral(_)
                     | ParsedExpression::NumericOperation(_)
@@ -479,6 +481,8 @@ impl SourceProgramParser {
                 | ParsedExpression::StringLiteral(_)
                 | ParsedExpression::BooleanLiteral { .. }
                 | ParsedExpression::RobloxServiceAcquisition { .. }
+                | ParsedExpression::RobloxInstanceAcquisition { .. }
+                | ParsedExpression::RobloxInstanceWaitForChild { .. }
                 | ParsedExpression::RecordLiteral(_)
                 | ParsedExpression::ArrayLiteral(_)
                 | ParsedExpression::NumericOperation(_)

@@ -13,6 +13,8 @@ pub enum CheckedValueType {
     NamedRecord(String),
     /// Represents a service that can only be used as a directly acquired local value.
     RobloxService(super::roblox_service::RobloxService),
+    /// Represents one catalogued Roblox Instance class.
+    RobloxInstance(super::roblox_instance::RobloxInstance),
     /// Represents a validated no-value return.
     NoReturnedValues,
 }

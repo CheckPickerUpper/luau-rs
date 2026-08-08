@@ -233,6 +233,24 @@ impl LuauTextWriter {
                 self.luau_text.push_str(service_name);
                 self.luau_text.push_str("\")");
             }
+            LuauExpression::RobloxInstanceAcquisition(instance_name) => {
+                self.luau_text.push_str("Instance.new(\"");
+                self.luau_text.push_str(instance_name);
+                self.luau_text.push_str("\")");
+            }
+            LuauExpression::RobloxInstanceWaitForChild(lookup) => {
+                self.write_expression_in((
+                    lookup.parent_expression(),
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(":WaitForChild(");
+                self.write_expression(lookup.child_name_expression());
+                self.luau_text.push_str(") :: ");
+                self.luau_text.push_str(lookup.instance_name());
+            }
             LuauExpression::ArrayLiteral(array_literal) => self.write_array_literal(array_literal),
             LuauExpression::RecordLiteral(record_literal) => {
                 self.write_record_literal(record_literal);
@@ -469,6 +487,8 @@ impl LuauTextWriter {
             | LuauExpression::StringLiteral(_)
             | LuauExpression::BooleanLiteral(_)
             | LuauExpression::RobloxServiceAcquisition(_)
+            | LuauExpression::RobloxInstanceAcquisition(_)
+            | LuauExpression::RobloxInstanceWaitForChild(_)
             | LuauExpression::FunctionCall(_)
             | LuauExpression::RecordLiteral(_)
             | LuauExpression::FieldRead(_)
@@ -500,6 +520,7 @@ impl LuauTextWriter {
             }
             LuauValueType::NamedRecord(record_name) => self.luau_text.push_str(&record_name),
             LuauValueType::RobloxService(service_name) => self.luau_text.push_str(&service_name),
+            LuauValueType::RobloxInstance(instance_name) => self.luau_text.push_str(&instance_name),
             LuauValueType::NoReturnedValues => self.luau_text.push_str("()"),
         }
     }

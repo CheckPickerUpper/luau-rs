@@ -442,7 +442,7 @@ impl SourceProgramParser {
                 let record_literals_are_allowed = self.record_literals_are_allowed;
                 match self.current_token_kind() {
                     Ok(SourceTokenKind::DoubleColon) if identifier_name == "roblox" => {
-                        self.parse_roblox_service_acquisition(token_range)
+                        self.parse_roblox_intrinsic(token_range)
                     }
                     Ok(SourceTokenKind::LeftBrace) if record_literals_are_allowed => {
                         self.parse_record_literal((identifier_name, token_range))
@@ -488,29 +488,68 @@ impl SourceProgramParser {
         }
     }
 
-    fn parse_roblox_service_acquisition(
+    fn parse_roblox_intrinsic(
         &mut self,
         namespace_range: SourceRange,
     ) -> Result<ParsedExpression, CompilationProblem> {
         self.take_required_symbol(&SourceTokenKind::DoubleColon)?;
         let (intrinsic_name, _) = self.take_identifier_name()?;
-        if intrinsic_name != "service" {
-            return Err(self.problem_at_current_token());
-        }
         self.take_required_symbol(&SourceTokenKind::DoubleColon)?;
         self.take_required_symbol(&SourceTokenKind::LessThan)?;
-        let (service_type_name, service_type_range) = self.take_identifier_name()?;
+        let (instance_type_name, instance_type_range) = self.take_identifier_name()?;
         self.take_required_symbol(&SourceTokenKind::GreaterThan)?;
         self.take_required_symbol(&SourceTokenKind::LeftParenthesis)?;
-        let right_parenthesis = self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
-        Ok(ParsedExpression::RobloxServiceAcquisition {
-            service_type_name,
-            service_type_range,
-            expression_range: SourceRange::from_byte_range((
-                namespace_range.start_byte(),
-                right_parenthesis.source_range().end_byte(),
-            )),
-        })
+        match intrinsic_name.as_str() {
+            "service" | "instance" => {
+                let right_parenthesis =
+                    self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
+                if intrinsic_name == "service" {
+                    Ok(ParsedExpression::RobloxServiceAcquisition {
+                        service_type_name: instance_type_name,
+                        service_type_range: instance_type_range,
+                        expression_range: SourceRange::from_byte_range((
+                            namespace_range.start_byte(),
+                            right_parenthesis.source_range().end_byte(),
+                        )),
+                    })
+                } else {
+                    Ok(ParsedExpression::RobloxInstanceAcquisition {
+                        instance_type_name,
+                        instance_type_range,
+                        expression_range: SourceRange::from_byte_range((
+                            namespace_range.start_byte(),
+                            right_parenthesis.source_range().end_byte(),
+                        )),
+                    })
+                }
+            }
+            "wait_for_child" => {
+                let arguments = self.parse_function_arguments()?;
+                let right_parenthesis =
+                    self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
+                if arguments.len() != 2 {
+                    return Err(self.problem_at_current_token());
+                }
+                let mut arguments = arguments.into_iter();
+                let Some(parent_expression) = arguments.next() else {
+                    return Err(self.problem_at_current_token());
+                };
+                let Some(child_name_expression) = arguments.next() else {
+                    return Err(self.problem_at_current_token());
+                };
+                Ok(ParsedExpression::RobloxInstanceWaitForChild {
+                    instance_type_name,
+                    instance_type_range,
+                    parent_expression: Box::new(parent_expression),
+                    child_name_expression: Box::new(child_name_expression),
+                    expression_range: SourceRange::from_byte_range((
+                        namespace_range.start_byte(),
+                        right_parenthesis.source_range().end_byte(),
+                    )),
+                })
+            }
+            _ => Err(self.problem_at_current_token()),
+        }
     }
 
     fn parse_array_literal(&mut self) -> Result<ParsedExpression, CompilationProblem> {

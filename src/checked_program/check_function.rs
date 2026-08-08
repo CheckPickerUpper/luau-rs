@@ -162,6 +162,7 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             | CheckedValueType::Boolean
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
+            | CheckedValueType::RobloxInstance(_)
             | CheckedValueType::Array(_)
                 if !function_completion.is_exactly_returns() =>
             {
@@ -175,6 +176,7 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             | CheckedValueType::Boolean
             | CheckedValueType::NamedRecord(_)
             | CheckedValueType::RobloxService(_)
+            | CheckedValueType::RobloxInstance(_)
             | CheckedValueType::Array(_)
             | CheckedValueType::NoReturnedValues => {}
         }
@@ -479,26 +481,38 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     field_range,
                     base_range,
                 } => {
-                    let CheckedValueType::NamedRecord(record_name) = current_type else {
-                        return Err(CompilationProblem::from_problem_at_range((
-                            *base_range,
-                            CompilationProblemReason::FieldAccessRequiresRecord,
-                        )));
+                    current_type = match current_type {
+                        CheckedValueType::NamedRecord(record_name) => {
+                            let record_declaration = self
+                                .check_context
+                                .checked_record_declaration((&record_name, *field_range))?;
+                            let Some(record_field) = record_declaration
+                                .record_fields()
+                                .iter()
+                                .find(|record_field| record_field.field_name() == field_name)
+                            else {
+                                return Err(CompilationProblem::from_problem_at_range((
+                                    *field_range,
+                                    CompilationProblemReason::UnknownRecordAccessField,
+                                )));
+                            };
+                            record_field.value_type().clone()
+                        }
+                        CheckedValueType::RobloxInstance(roblox_instance) => {
+                            roblox_instance.property_type(field_name).ok_or_else(|| {
+                                CompilationProblem::from_problem_at_range((
+                                    *field_range,
+                                    CompilationProblemReason::UnknownRobloxInstanceMember,
+                                ))
+                            })?
+                        }
+                        _ => {
+                            return Err(CompilationProblem::from_problem_at_range((
+                                *base_range,
+                                CompilationProblemReason::FieldAccessRequiresRecord,
+                            )));
+                        }
                     };
-                    let record_declaration = self
-                        .check_context
-                        .checked_record_declaration((&record_name, *field_range))?;
-                    let Some(record_field) = record_declaration
-                        .record_fields()
-                        .iter()
-                        .find(|record_field| record_field.field_name() == field_name)
-                    else {
-                        return Err(CompilationProblem::from_problem_at_range((
-                            *field_range,
-                            CompilationProblemReason::UnknownRecordAccessField,
-                        )));
-                    };
-                    current_type = record_field.value_type().clone();
                     checked_steps.push(CheckedPlaceStep::Field(field_name.to_owned()));
                 }
                 ParsedPlaceStep::Index {
