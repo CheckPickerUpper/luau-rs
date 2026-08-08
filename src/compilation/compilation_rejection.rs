@@ -1,4 +1,4 @@
-use crate::CompilationProblem;
+use crate::{CompilationDiagnostic, CompilationProblem};
 
 /// Owns all typed failures from one source compilation attempt.
 #[derive(Debug, PartialEq, Eq)]
@@ -27,5 +27,11 @@ impl CompilationRejection {
     #[must_use]
     pub const fn first_problem(&self) -> &CompilationProblem {
         &self.first_problem
+    }
+
+    /// Converts the first rejection into the stable file-aware diagnostic surface.
+    #[must_use]
+    pub fn first_diagnostic(&self, diagnostic_parts: (&str, &str)) -> CompilationDiagnostic {
+        self.first_problem.diagnostic(diagnostic_parts)
     }
 }

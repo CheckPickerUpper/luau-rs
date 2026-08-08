@@ -91,3 +91,51 @@ pub enum ProjectCompilationProblem {
         compilation_rejection: CompilationRejection,
     },
 }
+
+/// Gives every project rejection a stable machine-readable code.
+impl ProjectCompilationProblem {
+    /// Gives the stable machine-readable code for this project rejection.
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::MissingEntrypointModule => "missing_entrypoint_module",
+            Self::SharedModuleCannotBeEntrypoint { .. } => "shared_module_cannot_be_entrypoint",
+            Self::InvalidModuleIdentity { .. } => "invalid_module_identity",
+            Self::DuplicateModuleIdentity { .. } => "duplicate_module_identity",
+            Self::ImportedModuleNotFound { .. } => "imported_module_not_found",
+            Self::ImportedModuleIsEntrypoint { .. } => "imported_module_is_entrypoint",
+            Self::ImportExecutionSideNotAllowed { .. } => "import_execution_side_not_allowed",
+            Self::ImportedFunctionNotFound { .. } => "imported_function_not_found",
+            Self::ImportedFunctionIsPrivate { .. } => "imported_function_is_private",
+            Self::ImportNameCollidesWithLocalDeclaration { .. } => {
+                "import_name_collides_with_local_declaration"
+            }
+            Self::ImportCycle { .. } => "import_cycle",
+            Self::SourceModuleRejected { .. } => "source_module_rejected",
+        }
+    }
+
+    /// Gives the source span when this project rejection points into module source.
+    #[must_use]
+    pub const fn source_range(&self) -> Option<SourceRange> {
+        match self {
+            Self::ImportedModuleNotFound { source_range, .. }
+            | Self::ImportedModuleIsEntrypoint { source_range, .. }
+            | Self::ImportExecutionSideNotAllowed { source_range, .. }
+            | Self::ImportedFunctionNotFound { source_range, .. }
+            | Self::ImportedFunctionIsPrivate { source_range, .. }
+            | Self::ImportNameCollidesWithLocalDeclaration { source_range, .. } => {
+                Some(*source_range)
+            }
+            Self::SourceModuleRejected {
+                compilation_rejection,
+                ..
+            } => Some(compilation_rejection.first_problem().source_range()),
+            Self::MissingEntrypointModule
+            | Self::SharedModuleCannotBeEntrypoint { .. }
+            | Self::InvalidModuleIdentity { .. }
+            | Self::DuplicateModuleIdentity { .. }
+            | Self::ImportCycle { .. } => None,
+        }
+    }
+}

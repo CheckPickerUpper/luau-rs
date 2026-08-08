@@ -7,8 +7,9 @@ mod project_compilation;
 mod source_language;
 
 pub use compilation::{
-    compile_library_source, compile_source, ArgumentCount, CompilationOutcome, CompilationProblem,
-    CompilationProblemReason, CompilationRejection, SourceRange,
+    compile_library_source, compile_source, ArgumentCount, CompilationDiagnostic,
+    CompilationOutcome, CompilationProblem, CompilationProblemReason, CompilationRejection,
+    DiagnosticPosition, DiagnosticSpan, SourceRange,
 };
 pub use generated_luau::GeneratedLuauText;
 pub use project_compilation::{
