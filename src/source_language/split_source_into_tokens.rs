@@ -43,6 +43,7 @@ pub fn split_source_into_tokens(source: &str) -> Result<Vec<SourceToken>, Compil
                     None => return Err(unexpected_syntax((start_byte, end_byte))),
                 };
                 let token_kind = match identifier.as_str() {
+                    "macro" => SourceTokenKind::MacroKeyword,
                     "struct" => SourceTokenKind::StructKeyword,
                     "fn" => SourceTokenKind::FunctionKeyword,
                     "pub" => SourceTokenKind::PublicKeyword,
@@ -185,6 +186,10 @@ pub fn split_source_into_tokens(source: &str) -> Result<Vec<SourceToken>, Compil
                     (start_byte, start_byte + 1),
                 ))),
             },
+            '$' => source_tokens.push(make_source_token((
+                SourceTokenKind::Dollar,
+                (start_byte, start_byte + 1),
+            ))),
             '+' => source_tokens.push(make_source_token((
                 SourceTokenKind::Plus,
                 (start_byte, start_byte + 1),

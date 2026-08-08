@@ -1,3 +1,4 @@
+mod macro_expansion;
 mod parse_expression;
 mod parse_function;
 mod parse_project_import;
@@ -38,6 +39,7 @@ mod source_token;
 mod source_token_kind;
 mod split_source_into_tokens;
 
+pub use macro_expansion::{expand_macros, extract_macro_definitions, MacroCatalog};
 pub use parse_source_program::parse_source_program;
 pub use parsed_array_literal::ParsedArrayLiteral;
 pub use parsed_array_read::ParsedArrayRead;

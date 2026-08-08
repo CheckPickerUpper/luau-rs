@@ -3,6 +3,8 @@ use crate::source_language::SourceBooleanLiteral;
 /// Names every lexical category accepted by the first source-language slice.
 #[derive(Clone)]
 pub enum SourceTokenKind {
+    /// Begins one limited declarative macro definition.
+    MacroKeyword,
     /// Begins a file-private record type declaration.
     StructKeyword,
     /// Begins a function declaration.
@@ -65,6 +67,8 @@ pub enum SourceTokenKind {
     BangEqual,
     /// Negates one boolean expression.
     Bang,
+    /// Introduces a declarative macro metavariable.
+    Dollar,
     /// Adds numeric expressions.
     Plus,
     /// Subtracts numeric expressions.

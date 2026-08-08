@@ -1,6 +1,18 @@
 /// Classifies a compiler rejection independently from its source location.
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompilationProblemReason {
+    /// A declarative macro definition or its single matcher has invalid shape.
+    MacroDefinitionInvalid,
+    /// A macro invocation names no definition in the active compilation catalog.
+    UnknownMacro,
+    /// A macro invocation supplies the wrong token-tree shape for its matcher.
+    MacroArgumentShapeMismatch,
+    /// Multiple definitions would make a macro lookup ambiguous.
+    MacroMatcherAmbiguous,
+    /// Expansion nesting exceeded the compiler's fixed safety bound.
+    MacroExpansionDepthExceeded,
+    /// Expansion output exceeded the compiler's fixed safety bound.
+    MacroExpansionOutputLimitExceeded,
     /// The source contains a character outside the accepted language.
     UnsupportedCharacter(char),
     /// The token stream does not form valid source syntax.

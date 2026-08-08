@@ -1,7 +1,36 @@
 use crate::{
     source_language::{ParsedFunction, ParsedProjectImport, ParsedRecordDeclaration},
-    SourceRange,
+    MacroExpansionFrame, SourceRange,
 };
+
+#[derive(Clone)]
+pub(super) struct MacroOrigin {
+    origin_id: usize,
+    source_range: SourceRange,
+    macro_backtrace: Vec<MacroExpansionFrame>,
+}
+
+impl MacroOrigin {
+    pub(super) fn from_token(source_token: &super::SourceToken) -> Option<Self> {
+        Some(Self {
+            origin_id: source_token.source_range().macro_origin_id()?,
+            source_range: source_token.source_range(),
+            macro_backtrace: source_token.macro_backtrace().to_vec(),
+        })
+    }
+
+    const fn matches_source_range(&self, source_range: SourceRange) -> bool {
+        self.source_range.start_byte() == source_range.start_byte()
+            && self.source_range.end_byte() == source_range.end_byte()
+    }
+}
+pub(super) type ParsedProgramDeclarations = (
+    Vec<ParsedProjectImport>,
+    Vec<ParsedRecordDeclaration>,
+    Vec<ParsedFunction>,
+    SourceRange,
+    Vec<MacroOrigin>,
+);
 
 /// Owns every function accepted from one source file.
 pub struct ParsedProgram {
@@ -9,26 +38,21 @@ pub struct ParsedProgram {
     parsed_records: Vec<ParsedRecordDeclaration>,
     parsed_functions: Vec<ParsedFunction>,
     end_of_source_range: SourceRange,
+    macro_origins: Vec<MacroOrigin>,
 }
 
 /// Keeps top-level source declarations separate from statements and expressions.
 impl ParsedProgram {
     /// Preserves complete top-level declarations together with the end-of-source location.
-    pub(crate) fn from_declarations(
-        parsed_program: (
-            Vec<ParsedProjectImport>,
-            Vec<ParsedRecordDeclaration>,
-            Vec<ParsedFunction>,
-            SourceRange,
-        ),
-    ) -> Self {
-        let (parsed_imports, parsed_records, parsed_functions, end_of_source_range) =
+    pub(super) fn from_declarations(parsed_program: ParsedProgramDeclarations) -> Self {
+        let (parsed_imports, parsed_records, parsed_functions, end_of_source_range, macro_origins) =
             parsed_program;
         Self {
             parsed_imports,
             parsed_records,
             parsed_functions,
             end_of_source_range,
+            macro_origins,
         }
     }
 
@@ -50,5 +74,20 @@ impl ParsedProgram {
     /// Gives entrypoint validation the real location immediately after the source program.
     pub(crate) const fn end_of_source_range(&self) -> SourceRange {
         self.end_of_source_range
+    }
+
+    pub(crate) fn macro_backtrace_for_range(
+        &self,
+        source_range: SourceRange,
+    ) -> Option<&[MacroExpansionFrame]> {
+        self.macro_origins
+            .iter()
+            .find(|macro_origin| {
+                source_range.macro_origin_id().map_or_else(
+                    || macro_origin.matches_source_range(source_range),
+                    |origin_id| macro_origin.origin_id == origin_id,
+                )
+            })
+            .map(|macro_origin| macro_origin.macro_backtrace.as_slice())
     }
 }

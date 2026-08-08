@@ -102,6 +102,17 @@ impl<'a> ProgramCheckContext<'a> {
         self.parsed_program
     }
 
+    pub(super) fn attach_macro_backtrace(
+        &self,
+        compilation_problem: CompilationProblem,
+    ) -> CompilationProblem {
+        let source_range = compilation_problem.source_range();
+        match self.parsed_program.macro_backtrace_for_range(source_range) {
+            Some(macro_backtrace) => compilation_problem.with_macro_backtrace(macro_backtrace),
+            None => compilation_problem,
+        }
+    }
+
     /// Starts the next function with an empty local scope and its declared return contract.
     pub(super) fn begin_function(
         &mut self,

@@ -1,7 +1,7 @@
 use std::{iter::Peekable, vec::IntoIter};
 
 use crate::{
-    source_language::{ParsedProgram, SourceToken, SourceTokenKind},
+    source_language::{parsed_program::MacroOrigin, ParsedProgram, SourceToken, SourceTokenKind},
     CompilationProblem, CompilationProblemReason, SourceRange,
 };
 
@@ -10,6 +10,7 @@ pub(super) struct SourceProgramParser {
     remaining_tokens: Peekable<IntoIter<SourceToken>>,
     end_of_source_range: SourceRange,
     pub(super) record_literals_are_allowed: bool,
+    macro_origins: Vec<MacroOrigin>,
 }
 
 /// Converts a complete token stream into an explicitly shaped source program.
@@ -26,10 +27,15 @@ impl SourceProgramParser {
             || SourceRange::from_byte_range((source_tokens.len(), source_tokens.len())),
             SourceToken::source_range,
         );
+        let macro_origins = source_tokens
+            .iter()
+            .filter_map(MacroOrigin::from_token)
+            .collect();
         Self {
             remaining_tokens: source_tokens.into_iter().peekable(),
             end_of_source_range,
             record_literals_are_allowed: true,
+            macro_origins,
         }
     }
 
@@ -49,6 +55,7 @@ impl SourceProgramParser {
                         parsed_records,
                         parsed_functions,
                         end_of_source_token.source_range(),
+                        self.macro_origins.clone(),
                     )));
                 }
                 Ok(SourceTokenKind::UseKeyword) => match self.parse_project_import() {
@@ -85,9 +92,14 @@ impl SourceProgramParser {
             Ok(source_token) => source_token,
             Err(compilation_problem) => return Err(compilation_problem),
         };
+        let macro_backtrace = source_token.macro_backtrace().to_vec();
         let (token_kind, token_range) = source_token.into_token_at_range();
         let SourceTokenKind::IdentifierName(identifier_name) = token_kind else {
-            return Err(Self::problem_at_range(token_range));
+            return Err(CompilationProblem::from_problem_at_origin((
+                token_range,
+                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+                macro_backtrace,
+            )));
         };
         Ok((identifier_name, token_range))
     }
@@ -100,12 +112,17 @@ impl SourceProgramParser {
             Ok(source_token) => source_token,
             Err(compilation_problem) => return Err(compilation_problem),
         };
+        let macro_backtrace = source_token.macro_backtrace().to_vec();
         let (token_kind, token_range) = source_token.into_token_at_range();
         if let SourceTokenKind::IdentifierName(identifier_name) = token_kind {
             return Ok((identifier_name, token_range));
         }
         let SourceTokenKind::ReturnKeyword = token_kind else {
-            return Err(Self::problem_at_range(token_range));
+            return Err(CompilationProblem::from_problem_at_origin((
+                token_range,
+                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+                macro_backtrace,
+            )));
         };
         Ok(("return".to_owned(), token_range))
     }
@@ -158,7 +175,7 @@ impl SourceProgramParser {
             | (SourceTokenKind::AmpersandAmpersand, SourceTokenKind::AmpersandAmpersand)
             | (SourceTokenKind::PipePipe, SourceTokenKind::PipePipe)
             | (SourceTokenKind::Dot, SourceTokenKind::Dot) => Ok(source_token),
-            _ => Err(Self::problem_at_range(source_token.source_range())),
+            _ => Err(Self::problem_at_token(&source_token)),
         }
     }
 
@@ -174,7 +191,7 @@ impl SourceProgramParser {
         let end_of_source_range = self.end_of_source_range;
         self.remaining_tokens.peek().map_or_else(
             || Self::problem_at_range(end_of_source_range),
-            |source_token| Self::problem_at_range(source_token.source_range()),
+            Self::problem_at_token,
         )
     }
 
@@ -186,6 +203,14 @@ impl SourceProgramParser {
         CompilationProblem::from_problem_at_range((
             source_range,
             CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+        ))
+    }
+
+    fn problem_at_token(source_token: &SourceToken) -> CompilationProblem {
+        CompilationProblem::from_problem_at_origin((
+            source_token.source_range(),
+            CompilationProblemReason::SourceDoesNotFollowLanguageRules,
+            source_token.macro_backtrace().to_vec(),
         ))
     }
 }

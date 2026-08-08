@@ -3,6 +3,7 @@
 pub struct SourceRange {
     start_byte: usize,
     end_byte: usize,
+    macro_origin_id: Option<usize>,
 }
 
 /// Preserves source-location invariants at compiler phase boundaries.
@@ -13,7 +14,20 @@ impl SourceRange {
         Self {
             start_byte,
             end_byte,
+            macro_origin_id: None,
         }
+    }
+
+    pub(crate) const fn with_macro_origin_id(self, macro_origin_id: usize) -> Self {
+        Self {
+            start_byte: self.start_byte,
+            end_byte: self.end_byte,
+            macro_origin_id: Some(macro_origin_id),
+        }
+    }
+
+    pub(crate) const fn macro_origin_id(&self) -> Option<usize> {
+        self.macro_origin_id
     }
 
     /// @why Exposes the inclusive byte boundary so editors can begin a diagnostic highlight at the compiler's exact location.

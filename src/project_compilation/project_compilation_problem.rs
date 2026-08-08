@@ -88,6 +88,6 @@ pub enum ProjectCompilationProblem {
         /// Identifies the source module that failed language compilation.
         module_identity: ProjectModuleIdentity,
         /// Preserves the typed source diagnostic rather than replacing it with a project string.
-        compilation_rejection: CompilationRejection,
+        compilation_rejection: Box<CompilationRejection>,
     },
 }

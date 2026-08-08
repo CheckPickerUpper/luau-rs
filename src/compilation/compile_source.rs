@@ -1,7 +1,9 @@
 use crate::{
     checked_program::{check_parsed_library, check_parsed_program},
     generated_luau::{generate_luau_library, generate_luau_program, write_luau_text},
-    source_language::{parse_source_program, split_source_into_tokens},
+    source_language::{
+        expand_macros, extract_macro_definitions, parse_source_program, split_source_into_tokens,
+    },
     CompilationOutcome, CompilationProblem, CompilationRejection,
 };
 
@@ -22,6 +24,14 @@ fn compile_source_for_purpose(
 ) -> CompilationOutcome {
     let (source, source_purpose) = source_compilation;
     let source_tokens = match split_source_into_tokens(source) {
+        Ok(source_tokens) => source_tokens,
+        Err(compilation_problem) => return rejected(compilation_problem),
+    };
+    let (macro_catalog, source_tokens) = match extract_macro_definitions(&source_tokens, None) {
+        Ok(expansion_input) => expansion_input,
+        Err(compilation_problem) => return rejected(compilation_problem),
+    };
+    let source_tokens = match expand_macros(&source_tokens, &macro_catalog, None) {
         Ok(source_tokens) => source_tokens,
         Err(compilation_problem) => return rejected(compilation_problem),
     };

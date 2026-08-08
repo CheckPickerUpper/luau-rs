@@ -9,7 +9,7 @@ mod source_language;
 
 pub use compilation::{
     compile_library_source, compile_source, ArgumentCount, CompilationOutcome, CompilationProblem,
-    CompilationProblemReason, CompilationRejection, SourceRange,
+    CompilationProblemReason, CompilationRejection, MacroExpansionFrame, SourceRange,
 };
 pub use generated_luau::GeneratedLuauText;
 pub use project_compilation::{

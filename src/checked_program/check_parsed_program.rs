@@ -85,23 +85,31 @@ fn check_project_source(
     ));
     match check_context.register_record_declarations() {
         Ok(()) => {}
-        Err(compilation_problem) => return Err(compilation_problem),
+        Err(compilation_problem) => {
+            return Err(check_context.attach_macro_backtrace(compilation_problem))
+        }
     }
     let mut checked_functions = Vec::new();
     for parsed_function in parsed_program.parsed_functions() {
         match DeclarationNameChecker::check_function_name((&check_context, parsed_function)) {
             Ok(()) => {}
-            Err(compilation_problem) => return Err(compilation_problem),
+            Err(compilation_problem) => {
+                return Err(check_context.attach_macro_backtrace(compilation_problem))
+            }
         }
         match check_context.add_visible_function(parsed_function) {
             Ok(()) => {}
-            Err(compilation_problem) => return Err(compilation_problem),
+            Err(compilation_problem) => {
+                return Err(check_context.attach_macro_backtrace(compilation_problem))
+            }
         }
         let checked_function = {
             let mut function_checker = FunctionChecker::from_context(&mut check_context);
             match function_checker.check_function(parsed_function) {
                 Ok(checked_function) => checked_function,
-                Err(compilation_problem) => return Err(compilation_problem),
+                Err(compilation_problem) => {
+                    return Err(check_context.attach_macro_backtrace(compilation_problem))
+                }
             }
         };
         checked_functions.push(checked_function);
@@ -113,7 +121,9 @@ fn check_project_source(
                     check_context.take_checked_record_declarations(),
                     checked_functions,
                 ))),
-                Err(compilation_problem) => Err(compilation_problem),
+                Err(compilation_problem) => {
+                    Err(check_context.attach_macro_backtrace(compilation_problem))
+                }
             }
         }
         SourceEntrypointRequirement::NotRequired => Ok(CheckedProgram::from_declarations((

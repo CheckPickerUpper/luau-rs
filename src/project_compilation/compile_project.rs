@@ -5,8 +5,8 @@ use crate::{
     },
     generated_luau::{generate_luau_library, generate_luau_program, write_luau_text},
     source_language::{
-        parse_source_program, split_source_into_tokens, ParsedFunction, ParsedFunctionVisibility,
-        ParsedProgram,
+        expand_macros, extract_macro_definitions, parse_source_program, split_source_into_tokens,
+        MacroCatalog, ParsedFunction, ParsedFunctionVisibility, ParsedProgram,
     },
     CompiledProject, GeneratedLuauText, GeneratedProjectModule, ModuleExecutionSide,
     ProjectCompilationOutcome, ProjectCompilationProblem, ProjectCompilationRejection,
@@ -91,28 +91,67 @@ fn validate_project_modules(
 fn parse_project_modules(
     source_modules: Vec<ProjectModuleSource>,
 ) -> Result<Vec<ParsedProjectModule>, ProjectCompilationProblem> {
-    let mut parsed_modules = Vec::new();
+    let mut macro_catalog = MacroCatalog::default();
+    let mut tokenized_modules = Vec::new();
     for source_module in source_modules {
         let module_identity = source_module.module_identity().clone();
+        let module_origin = module_origin_name(&module_identity);
         let source_tokens = match split_source_into_tokens(source_module.source_text()) {
             Ok(source_tokens) => source_tokens,
             Err(compilation_problem) => {
                 return Err(ProjectCompilationProblem::SourceModuleRejected {
                     module_identity,
-                    compilation_rejection: crate::CompilationRejection::from_problem(
+                    compilation_rejection: Box::new(crate::CompilationRejection::from_problem(
                         compilation_problem,
-                    ),
+                    )),
                 });
             }
         };
+        let (module_macro_catalog, source_tokens) =
+            match extract_macro_definitions(&source_tokens, Some(module_origin.as_str())) {
+                Ok(expansion_input) => expansion_input,
+                Err(compilation_problem) => {
+                    return Err(ProjectCompilationProblem::SourceModuleRejected {
+                        module_identity,
+                        compilation_rejection: Box::new(crate::CompilationRejection::from_problem(
+                            compilation_problem,
+                        )),
+                    });
+                }
+            };
+        if let Err(compilation_problem) = macro_catalog.merge(module_macro_catalog) {
+            return Err(ProjectCompilationProblem::SourceModuleRejected {
+                module_identity,
+                compilation_rejection: Box::new(crate::CompilationRejection::from_problem(
+                    compilation_problem,
+                )),
+            });
+        }
+        tokenized_modules.push((source_module, module_identity, module_origin, source_tokens));
+    }
+
+    let mut parsed_modules = Vec::new();
+    for (source_module, module_identity, module_origin, source_tokens) in tokenized_modules {
+        let source_tokens =
+            match expand_macros(&source_tokens, &macro_catalog, Some(module_origin.as_str())) {
+                Ok(source_tokens) => source_tokens,
+                Err(compilation_problem) => {
+                    return Err(ProjectCompilationProblem::SourceModuleRejected {
+                        module_identity,
+                        compilation_rejection: Box::new(crate::CompilationRejection::from_problem(
+                            compilation_problem,
+                        )),
+                    });
+                }
+            };
         let parsed_program = match parse_source_program(source_tokens) {
             Ok(parsed_program) => parsed_program,
             Err(compilation_problem) => {
                 return Err(ProjectCompilationProblem::SourceModuleRejected {
                     module_identity,
-                    compilation_rejection: crate::CompilationRejection::from_problem(
+                    compilation_rejection: Box::new(crate::CompilationRejection::from_problem(
                         compilation_problem,
-                    ),
+                    )),
                 });
             }
         };
@@ -122,6 +161,14 @@ fn parse_project_modules(
         });
     }
     Ok(parsed_modules)
+}
+
+fn module_origin_name(module_identity: &ProjectModuleIdentity) -> String {
+    match module_identity {
+        ProjectModuleIdentity::Server { module_path } => format!("server:{module_path}"),
+        ProjectModuleIdentity::Client { module_path } => format!("client:{module_path}"),
+        ProjectModuleIdentity::Shared { module_path } => format!("shared:{module_path}"),
+    }
 }
 
 fn resolve_project_imports(
@@ -325,9 +372,9 @@ fn check_and_lower_modules(
             Err(compilation_problem) => {
                 return Err(ProjectCompilationProblem::SourceModuleRejected {
                     module_identity: source_module.module_identity().clone(),
-                    compilation_rejection: crate::CompilationRejection::from_problem(
+                    compilation_rejection: Box::new(crate::CompilationRejection::from_problem(
                         compilation_problem,
-                    ),
+                    )),
                 });
             }
         };
