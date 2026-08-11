@@ -8,6 +8,9 @@ repository = "https://github.com/CheckPickerUpper/luau-rs"
 
 [dependencies]
 
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "=1.1.4", features = ["fs"] }
+
 [dev-dependencies]
 full_moon = { version = "=2.2.0", features = ["luau"] }
 

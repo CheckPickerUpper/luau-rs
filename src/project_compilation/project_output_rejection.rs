@@ -22,6 +22,10 @@ pub enum ProjectOutputOperation {
     PublishStagingDirectory,
     /// Restores the previous output after publication could not complete.
     RestorePreviousOutput,
+    /// Recovers an interrupted publication before accepting another generation.
+    RecoverInterruptedPublication,
+    /// Removes the previous generation after the replacement is visible.
+    RemovePreviousOutput,
 }
 
 /// Preserves the destination, operation, and operating-system reason for a failed publication.
