@@ -1,10 +1,10 @@
 use std::{
     collections::BTreeMap,
-    fmt::Write as _,
     fs,
     path::{Path, PathBuf},
 };
 
+use crate::json_string::append_json_string;
 use crate::{
     CompiledProject, GeneratedProjectModule, ProjectModuleIdentity, RojoMappingField,
     RojoMappingProblem, RojoMappingRejection,
@@ -196,22 +196,6 @@ fn write_indent(indent_parts: (&mut String, usize)) {
     let (output, indent) = indent_parts;
     for _ in 0..indent {
         output.push_str("  ");
-    }
-}
-
-fn append_json_string(output: &mut String, value: &str) {
-    for character in value.chars() {
-        match character {
-            '"' => output.push_str("\\\""),
-            '\\' => output.push_str("\\\\"),
-            '\n' => output.push_str("\\n"),
-            '\r' => output.push_str("\\r"),
-            '\t' => output.push_str("\\t"),
-            character if character.is_control() => {
-                let _ = write!(output, "\\u{:04x}", character as u32);
-            }
-            character => output.push(character),
-        }
     }
 }
 
