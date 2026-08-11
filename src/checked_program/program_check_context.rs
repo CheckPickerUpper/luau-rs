@@ -332,6 +332,13 @@ impl<'a> ProgramCheckContext<'a> {
     fn nested_service_type_range(parsed_value_type: &ParsedValueType) -> Option<SourceRange> {
         match parsed_value_type {
             ParsedValueType::Array(element_type) => Self::service_type_range(element_type),
+            ParsedValueType::Function {
+                parameter_types,
+                returned_value_type,
+            } => parameter_types
+                .iter()
+                .find_map(Self::service_type_range)
+                .or_else(|| Self::service_type_range(returned_value_type)),
             ParsedValueType::Number
             | ParsedValueType::String
             | ParsedValueType::Boolean

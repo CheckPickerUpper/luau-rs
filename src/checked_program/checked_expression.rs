@@ -1,8 +1,8 @@
 use crate::checked_program::{
     CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedComparisonOperation,
-    CheckedEqualityOperation, CheckedFieldRead, CheckedFunctionLiteral, CheckedInstanceConstruction,
-    CheckedInstanceLookup,
-    CheckedLogicalNegation, CheckedLogicalOperation, CheckedNumericOperation, CheckedRecordLiteral,
+    CheckedEqualityOperation, CheckedFieldRead, CheckedFunctionLiteral,
+    CheckedInstanceConstruction, CheckedInstanceLookup, CheckedLogicalNegation,
+    CheckedLogicalOperation, CheckedNumericOperation, CheckedRecordLiteral,
 };
 
 /// Represents expressions whose names and types have been validated.

@@ -241,10 +241,11 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
             ))?;
             let checked_value_type = self.check_context.resolve_value_type(&parsed_value_type)?;
             self.check_context
-                .add_local_binding(CheckedLocalBinding::Immutable {
-                    local_name: parsed_parameter.parameter_name().to_owned(),
-                    value_type: checked_value_type.clone(),
-                });
+                .add_local_binding(CheckedLocalBinding::from_parameter((
+                    parsed_parameter.parameter_name().to_owned(),
+                    checked_value_type.clone(),
+                    parsed_parameter.parameter_name_range(),
+                ))?);
             checked_parameters.push(CheckedParameter::from_checked_declaration((
                 parsed_parameter.parameter_name().to_owned(),
                 checked_value_type,

@@ -5,9 +5,8 @@ use crate::{
         check_function::FunctionChecker, program_check_context::ProgramCheckContext,
         CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedExpression,
         CheckedFieldRead, CheckedFunctionCall, CheckedInstanceConstruction, CheckedInstanceLookup,
-        CheckedNumericOperation,
-        CheckedNumericOperator, CheckedRecordFieldInitializer, CheckedRecordLiteral,
-        CheckedValueType,
+        CheckedNumericOperation, CheckedNumericOperator, CheckedRecordFieldInitializer,
+        CheckedRecordLiteral, CheckedValueType,
     },
     source_language::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedExpression, ParsedFieldRead, ParsedFunctionCall,
