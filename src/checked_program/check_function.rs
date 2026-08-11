@@ -1,11 +1,10 @@
-use crate::SourceRange;
 use crate::{
     checked_program::{
         check_declaration_names::DeclarationNameChecker, check_expression::ExpressionChecker,
-        program_check_context::ProgramCheckContext, CheckedExpression, CheckedFunction,
-        CheckedFunctionBody, CheckedIfElse, CheckedLocalBinding, CheckedParameter,
-        CheckedPlaceAssignment, CheckedPlaceStep, CheckedStatement, CheckedValueType,
-        CheckedWhileLoop,
+        program_check_context::ProgramCheckContext, CheckedFunction, CheckedFunctionBody,
+        CheckedIfElse, CheckedLocalBinding, CheckedParameter, CheckedPlaceAssignment,
+        CheckedPlaceStep, CheckedStatement, CheckedValueType, CheckedWhileLoop,
+        LocalAssignmentContract,
     },
     source_language::{
         ParsedFunction, ParsedFunctionBody, ParsedIfElse, ParsedPlaceAssignment, ParsedPlaceStep,
@@ -140,11 +139,12 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                 Ok(checked_value_type) => checked_value_type,
                 Err(compilation_problem) => return Err(compilation_problem),
             };
-            self.check_context
-                .add_local_binding(CheckedLocalBinding::Immutable {
-                    local_name: parsed_parameter.parameter_name().to_owned(),
-                    value_type: checked_value_type.clone(),
-                });
+            let parameter_binding = CheckedLocalBinding::from_parameter((
+                parsed_parameter.parameter_name().to_owned(),
+                checked_value_type.clone(),
+                parsed_parameter.parameter_name_range(),
+            ))?;
+            self.check_context.add_local_binding(parameter_binding);
             checked_parameters.push(CheckedParameter::from_checked_declaration((
                 parsed_parameter.parameter_name().to_owned(),
                 checked_value_type,
@@ -253,16 +253,13 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     Ok(()) => {}
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
-                Self::require_direct_service_acquisition((
-                    &checked_value_type,
+                let local_binding = CheckedLocalBinding::from_immutable_declaration((
+                    local_name.to_owned(),
+                    checked_value_type.clone(),
                     &checked_initial_value,
                     initial_value.source_range(),
                 ))?;
-                self.check_context
-                    .add_local_binding(CheckedLocalBinding::Immutable {
-                        local_name: local_name.to_owned(),
-                        value_type: checked_value_type.clone(),
-                    });
+                self.check_context.add_local_binding(local_binding);
                 Ok((
                     CheckedStatement::ImmutableLocal {
                         local_name: local_name.to_owned(),
@@ -307,16 +304,12 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
                     Ok(()) => {}
                     Err(compilation_problem) => return Err(compilation_problem),
                 }
-                Self::require_direct_service_acquisition((
-                    &checked_value_type,
-                    &checked_initial_value,
+                let local_binding = CheckedLocalBinding::from_mutable_declaration((
+                    local_name.to_owned(),
+                    checked_value_type.clone(),
                     initial_value.source_range(),
                 ))?;
-                self.check_context
-                    .add_local_binding(CheckedLocalBinding::Mutable {
-                        local_name: local_name.to_owned(),
-                        value_type: checked_value_type.clone(),
-                    });
+                self.check_context.add_local_binding(local_binding);
                 Ok((
                     CheckedStatement::MutableLocal {
                         local_name: local_name.to_owned(),
@@ -405,22 +398,21 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
         ),
     ) -> Result<(CheckedStatement, BodyControlFlows), CompilationProblem> {
         let (local_name, local_name_range, assigned_value) = assignment_parts;
-        let expected_type = match self
+        let assignment_contract = self
             .check_context
             .local_bindings()
             .iter()
             .rev()
             .find(|local_binding| local_binding.local_name() == local_name)
-        {
-            Some(CheckedLocalBinding::Immutable { .. }) => {
+            .map(CheckedLocalBinding::assignment_contract);
+        let expected_type = match assignment_contract {
+            Some(LocalAssignmentContract::Forbidden) => {
                 return Err(CompilationProblem::from_problem_at_range((
                     local_name_range,
                     CompilationProblemReason::ImmutableBindingCannotBeAssigned,
                 )));
             }
-            Some(mutable_binding @ CheckedLocalBinding::Mutable { .. }) => {
-                mutable_binding.value_type()
-            }
+            Some(LocalAssignmentContract::Allowed(value_type)) => value_type,
             None => {
                 return Err(CompilationProblem::from_problem_at_range((
                     local_name_range,
@@ -437,43 +429,18 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
         };
         match ExpressionChecker::require_matching_type((
             actual_type,
-            expected_type.clone(),
+            expected_type,
             assigned_value.source_range(),
         )) {
-            Ok(()) => {
-                Self::require_direct_service_acquisition((
-                    &expected_type,
-                    &checked_assigned_value,
-                    assigned_value.source_range(),
-                ))?;
-                Ok((
-                    CheckedStatement::AssignLocal {
-                        local_name: local_name.to_owned(),
-                        assigned_value: checked_assigned_value,
-                    },
-                    BodyControlFlows::reaches_end(),
-                ))
-            }
+            Ok(()) => Ok((
+                CheckedStatement::AssignLocal {
+                    local_name: local_name.to_owned(),
+                    assigned_value: checked_assigned_value,
+                },
+                BodyControlFlows::reaches_end(),
+            )),
             Err(compilation_problem) => Err(compilation_problem),
         }
-    }
-
-    const fn require_direct_service_acquisition(
-        initializer_parts: (&CheckedValueType, &CheckedExpression, SourceRange),
-    ) -> Result<(), CompilationProblem> {
-        let (checked_value_type, checked_initial_value, initial_value_range) = initializer_parts;
-        if matches!(checked_value_type, CheckedValueType::RobloxService(_))
-            && !matches!(
-                checked_initial_value,
-                CheckedExpression::RobloxServiceAcquisition(_)
-            )
-        {
-            return Err(CompilationProblem::from_problem_at_range((
-                initial_value_range,
-                CompilationProblemReason::RobloxServiceTypeMayOnlyBeUsedForLocalAcquisition,
-            )));
-        }
-        Ok(())
     }
 
     fn check_place_assignment(
@@ -482,22 +449,21 @@ impl<'context, 'program> FunctionChecker<'context, 'program> {
     ) -> Result<(CheckedStatement, BodyControlFlows), CompilationProblem> {
         let root_binding_name = place_assignment.root_binding_name();
         let root_binding_range = place_assignment.root_binding_range();
-        let mut current_type = match self
+        let assignment_contract = self
             .check_context
             .local_bindings()
             .iter()
             .rev()
             .find(|local_binding| local_binding.local_name() == root_binding_name)
-        {
-            Some(CheckedLocalBinding::Immutable { .. }) => {
+            .map(CheckedLocalBinding::assignment_contract);
+        let mut current_type = match assignment_contract {
+            Some(LocalAssignmentContract::Forbidden) => {
                 return Err(CompilationProblem::from_problem_at_range((
                     root_binding_range,
                     CompilationProblemReason::ImmutableBindingCannotBeAssigned,
                 )));
             }
-            Some(mutable_binding @ CheckedLocalBinding::Mutable { .. }) => {
-                mutable_binding.value_type()
-            }
+            Some(LocalAssignmentContract::Allowed(value_type)) => value_type,
             None => {
                 return Err(CompilationProblem::from_problem_at_range((
                     root_binding_range,

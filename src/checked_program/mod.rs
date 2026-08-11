@@ -55,6 +55,7 @@ pub use checked_function_body::CheckedFunctionBody;
 pub use checked_function_call::CheckedFunctionCall;
 pub use checked_if_else::CheckedIfElse;
 pub use checked_local_binding::CheckedLocalBinding;
+pub use checked_local_binding::LocalAssignmentContract;
 pub use checked_logical_negation::CheckedLogicalNegation;
 pub use checked_logical_operation::CheckedLogicalOperation;
 pub use checked_logical_operator::CheckedLogicalOperator;
