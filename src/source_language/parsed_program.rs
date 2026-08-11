@@ -6,7 +6,6 @@ use crate::{
 #[derive(Clone)]
 pub(super) struct MacroOrigin {
     origin_id: usize,
-    source_range: SourceRange,
     macro_backtrace: Vec<MacroExpansionFrame>,
 }
 
@@ -14,14 +13,8 @@ impl MacroOrigin {
     pub(super) fn from_token(source_token: &super::SourceToken) -> Option<Self> {
         Some(Self {
             origin_id: source_token.source_range().macro_origin_id()?,
-            source_range: source_token.source_range(),
             macro_backtrace: source_token.macro_backtrace().to_vec(),
         })
-    }
-
-    const fn matches_source_range(&self, source_range: SourceRange) -> bool {
-        self.source_range.start_byte() == source_range.start_byte()
-            && self.source_range.end_byte() == source_range.end_byte()
     }
 }
 pub(super) type ParsedProgramDeclarations = (
@@ -82,12 +75,7 @@ impl ParsedProgram {
     ) -> Option<&[MacroExpansionFrame]> {
         self.macro_origins
             .iter()
-            .find(|macro_origin| {
-                source_range.macro_origin_id().map_or_else(
-                    || macro_origin.matches_source_range(source_range),
-                    |origin_id| macro_origin.origin_id == origin_id,
-                )
-            })
+            .find(|macro_origin| source_range.macro_origin_id() == Some(macro_origin.origin_id))
             .map(|macro_origin| macro_origin.macro_backtrace.as_slice())
     }
 }

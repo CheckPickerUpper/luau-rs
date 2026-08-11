@@ -44,10 +44,7 @@ impl SourceProgramParser {
                 function_parameters,
                 returned_value_type,
                 function_body,
-                crate::SourceRange::from_byte_range((
-                    function_keyword_range.start_byte(),
-                    right_brace.source_range().end_byte(),
-                )),
+                function_keyword_range.through(right_brace.source_range()),
             )),
         ))
     }

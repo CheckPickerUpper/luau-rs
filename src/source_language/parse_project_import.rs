@@ -2,7 +2,7 @@ use crate::{
     source_language::{
         parse_source_program::SourceProgramParser, ParsedProjectImport, SourceTokenKind,
     },
-    CompilationProblem, ProjectModuleIdentity, SourceRange,
+    CompilationProblem, ProjectModuleIdentity,
 };
 
 /// Parses project-only imports before function declarations so source modules expose their dependencies.
@@ -11,7 +11,7 @@ impl SourceProgramParser {
         &mut self,
     ) -> Result<ParsedProjectImport, CompilationProblem> {
         let import_start = match self.take_required_symbol(&SourceTokenKind::UseKeyword) {
-            Ok(use_token) => use_token.source_range().start_byte(),
+            Ok(use_token) => use_token.source_range(),
             Err(compilation_problem) => return Err(compilation_problem),
         };
         let (crate_name, crate_range) = match self.take_identifier_name() {
@@ -78,7 +78,7 @@ impl SourceProgramParser {
             target_module_identity,
             imported_function_name,
             imported_function_range,
-            SourceRange::from_byte_range((import_start, semicolon_range.end_byte())),
+            import_start.through(semicolon_range),
         )))
     }
 

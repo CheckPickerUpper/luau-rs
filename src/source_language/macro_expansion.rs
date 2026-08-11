@@ -7,83 +7,10 @@ use super::{SourceToken, SourceTokenKind};
 const MAX_MACRO_EXPANSION_DEPTH: usize = 64;
 const MAX_MACRO_EXPANSION_OUTPUT_TOKENS: usize = 100_000;
 
-#[derive(Clone)]
-struct MacroDefinition {
-    name: String,
-    parameter: Option<String>,
-    body: Vec<SourceToken>,
-    definition_range: SourceRange,
-    definition_module: Option<String>,
-}
+mod macro_definition;
 
-#[derive(Default)]
-/// Collects the deterministic single-rule macros visible to one compilation.
-pub struct MacroCatalog {
-    definitions: HashMap<String, MacroDefinition>,
-}
-
-impl MacroCatalog {
-    pub fn merge(&mut self, other_catalog: Self) -> Result<(), CompilationProblem> {
-        for definition in other_catalog.definitions.into_values() {
-            self.insert(definition)?;
-        }
-        Ok(())
-    }
-
-    fn insert(&mut self, definition: MacroDefinition) -> Result<(), CompilationProblem> {
-        match self.definitions.entry(definition.name.clone()) {
-            Entry::Vacant(entry) => {
-                entry.insert(definition);
-                Ok(())
-            }
-            Entry::Occupied(_) => Err(macro_problem_at_range(
-                definition.definition_range,
-                CompilationProblemReason::MacroMatcherAmbiguous,
-            )),
-        }
-    }
-
-    fn definition(&self, name: &str) -> Option<&MacroDefinition> {
-        self.definitions.get(name)
-    }
-}
-
-pub fn extract_macro_definitions(
-    source_tokens: &[SourceToken],
-    definition_module: Option<&str>,
-) -> Result<(MacroCatalog, Vec<SourceToken>), CompilationProblem> {
-    let mut catalog = MacroCatalog::default();
-    let mut remaining_tokens = Vec::with_capacity(source_tokens.len());
-    let mut delimiter_stack = Vec::new();
-    let mut token_index = 0;
-    while token_index < source_tokens.len() {
-        if delimiter_stack.is_empty()
-            && matches!(
-                source_tokens[token_index].token_kind(),
-                SourceTokenKind::MacroKeyword
-            )
-        {
-            let (definition, closing_index) =
-                parse_macro_definition(source_tokens, token_index, definition_module)?;
-            catalog.insert(definition)?;
-            token_index = closing_index + 1;
-        } else {
-            let source_token = &source_tokens[token_index];
-            update_delimiter_stack(source_token, &mut delimiter_stack)?;
-            remaining_tokens.push(source_token.clone());
-            token_index += 1;
-        }
-    }
-    if let Some(source_token) = remaining_tokens.last() {
-        if !delimiter_stack.is_empty() {
-            return Err(macro_problem_at_token(
-                source_token,
-                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
-            ));
-        }
-    }
-    Ok((catalog, remaining_tokens))
-}
+pub use macro_definition::{extract_macro_definitions, MacroCatalog};
+use macro_definition::{find_group_end, MacroDefinition};
 
 pub fn expand_macros(
     source_tokens: &[SourceToken],
@@ -99,187 +26,6 @@ struct ExpansionState {
     next_hygiene_id: usize,
     generated_token_count: usize,
     next_macro_origin_id: usize,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Delimiter {
-    Parenthesis,
-    Brace,
-    Bracket,
-}
-
-fn parse_macro_definition(
-    source_tokens: &[SourceToken],
-    macro_index: usize,
-    definition_module: Option<&str>,
-) -> Result<(MacroDefinition, usize), CompilationProblem> {
-    let Some(macro_token) = source_tokens.get(macro_index) else {
-        return Err(macro_problem_at_range(
-            SourceRange::from_byte_range((0, 0)),
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    let Some(name_token) = source_tokens.get(macro_index + 1) else {
-        return Err(macro_problem_at_token(
-            macro_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    let Some(name) = identifier_name(Some(name_token)) else {
-        return Err(macro_problem_at_token(
-            name_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    let parameter_open_index = macro_index + 2;
-    let Some(parameter_open_token) = source_tokens.get(parameter_open_index) else {
-        return Err(macro_problem_at_token(
-            name_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    if !matches!(
-        parameter_open_token.token_kind(),
-        SourceTokenKind::LeftParenthesis
-    ) {
-        return Err(macro_problem_at_token(
-            parameter_open_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    }
-    let parameter_close_index = find_group_end(source_tokens, parameter_open_index)?;
-    let body_open_index = parameter_close_index + 1;
-    let Some(body_open_token) = source_tokens.get(body_open_index) else {
-        return Err(macro_problem_at_range(
-            parameter_open_token.source_range(),
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    if !matches!(body_open_token.token_kind(), SourceTokenKind::LeftBrace) {
-        return Err(macro_problem_at_token(
-            body_open_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    }
-    let body_close_index = find_group_end(source_tokens, body_open_index)?;
-    let parameter =
-        parse_macro_parameter(&source_tokens[parameter_open_index + 1..parameter_close_index])?;
-    let body = source_tokens[body_open_index + 1..body_close_index].to_vec();
-    let Some(body_close_token) = source_tokens.get(body_close_index) else {
-        return Err(macro_problem_at_token(
-            body_open_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    let definition_range = SourceRange::from_byte_range((
-        macro_token.source_range().start_byte(),
-        body_close_token.source_range().end_byte(),
-    ));
-    Ok((
-        MacroDefinition {
-            name: name.to_owned(),
-            parameter,
-            body,
-            definition_range,
-            definition_module: definition_module.map(str::to_owned),
-        },
-        body_close_index,
-    ))
-}
-
-fn parse_macro_parameter(
-    parameter_tokens: &[SourceToken],
-) -> Result<Option<String>, CompilationProblem> {
-    if parameter_tokens.is_empty() {
-        return Ok(None);
-    }
-    if parameter_tokens.len() == 2
-        && matches!(parameter_tokens[0].token_kind(), SourceTokenKind::Dollar)
-    {
-        if let Some(parameter_name) = identifier_name(parameter_tokens.get(1)) {
-            return Ok(Some(parameter_name.to_owned()));
-        }
-    }
-    let Some(first_token) = parameter_tokens.first() else {
-        return Err(macro_problem_at_range(
-            SourceRange::from_byte_range((0, 0)),
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    Err(macro_problem_at_token(
-        first_token,
-        CompilationProblemReason::MacroDefinitionInvalid,
-    ))
-}
-
-fn update_delimiter_stack(
-    source_token: &SourceToken,
-    delimiter_stack: &mut Vec<Delimiter>,
-) -> Result<(), CompilationProblem> {
-    if let Some(delimiter) = opening_delimiter(source_token.token_kind()) {
-        delimiter_stack.push(delimiter);
-        return Ok(());
-    }
-    let Some(delimiter) = closing_delimiter(source_token.token_kind()) else {
-        return Ok(());
-    };
-    if delimiter_stack.last().copied() != Some(delimiter) {
-        return Err(macro_problem_at_token(
-            source_token,
-            CompilationProblemReason::SourceDoesNotFollowLanguageRules,
-        ));
-    }
-    delimiter_stack.pop();
-    Ok(())
-}
-
-fn find_group_end(
-    source_tokens: &[SourceToken],
-    opening_index: usize,
-) -> Result<usize, CompilationProblem> {
-    let Some(opening_token) = source_tokens.get(opening_index) else {
-        return Err(macro_problem_at_range(
-            SourceRange::from_byte_range((0, 0)),
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    let Some(opening_kind) = opening_delimiter(opening_token.token_kind()) else {
-        return Err(macro_problem_at_token(
-            opening_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    let mut delimiter_stack = Vec::new();
-    delimiter_stack.push(opening_kind);
-    for (token_index, source_token) in source_tokens.iter().enumerate().skip(opening_index + 1) {
-        if let Some(delimiter) = opening_delimiter(source_token.token_kind()) {
-            delimiter_stack.push(delimiter);
-            continue;
-        }
-        let Some(delimiter) = closing_delimiter(source_token.token_kind()) else {
-            continue;
-        };
-        if delimiter_stack.last().copied() != Some(delimiter) {
-            return Err(macro_problem_at_token(
-                source_token,
-                CompilationProblemReason::MacroDefinitionInvalid,
-            ));
-        }
-        delimiter_stack.pop();
-        if delimiter_stack.is_empty() {
-            return Ok(token_index);
-        }
-    }
-    let Some(last_token) = source_tokens.last() else {
-        return Err(macro_problem_at_token(
-            opening_token,
-            CompilationProblemReason::MacroDefinitionInvalid,
-        ));
-    };
-    Err(macro_problem_at_token(
-        last_token,
-        CompilationProblemReason::MacroDefinitionInvalid,
-    ))
 }
 
 fn expand_token_stream(
@@ -319,16 +65,14 @@ fn expand_token_stream(
                 CompilationProblemReason::MacroArgumentShapeMismatch,
             ));
         }
-        let invocation_range = SourceRange::from_byte_range((
-            source_tokens[token_index].source_range().start_byte(),
-            source_tokens[argument_close_index]
-                .source_range()
-                .end_byte(),
-        ));
+        let invocation_range = source_tokens[token_index]
+            .source_range()
+            .through(source_tokens[argument_close_index].source_range());
         let definition_tokens = expand_macro_definition(
             definition,
             &argument_tokens,
             invocation_range,
+            source_tokens[token_index].macro_backtrace(),
             invocation_module,
             state,
         )?;
@@ -373,6 +117,7 @@ fn expand_macro_definition(
     definition: &MacroDefinition,
     argument_tokens: &[SourceToken],
     invocation_range: SourceRange,
+    invocation_backtrace: &[MacroExpansionFrame],
     invocation_module: Option<&str>,
     state: &mut ExpansionState,
 ) -> Result<Vec<SourceToken>, CompilationProblem> {
@@ -383,6 +128,8 @@ fn expand_macro_definition(
         invocation_module.map(str::to_owned),
         invocation_range,
     ));
+    let macro_origin_id = state.next_macro_origin_id;
+    state.next_macro_origin_id += 1;
     let hygiene_names = hygienic_local_names(definition, argument_tokens, state);
     let mut expanded_tokens = Vec::new();
     let mut token_index = 0;
@@ -411,12 +158,13 @@ fn expand_macro_definition(
                 ));
             }
             for argument_token in argument_tokens {
-                let expanded_token = token_with_expansion_frame(
-                    argument_token,
-                    argument_token.token_kind().clone(),
-                    &expansion_frame,
-                    state,
-                );
+                let expanded_token = token_with_expansion_frame(ExpandedTokenParts {
+                    source_token: argument_token,
+                    token_kind: argument_token.token_kind().clone(),
+                    inherited_backtrace: argument_token.macro_backtrace(),
+                    expansion_frame: &expansion_frame,
+                    macro_origin_id,
+                });
                 account_generated_token(&expanded_token, state)?;
                 expanded_tokens.push(expanded_token);
             }
@@ -424,13 +172,19 @@ fn expand_macro_definition(
             continue;
         }
         let token_kind = identifier_name(Some(body_token))
+            .filter(|_| !identifier_is_member_name(&definition.body, token_index))
             .and_then(|name| hygiene_names.get(name))
             .map_or_else(
                 || body_token.token_kind().clone(),
                 |hygienic_name| SourceTokenKind::IdentifierName(hygienic_name.clone()),
             );
-        let expanded_token =
-            token_with_expansion_frame(body_token, token_kind, &expansion_frame, state);
+        let expanded_token = token_with_expansion_frame(ExpandedTokenParts {
+            source_token: body_token,
+            token_kind,
+            inherited_backtrace: invocation_backtrace,
+            expansion_frame: &expansion_frame,
+            macro_origin_id,
+        });
         account_generated_token(&expanded_token, state)?;
         expanded_tokens.push(expanded_token);
         token_index += 1;
@@ -520,23 +274,35 @@ fn account_generated_token(
     Ok(())
 }
 
-fn token_with_expansion_frame(
-    source_token: &SourceToken,
+struct ExpandedTokenParts<'source> {
+    source_token: &'source SourceToken,
     token_kind: SourceTokenKind,
-    expansion_frame: &MacroExpansionFrame,
-    state: &mut ExpansionState,
-) -> SourceToken {
-    let mut macro_backtrace = source_token.macro_backtrace().to_vec();
-    macro_backtrace.push(expansion_frame.clone());
-    let macro_origin_id = state.next_macro_origin_id;
-    state.next_macro_origin_id += 1;
+    inherited_backtrace: &'source [MacroExpansionFrame],
+    expansion_frame: &'source MacroExpansionFrame,
+    macro_origin_id: usize,
+}
+
+fn token_with_expansion_frame(expanded_token: ExpandedTokenParts<'_>) -> SourceToken {
+    let mut macro_backtrace = expanded_token.inherited_backtrace.to_vec();
+    macro_backtrace.push(expanded_token.expansion_frame.clone());
     SourceToken::from_token_at_origin((
-        token_kind,
-        source_token
+        expanded_token.token_kind,
+        expanded_token
+            .source_token
             .source_range()
-            .with_macro_origin_id(macro_origin_id),
+            .with_macro_origin_id(expanded_token.macro_origin_id),
         macro_backtrace,
     ))
+}
+
+fn identifier_is_member_name(source_tokens: &[SourceToken], token_index: usize) -> bool {
+    matches!(
+        token_index
+            .checked_sub(1)
+            .and_then(|previous_index| source_tokens.get(previous_index))
+            .map(SourceToken::token_kind),
+        Some(SourceTokenKind::Dot)
+    )
 }
 
 fn macro_invocation_name(source_tokens: &[SourceToken], token_index: usize) -> Option<&str> {
@@ -563,24 +329,6 @@ fn identifier_name(source_token: Option<&SourceToken>) -> Option<&str> {
     })
 }
 
-const fn opening_delimiter(token_kind: &SourceTokenKind) -> Option<Delimiter> {
-    match token_kind {
-        SourceTokenKind::LeftParenthesis => Some(Delimiter::Parenthesis),
-        SourceTokenKind::LeftBrace => Some(Delimiter::Brace),
-        SourceTokenKind::LeftBracket => Some(Delimiter::Bracket),
-        _ => None,
-    }
-}
-
-const fn closing_delimiter(token_kind: &SourceTokenKind) -> Option<Delimiter> {
-    match token_kind {
-        SourceTokenKind::RightParenthesis => Some(Delimiter::Parenthesis),
-        SourceTokenKind::RightBrace => Some(Delimiter::Brace),
-        SourceTokenKind::RightBracket => Some(Delimiter::Bracket),
-        _ => None,
-    }
-}
-
 fn macro_problem_at_token(
     source_token: &SourceToken,
     reason: CompilationProblemReason,
@@ -604,11 +352,4 @@ fn macro_problem_with_frame(
         reason,
         macro_backtrace,
     ))
-}
-
-const fn macro_problem_at_range(
-    source_range: SourceRange,
-    reason: CompilationProblemReason,
-) -> CompilationProblem {
-    CompilationProblem::from_problem_at_range((source_range, reason))
 }

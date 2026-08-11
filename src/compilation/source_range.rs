@@ -26,6 +26,18 @@ impl SourceRange {
         }
     }
 
+    /// Preserves the originating expansion when parser nodes span several tokens.
+    pub(crate) const fn through(self, end_range: Self) -> Self {
+        Self {
+            start_byte: self.start_byte,
+            end_byte: end_range.end_byte,
+            macro_origin_id: match self.macro_origin_id {
+                Some(origin_id) => Some(origin_id),
+                None => end_range.macro_origin_id,
+            },
+        }
+    }
+
     pub(crate) const fn macro_origin_id(&self) -> Option<usize> {
         self.macro_origin_id
     }

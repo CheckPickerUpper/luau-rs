@@ -65,10 +65,9 @@ impl SourceProgramParser {
                             Ok(right_bracket) => right_bracket,
                             Err(compilation_problem) => return Err(compilation_problem),
                         };
-                    let expression_range = SourceRange::from_byte_range((
-                        parsed_expression.source_range().start_byte(),
-                        right_bracket.source_range().end_byte(),
-                    ));
+                    let expression_range = parsed_expression
+                        .source_range()
+                        .through(right_bracket.source_range());
                     parsed_expression = ParsedExpression::ArrayRead(
                         crate::source_language::ParsedArrayRead::from_read((
                             Box::new(parsed_expression),
@@ -251,10 +250,9 @@ impl SourceProgramParser {
                     Ok(negated_expression) => negated_expression,
                     Err(compilation_problem) => return Err(compilation_problem),
                 };
-                let expression_range = SourceRange::from_byte_range((
-                    operator_token.source_range().start_byte(),
-                    negated_expression.source_range().end_byte(),
-                ));
+                let expression_range = operator_token
+                    .source_range()
+                    .through(negated_expression.source_range());
                 Ok(ParsedExpression::LogicalNegation(
                     ParsedLogicalNegation::from_parts((
                         Box::new(negated_expression),
@@ -348,10 +346,9 @@ impl SourceProgramParser {
         operands: (&ParsedExpression, &ParsedExpression),
     ) -> SourceRange {
         let (left_operand, right_operand) = operands;
-        SourceRange::from_byte_range((
-            left_operand.source_range().start_byte(),
-            right_operand.source_range().end_byte(),
-        ))
+        left_operand
+            .source_range()
+            .through(right_operand.source_range())
     }
 
     fn parse_postfix_expression(&mut self) -> Result<ParsedExpression, CompilationProblem> {
@@ -370,10 +367,8 @@ impl SourceProgramParser {
                         Ok(field_name_at_range) => field_name_at_range,
                         Err(compilation_problem) => return Err(compilation_problem),
                     };
-                    let expression_range = SourceRange::from_byte_range((
-                        parsed_expression.source_range().start_byte(),
-                        field_name_range.end_byte(),
-                    ));
+                    let expression_range =
+                        parsed_expression.source_range().through(field_name_range);
                     parsed_expression = ParsedExpression::FieldRead(
                         crate::source_language::ParsedFieldRead::from_read((
                             Box::new(parsed_expression),
@@ -463,10 +458,7 @@ impl SourceProgramParser {
                                 Ok(right_parenthesis) => right_parenthesis,
                                 Err(compilation_problem) => return Err(compilation_problem),
                             };
-                        let call_range = SourceRange::from_byte_range((
-                            token_range.start_byte(),
-                            right_parenthesis.source_range().end_byte(),
-                        ));
+                        let call_range = token_range.through(right_parenthesis.source_range());
                         Ok(ParsedExpression::FunctionCall(
                             ParsedFunctionCall::from_call((
                                 identifier_name,
@@ -516,10 +508,7 @@ impl SourceProgramParser {
                 Ok(ParsedExpression::RobloxServiceAcquisition {
                     service_type_name: instance_type_name,
                     service_type_range: instance_type_range,
-                    expression_range: SourceRange::from_byte_range((
-                        namespace_range.start_byte(),
-                        right_parenthesis.source_range().end_byte(),
-                    )),
+                    expression_range: namespace_range.through(right_parenthesis.source_range()),
                 })
             }
             "instance" => {
@@ -537,10 +526,7 @@ impl SourceProgramParser {
                     instance_type_name,
                     instance_type_range,
                     parent_expression,
-                    expression_range: SourceRange::from_byte_range((
-                        namespace_range.start_byte(),
-                        right_parenthesis.source_range().end_byte(),
-                    )),
+                    expression_range: namespace_range.through(right_parenthesis.source_range()),
                 })
             }
             "wait_for_child" => {
@@ -565,10 +551,7 @@ impl SourceProgramParser {
                     instance_type_range,
                     parent_expression: Box::new(parent_expression),
                     child_name_expression: Box::new(child_name_expression),
-                    expression_range: SourceRange::from_byte_range((
-                        namespace_range.start_byte(),
-                        right_parenthesis.source_range().end_byte(),
-                    )),
+                    expression_range: namespace_range.through(right_parenthesis.source_range()),
                 })
             }
             "connect" | "disconnect" | "wait" | "fire_server" | "fire_client"
@@ -592,10 +575,7 @@ impl SourceProgramParser {
                     operation_kind,
                     remote_type,
                     arguments,
-                    SourceRange::from_byte_range((
-                        namespace_range.start_byte(),
-                        right_parenthesis.source_range().end_byte(),
-                    )),
+                    namespace_range.through(right_parenthesis.source_range()),
                 )) else {
                     return Err(self.problem_at_current_token());
                 };
@@ -625,10 +605,9 @@ impl SourceProgramParser {
         Ok(ParsedExpression::ArrayLiteral(
             crate::source_language::ParsedArrayLiteral::from_elements((
                 element_expressions,
-                SourceRange::from_byte_range((
-                    left_bracket.source_range().start_byte(),
-                    right_bracket.source_range().end_byte(),
-                )),
+                left_bracket
+                    .source_range()
+                    .through(right_bracket.source_range()),
             )),
         ))
     }
@@ -685,10 +664,7 @@ impl SourceProgramParser {
             Ok(right_brace) => right_brace,
             Err(compilation_problem) => return Err(compilation_problem),
         };
-        let literal_range = SourceRange::from_byte_range((
-            record_name_range.start_byte(),
-            right_brace.source_range().end_byte(),
-        ));
+        let literal_range = record_name_range.through(right_brace.source_range());
         Ok(ParsedExpression::RecordLiteral(
             crate::source_language::ParsedRecordLiteral::from_literal((
                 record_name,
