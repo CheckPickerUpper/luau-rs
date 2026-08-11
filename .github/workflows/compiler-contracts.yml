@@ -1,8 +1,6 @@
 name: Compiler contracts
 
 on:
-  push:
-    branches: [development, production]
   pull_request:
 
 permissions:
