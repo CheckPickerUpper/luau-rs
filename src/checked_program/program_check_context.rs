@@ -1,3 +1,4 @@
+use crate::remote_payload_shape::{RemotePayloadField, RemotePayloadShape};
 use crate::{
     checked_program::{
         roblox_service::RobloxService, CheckedLocalBinding, CheckedRecordDeclaration,
@@ -357,34 +358,28 @@ impl<'a> ProgramCheckContext<'a> {
         }
     }
 
-    /// Rejects values that cannot cross a remote boundary as deterministic wire data.
-    pub(super) fn require_remote_payload_type(
+    /// Builds the guard that must validate untrusted data before typed code receives it.
+    pub(super) fn remote_payload_shape(
         &self,
         checked_value_type: &CheckedValueType,
         source_range: SourceRange,
-    ) -> Result<(), CompilationProblem> {
-        self.require_remote_payload_type_with_stack(
-            checked_value_type,
-            source_range,
-            &mut Vec::new(),
-        )
+    ) -> Result<RemotePayloadShape, CompilationProblem> {
+        self.remote_payload_shape_with_stack(checked_value_type, source_range, &mut Vec::new())
     }
 
-    fn require_remote_payload_type_with_stack(
+    fn remote_payload_shape_with_stack(
         &self,
         checked_value_type: &CheckedValueType,
         source_range: SourceRange,
         visiting_records: &mut Vec<String>,
-    ) -> Result<(), CompilationProblem> {
+    ) -> Result<RemotePayloadShape, CompilationProblem> {
         match checked_value_type {
-            CheckedValueType::Number | CheckedValueType::String | CheckedValueType::Boolean => {
-                Ok(())
-            }
-            CheckedValueType::Array(element_type) => self.require_remote_payload_type_with_stack(
-                element_type,
-                source_range,
-                visiting_records,
-            ),
+            CheckedValueType::Number => Ok(RemotePayloadShape::Number),
+            CheckedValueType::String => Ok(RemotePayloadShape::String),
+            CheckedValueType::Boolean => Ok(RemotePayloadShape::Boolean),
+            CheckedValueType::Array(element_type) => Ok(RemotePayloadShape::Array(Box::new(
+                self.remote_payload_shape_with_stack(element_type, source_range, visiting_records)?,
+            ))),
             CheckedValueType::NamedRecord(record_name) => {
                 if visiting_records.iter().any(|name| name == record_name) {
                     return Err(CompilationProblem::from_problem_at_range((
@@ -392,22 +387,26 @@ impl<'a> ProgramCheckContext<'a> {
                         CompilationProblemReason::RobloxPayloadTypeNotAllowed,
                     )));
                 }
-                let field_types = self
+                let fields = self
                     .checked_record_declaration((record_name, source_range))?
                     .record_fields()
                     .iter()
-                    .map(|field| field.value_type().clone())
+                    .map(|field| (field.field_name().to_owned(), field.value_type().clone()))
                     .collect::<Vec<_>>();
                 visiting_records.push(record_name.clone());
-                for field_type in &field_types {
-                    self.require_remote_payload_type_with_stack(
-                        field_type,
-                        source_range,
-                        visiting_records,
-                    )?;
+                let mut checked_fields = Vec::with_capacity(fields.len());
+                for (field_name, field_type) in &fields {
+                    checked_fields.push(RemotePayloadField::from_parts((
+                        field_name.clone(),
+                        self.remote_payload_shape_with_stack(
+                            field_type,
+                            source_range,
+                            visiting_records,
+                        )?,
+                    )));
                 }
                 visiting_records.pop();
-                Ok(())
+                Ok(RemotePayloadShape::Record(checked_fields))
             }
             CheckedValueType::Function { .. }
             | CheckedValueType::RobloxService(_)

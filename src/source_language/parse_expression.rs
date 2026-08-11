@@ -571,14 +571,15 @@ impl SourceProgramParser {
                     )),
                 })
             }
-            "connect" | "disconnect" | "fire_server" | "fire_client" | "fire_all_clients"
-            | "invoke_server" | "invoke_client" | "set_callback" => {
+            "connect" | "disconnect" | "wait" | "fire_server" | "fire_client"
+            | "fire_all_clients" | "invoke_server" | "invoke_client" | "set_callback" => {
                 let arguments = self.parse_function_arguments()?;
                 let right_parenthesis =
                     self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
                 let operation_kind = match intrinsic_name.as_str() {
                     "connect" => ParsedRobloxRemoteOperationKind::Connect,
                     "disconnect" => ParsedRobloxRemoteOperationKind::Disconnect,
+                    "wait" => ParsedRobloxRemoteOperationKind::Wait,
                     "fire_server" => ParsedRobloxRemoteOperationKind::FireServer,
                     "fire_client" => ParsedRobloxRemoteOperationKind::FireClient,
                     "fire_all_clients" => ParsedRobloxRemoteOperationKind::FireAllClients,
@@ -587,17 +588,18 @@ impl SourceProgramParser {
                     "set_callback" => ParsedRobloxRemoteOperationKind::SetCallback,
                     _ => return Err(self.problem_at_current_token()),
                 };
-                Ok(ParsedExpression::RobloxRemoteOperation(
-                    ParsedRobloxRemoteOperation::from_parts((
-                        operation_kind,
-                        remote_type,
-                        arguments,
-                        SourceRange::from_byte_range((
-                            namespace_range.start_byte(),
-                            right_parenthesis.source_range().end_byte(),
-                        )),
+                let Some(operation) = ParsedRobloxRemoteOperation::from_syntax((
+                    operation_kind,
+                    remote_type,
+                    arguments,
+                    SourceRange::from_byte_range((
+                        namespace_range.start_byte(),
+                        right_parenthesis.source_range().end_byte(),
                     )),
-                ))
+                )) else {
+                    return Err(self.problem_at_current_token());
+                };
+                Ok(ParsedExpression::RobloxRemoteOperation(operation))
             }
             _ => Err(self.problem_at_current_token()),
         }

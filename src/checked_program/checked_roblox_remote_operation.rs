@@ -1,4 +1,7 @@
-use crate::{checked_program::CheckedExpression, RemoteExecutionSide};
+use crate::{
+    checked_program::CheckedExpression, remote_payload_shape::RemotePayloadShape,
+    RemoteExecutionSide,
+};
 
 /// Retains a semantically validated operation at a direction-specific remote boundary.
 pub enum CheckedRobloxRemoteOperation {
@@ -10,11 +13,18 @@ pub enum CheckedRobloxRemoteOperation {
         callback_expression: Box<CheckedExpression>,
         /// Runtime side selecting `OnServerEvent` or `OnClientEvent`.
         execution_side: RemoteExecutionSide,
+        /// Runtime payload validation required before invoking the callback.
+        payload_shape: RemotePayloadShape,
     },
     /// Disconnects a checked `RBXScriptConnection`.
     Disconnect {
         /// Connection expression to disconnect.
         connection_expression: Box<CheckedExpression>,
+    },
+    /// Waits for the next client-directed event payload.
+    Wait {
+        /// `RemoteEvent` expression whose client event yields.
+        remote_expression: Box<CheckedExpression>,
     },
     /// Fires a `RemoteEvent` toward the server.
     FireServer {
@@ -63,5 +73,7 @@ pub enum CheckedRobloxRemoteOperation {
         callback_expression: Box<CheckedExpression>,
         /// Runtime side selecting `OnServerInvoke` or `OnClientInvoke`.
         execution_side: RemoteExecutionSide,
+        /// Runtime payload validation required before invoking the callback.
+        payload_shape: RemotePayloadShape,
     },
 }

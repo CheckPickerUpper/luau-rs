@@ -4,6 +4,7 @@ mod checked_program;
 mod compilation;
 mod generated_luau;
 mod project_compilation;
+mod remote_payload_shape;
 mod source_language;
 
 pub use compilation::{

@@ -373,16 +373,23 @@ impl LuauProgramGenerator {
                 remote_expression,
                 callback_expression,
                 execution_side,
+                payload_shape,
             } => LuauRobloxRemoteOperation::Connect {
                 remote_expression: Box::new(Self::generate_expression(remote_expression)),
                 callback_expression: Box::new(Self::generate_expression(callback_expression)),
                 execution_side: *execution_side,
+                payload_shape: payload_shape.clone(),
             },
             CheckedRobloxRemoteOperation::Disconnect {
                 connection_expression,
             } => LuauRobloxRemoteOperation::Disconnect {
                 connection_expression: Box::new(Self::generate_expression(connection_expression)),
             },
+            CheckedRobloxRemoteOperation::Wait { remote_expression } => {
+                LuauRobloxRemoteOperation::Wait {
+                    remote_expression: Box::new(Self::generate_expression(remote_expression)),
+                }
+            }
             CheckedRobloxRemoteOperation::FireServer {
                 remote_expression,
                 payload_expression,
@@ -426,10 +433,12 @@ impl LuauProgramGenerator {
                 remote_expression,
                 callback_expression,
                 execution_side,
+                payload_shape,
             } => LuauRobloxRemoteOperation::SetCallback {
                 remote_expression: Box::new(Self::generate_expression(remote_expression)),
                 callback_expression: Box::new(Self::generate_expression(callback_expression)),
                 execution_side: *execution_side,
+                payload_shape: payload_shape.clone(),
             },
         }
     }

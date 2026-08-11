@@ -7,6 +7,7 @@ use crate::generated_luau::{
     LuauParameter, LuauProgram, LuauProgramEnding, LuauRecordAlias, LuauRecordLiteral,
     LuauRobloxRemoteOperation, LuauStatement, LuauValueType, LuauWhileLoop,
 };
+use crate::remote_payload_shape::RemotePayloadShape;
 
 const STATEMENT_INDENTATION: &str = "    ";
 
@@ -355,7 +356,16 @@ impl LuauTextWriter {
                 remote_expression,
                 callback_expression,
                 execution_side,
+                payload_shape,
             } => {
+                if *execution_side == crate::RemoteExecutionSide::Server {
+                    self.write_guarded_server_connect((
+                        remote_expression,
+                        callback_expression,
+                        payload_shape,
+                    ));
+                    return;
+                }
                 self.write_expression_in((
                     remote_expression,
                     LuauExpressionEmbedding::OperationOperand {
@@ -363,10 +373,7 @@ impl LuauTextWriter {
                         operand_side: LuauOperationOperandSide::Left,
                     },
                 ));
-                self.luau_text.push_str(match execution_side {
-                    crate::RemoteExecutionSide::Client => ".OnClientEvent:Connect(",
-                    crate::RemoteExecutionSide::Server => ".OnServerEvent:Connect(",
-                });
+                self.luau_text.push_str(".OnClientEvent:Connect(");
                 self.write_expression(callback_expression);
                 self.luau_text.push(')');
             }
@@ -381,6 +388,16 @@ impl LuauTextWriter {
                     },
                 ));
                 self.luau_text.push_str(":Disconnect()");
+            }
+            LuauRobloxRemoteOperation::Wait { remote_expression } => {
+                self.write_expression_in((
+                    remote_expression,
+                    LuauExpressionEmbedding::OperationOperand {
+                        parent_precedence: LuauExpressionPrecedence::Primary,
+                        operand_side: LuauOperationOperandSide::Left,
+                    },
+                ));
+                self.luau_text.push_str(".OnClientEvent:Wait()");
             }
             LuauRobloxRemoteOperation::FireServer {
                 remote_expression,
@@ -467,7 +484,16 @@ impl LuauTextWriter {
                 remote_expression,
                 callback_expression,
                 execution_side,
+                payload_shape,
             } => {
+                if *execution_side == crate::RemoteExecutionSide::Server {
+                    self.write_guarded_server_callback((
+                        remote_expression,
+                        callback_expression,
+                        payload_shape,
+                    ));
+                    return;
+                }
                 self.write_expression_in((
                     remote_expression,
                     LuauExpressionEmbedding::OperationOperand {
@@ -475,11 +501,91 @@ impl LuauTextWriter {
                         operand_side: LuauOperationOperandSide::Left,
                     },
                 ));
-                self.luau_text.push_str(match execution_side {
-                    crate::RemoteExecutionSide::Client => ".OnClientInvoke = ",
-                    crate::RemoteExecutionSide::Server => ".OnServerInvoke = ",
-                });
+                self.luau_text.push_str(".OnClientInvoke = ");
                 self.write_expression(callback_expression);
+            }
+        }
+    }
+
+    fn write_guarded_server_connect(
+        &mut self,
+        parts: (&LuauExpression, &LuauExpression, &RemotePayloadShape),
+    ) {
+        let (remote_expression, callback_expression, payload_shape) = parts;
+        self.luau_text.push_str("(function(__remote, __callback) local __last_request = {} return __remote.OnServerEvent:Connect(function(__player, __payload) if not (");
+        self.write_server_remote_authorization(payload_shape);
+        self.luau_text.push_str(") then return end local __now = os.clock() local __last = __last_request[__player] if __last ~= nil and __now - __last < 0.1 then return end __last_request[__player] = __now __callback(__player, __payload) end) end)(");
+        self.write_expression(remote_expression);
+        self.luau_text.push_str(", ");
+        self.write_expression(callback_expression);
+        self.luau_text.push(')');
+    }
+
+    fn write_guarded_server_callback(
+        &mut self,
+        parts: (&LuauExpression, &LuauExpression, &RemotePayloadShape),
+    ) {
+        let (remote_expression, callback_expression, payload_shape) = parts;
+        self.luau_text.push_str("(function(__remote, __callback) local __last_request = {} __remote.OnServerInvoke = function(__player, __payload) if not (");
+        self.write_server_remote_authorization(payload_shape);
+        self.luau_text.push_str(") then return nil end local __now = os.clock() local __last = __last_request[__player] if __last ~= nil and __now - __last < 0.1 then return nil end __last_request[__player] = __now return __callback(__player, __payload) end end)(");
+        self.write_expression(remote_expression);
+        self.luau_text.push_str(", ");
+        self.write_expression(callback_expression);
+        self.luau_text.push(')');
+    }
+
+    fn write_server_remote_authorization(&mut self, payload_shape: &RemotePayloadShape) {
+        self.luau_text.push_str("typeof(__player) == \"Instance\" and __player:IsA(\"Player\") and __player.Parent == game:GetService(\"Players\") and ");
+        self.write_payload_guard((payload_shape, "__payload"));
+    }
+
+    fn write_payload_guard(&mut self, guarded_value: (&RemotePayloadShape, &str)) {
+        let (payload_shape, value_name) = guarded_value;
+        match payload_shape {
+            RemotePayloadShape::Number => {
+                self.luau_text.push_str("(typeof(");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(") == \"number\" and ");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(" == ");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(" and ");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(" > -math.huge and ");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(" < math.huge)");
+            }
+            RemotePayloadShape::String => {
+                self.luau_text.push_str("(typeof(");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(") == \"string\" and #");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(" <= 16384)");
+            }
+            RemotePayloadShape::Boolean => {
+                self.luau_text.push_str("typeof(");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(") == \"boolean\"");
+            }
+            RemotePayloadShape::Array(element_shape) => {
+                self.luau_text.push_str("(function(__array) if typeof(__array) ~= \"table\" or #__array > 256 then return false end for _, __element in __array do if not (");
+                self.write_payload_guard((element_shape, "__element"));
+                self.luau_text
+                    .push_str(") then return false end end return true end)(");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push(')');
+            }
+            RemotePayloadShape::Record(fields) => {
+                self.luau_text.push_str("(typeof(");
+                self.luau_text.push_str(value_name);
+                self.luau_text.push_str(") == \"table\"");
+                for field in fields {
+                    self.luau_text.push_str(" and ");
+                    let field_value = format!("{value_name}.{}", field.name());
+                    self.write_payload_guard((field.shape(), &field_value));
+                }
+                self.luau_text.push(')');
             }
         }
     }

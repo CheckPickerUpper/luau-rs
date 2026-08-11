@@ -6,13 +6,12 @@ use crate::{
         CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedExpression,
         CheckedFieldRead, CheckedFunctionCall, CheckedInstanceConstruction, CheckedInstanceLookup,
         CheckedNumericOperation, CheckedNumericOperator, CheckedRecordFieldInitializer,
-        CheckedRobloxRemoteOperation, CheckedValueType, RobloxInstance,
-        CheckedRecordLiteral,
+        CheckedRecordLiteral, CheckedRobloxRemoteOperation, CheckedValueType, RobloxInstance,
     },
     source_language::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedExpression, ParsedFieldRead, ParsedFunctionCall,
         ParsedFunctionLiteral, ParsedNumericOperation, ParsedNumericOperator, ParsedRecordLiteral,
-        ParsedRobloxRemoteOperation, ParsedRobloxRemoteOperationKind, SourceBooleanLiteral,
+        ParsedRobloxRemoteOperation, SourceBooleanLiteral,
     },
     ArgumentCount, CompilationProblem, CompilationProblemReason, ModuleExecutionSide,
     RemoteExecutionSide, SourceRange,
@@ -98,10 +97,9 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                 parent_expression,
                 ..
             } => {
-                let roblox_instance = ProgramCheckContext::acquire_constructible_roblox_instance((
-                    instance_type_name,
-                    *instance_type_range,
-                ))?;
+                let roblox_instance = ProgramCheckContext::acquire_constructible_roblox_instance(
+                    (instance_type_name, *instance_type_range),
+                )?;
                 let checked_parent = match parent_expression {
                     Some(parent_expression) => {
                         let (checked_parent, parent_type) =
@@ -215,10 +213,7 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         &mut self,
         operation: &ParsedRobloxRemoteOperation,
     ) -> Result<(CheckedRobloxRemoteOperation, CheckedValueType), CompilationProblem> {
-        if matches!(
-            operation.operation_kind(),
-            ParsedRobloxRemoteOperationKind::SetCallback
-        ) {
+        if matches!(operation, ParsedRobloxRemoteOperation::SetCallback { .. }) {
             return Err(CompilationProblem::from_problem_at_range((
                 operation.expression_range(),
                 CompilationProblemReason::SourceDoesNotFollowLanguageRules,
@@ -239,38 +234,45 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         &mut self,
         operation: &ParsedRobloxRemoteOperation,
     ) -> Result<(CheckedRobloxRemoteOperation, CheckedValueType), CompilationProblem> {
-        match operation.operation_kind() {
-            ParsedRobloxRemoteOperationKind::Connect => {
-                Self::require_argument_count(operation, 2)?;
-                let execution_side =
-                    self.require_module_remote_side(operation.expression_range())?;
-                let remote_type = Self::remote_type(operation)?;
+        match operation {
+            ParsedRobloxRemoteOperation::Connect {
+                remote_type,
+                remote_expression,
+                callback_expression,
+                expression_range,
+            } => {
+                let execution_side = self.require_module_remote_side(*expression_range)?;
+                let remote_type = Self::remote_type(remote_type)?;
                 Self::require_remote_class(
                     remote_type,
                     RobloxInstance::RemoteEvent,
                     CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
                 )?;
                 let remote_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 0)?,
+                    remote_expression,
                     RobloxInstance::RemoteEvent,
                 )?;
-                let callback_expression = self.check_callback_argument(
-                    Self::operation_argument(operation, 1)?,
-                    Self::remote_callback_type(execution_side, CheckedValueType::NoReturnedValues),
-                )?;
+                let (callback_expression, payload_shape) = self.check_remote_callback((
+                    callback_expression,
+                    execution_side,
+                    CheckedValueType::NoReturnedValues,
+                ))?;
                 Ok((
                     CheckedRobloxRemoteOperation::Connect {
                         remote_expression: Box::new(remote_expression),
                         callback_expression: Box::new(callback_expression),
                         execution_side,
+                        payload_shape,
                     },
                     CheckedValueType::RobloxConnection,
                 ))
             }
-            ParsedRobloxRemoteOperationKind::Disconnect => {
-                Self::require_argument_count(operation, 1)?;
+            ParsedRobloxRemoteOperation::Disconnect {
+                connection_expression,
+                ..
+            } => {
                 let connection_expression =
-                    self.check_connection_argument(Self::operation_argument(operation, 0)?)?;
+                    self.check_connection_argument(connection_expression)?;
                 Ok((
                     CheckedRobloxRemoteOperation::Disconnect {
                         connection_expression: Box::new(connection_expression),
@@ -278,20 +280,45 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     CheckedValueType::NoReturnedValues,
                 ))
             }
-            ParsedRobloxRemoteOperationKind::FireServer => {
-                Self::require_argument_count(operation, 2)?;
-                self.require_remote_side(operation, RemoteExecutionSide::Client)?;
+            ParsedRobloxRemoteOperation::Wait {
+                remote_type,
+                remote_expression,
+                expression_range,
+            } => {
+                self.require_remote_side(*expression_range, RemoteExecutionSide::Client)?;
                 Self::require_remote_class(
-                    Self::remote_type(operation)?,
+                    Self::remote_type(remote_type)?,
                     RobloxInstance::RemoteEvent,
                     CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
                 )?;
                 let remote_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 0)?,
+                    remote_expression,
                     RobloxInstance::RemoteEvent,
                 )?;
-                let payload_expression =
-                    self.check_remote_payload_argument(Self::operation_argument(operation, 1)?)?;
+                Ok((
+                    CheckedRobloxRemoteOperation::Wait {
+                        remote_expression: Box::new(remote_expression),
+                    },
+                    CheckedValueType::String,
+                ))
+            }
+            ParsedRobloxRemoteOperation::FireServer {
+                remote_type,
+                remote_expression,
+                payload_expression,
+                expression_range,
+            } => {
+                self.require_remote_side(*expression_range, RemoteExecutionSide::Client)?;
+                Self::require_remote_class(
+                    Self::remote_type(remote_type)?,
+                    RobloxInstance::RemoteEvent,
+                    CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
+                )?;
+                let remote_expression = self.check_remote_instance_argument(
+                    remote_expression,
+                    RobloxInstance::RemoteEvent,
+                )?;
+                let payload_expression = self.check_remote_payload_argument(payload_expression)?;
                 Ok((
                     CheckedRobloxRemoteOperation::FireServer {
                         remote_expression: Box::new(remote_expression),
@@ -300,24 +327,26 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     CheckedValueType::NoReturnedValues,
                 ))
             }
-            ParsedRobloxRemoteOperationKind::FireClient => {
-                Self::require_argument_count(operation, 3)?;
-                self.require_remote_side(operation, RemoteExecutionSide::Server)?;
+            ParsedRobloxRemoteOperation::FireClient {
+                remote_type,
+                remote_expression,
+                player_expression,
+                payload_expression,
+                expression_range,
+            } => {
+                self.require_remote_side(*expression_range, RemoteExecutionSide::Server)?;
                 Self::require_remote_class(
-                    Self::remote_type(operation)?,
+                    Self::remote_type(remote_type)?,
                     RobloxInstance::RemoteEvent,
                     CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
                 )?;
                 let remote_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 0)?,
+                    remote_expression,
                     RobloxInstance::RemoteEvent,
                 )?;
-                let player_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 1)?,
-                    RobloxInstance::Player,
-                )?;
-                let payload_expression =
-                    self.check_remote_payload_argument(Self::operation_argument(operation, 2)?)?;
+                let player_expression =
+                    self.check_remote_instance_argument(player_expression, RobloxInstance::Player)?;
+                let payload_expression = self.check_remote_payload_argument(payload_expression)?;
                 Ok((
                     CheckedRobloxRemoteOperation::FireClient {
                         remote_expression: Box::new(remote_expression),
@@ -327,20 +356,23 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     CheckedValueType::NoReturnedValues,
                 ))
             }
-            ParsedRobloxRemoteOperationKind::FireAllClients => {
-                Self::require_argument_count(operation, 2)?;
-                self.require_remote_side(operation, RemoteExecutionSide::Server)?;
+            ParsedRobloxRemoteOperation::FireAllClients {
+                remote_type,
+                remote_expression,
+                payload_expression,
+                expression_range,
+            } => {
+                self.require_remote_side(*expression_range, RemoteExecutionSide::Server)?;
                 Self::require_remote_class(
-                    Self::remote_type(operation)?,
+                    Self::remote_type(remote_type)?,
                     RobloxInstance::RemoteEvent,
                     CompilationProblemReason::RobloxRemoteOperationRequiresRemoteEvent,
                 )?;
                 let remote_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 0)?,
+                    remote_expression,
                     RobloxInstance::RemoteEvent,
                 )?;
-                let payload_expression =
-                    self.check_remote_payload_argument(Self::operation_argument(operation, 1)?)?;
+                let payload_expression = self.check_remote_payload_argument(payload_expression)?;
                 Ok((
                     CheckedRobloxRemoteOperation::FireAllClients {
                         remote_expression: Box::new(remote_expression),
@@ -349,20 +381,23 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     CheckedValueType::NoReturnedValues,
                 ))
             }
-            ParsedRobloxRemoteOperationKind::InvokeServer => {
-                Self::require_argument_count(operation, 2)?;
-                self.require_remote_side(operation, RemoteExecutionSide::Client)?;
+            ParsedRobloxRemoteOperation::InvokeServer {
+                remote_type,
+                remote_expression,
+                payload_expression,
+                expression_range,
+            } => {
+                self.require_remote_side(*expression_range, RemoteExecutionSide::Client)?;
                 Self::require_remote_class(
-                    Self::remote_type(operation)?,
+                    Self::remote_type(remote_type)?,
                     RobloxInstance::RemoteFunction,
                     CompilationProblemReason::RobloxRemoteOperationRequiresRemoteFunction,
                 )?;
                 let remote_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 0)?,
+                    remote_expression,
                     RobloxInstance::RemoteFunction,
                 )?;
-                let payload_expression =
-                    self.check_remote_payload_argument(Self::operation_argument(operation, 1)?)?;
+                let payload_expression = self.check_remote_payload_argument(payload_expression)?;
                 Ok((
                     CheckedRobloxRemoteOperation::InvokeServer {
                         remote_expression: Box::new(remote_expression),
@@ -371,24 +406,26 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     CheckedValueType::String,
                 ))
             }
-            ParsedRobloxRemoteOperationKind::InvokeClient => {
-                Self::require_argument_count(operation, 3)?;
-                self.require_remote_side(operation, RemoteExecutionSide::Server)?;
+            ParsedRobloxRemoteOperation::InvokeClient {
+                remote_type,
+                remote_expression,
+                player_expression,
+                payload_expression,
+                expression_range,
+            } => {
+                self.require_remote_side(*expression_range, RemoteExecutionSide::Server)?;
                 Self::require_remote_class(
-                    Self::remote_type(operation)?,
+                    Self::remote_type(remote_type)?,
                     RobloxInstance::RemoteFunction,
                     CompilationProblemReason::RobloxRemoteOperationRequiresRemoteFunction,
                 )?;
                 let remote_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 0)?,
+                    remote_expression,
                     RobloxInstance::RemoteFunction,
                 )?;
-                let player_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 1)?,
-                    RobloxInstance::Player,
-                )?;
-                let payload_expression =
-                    self.check_remote_payload_argument(Self::operation_argument(operation, 2)?)?;
+                let player_expression =
+                    self.check_remote_instance_argument(player_expression, RobloxInstance::Player)?;
+                let payload_expression = self.check_remote_payload_argument(payload_expression)?;
                 Ok((
                     CheckedRobloxRemoteOperation::InvokeClient {
                         remote_expression: Box::new(remote_expression),
@@ -398,28 +435,33 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     CheckedValueType::String,
                 ))
             }
-            ParsedRobloxRemoteOperationKind::SetCallback => {
-                Self::require_argument_count(operation, 2)?;
-                let execution_side =
-                    self.require_module_remote_side(operation.expression_range())?;
+            ParsedRobloxRemoteOperation::SetCallback {
+                remote_type,
+                remote_expression,
+                callback_expression,
+                expression_range,
+            } => {
+                let execution_side = self.require_module_remote_side(*expression_range)?;
                 Self::require_remote_class(
-                    Self::remote_type(operation)?,
+                    Self::remote_type(remote_type)?,
                     RobloxInstance::RemoteFunction,
                     CompilationProblemReason::RobloxRemoteOperationRequiresRemoteFunction,
                 )?;
                 let remote_expression = self.check_remote_instance_argument(
-                    Self::operation_argument(operation, 0)?,
+                    remote_expression,
                     RobloxInstance::RemoteFunction,
                 )?;
-                let callback_expression = self.check_callback_argument(
-                    Self::operation_argument(operation, 1)?,
-                    Self::remote_callback_type(execution_side, CheckedValueType::String),
-                )?;
+                let (callback_expression, payload_shape) = self.check_remote_callback((
+                    callback_expression,
+                    execution_side,
+                    CheckedValueType::String,
+                ))?;
                 Ok((
                     CheckedRobloxRemoteOperation::SetCallback {
                         remote_expression: Box::new(remote_expression),
                         callback_expression: Box::new(callback_expression),
                         execution_side,
+                        payload_shape,
                     },
                     CheckedValueType::NoReturnedValues,
                 ))
@@ -427,47 +469,12 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
         }
     }
 
-    fn operation_argument(
-        operation: &ParsedRobloxRemoteOperation,
-        argument_index: usize,
-    ) -> Result<&ParsedExpression, CompilationProblem> {
-        operation.arguments().get(argument_index).ok_or_else(|| {
-            CompilationProblem::from_problem_at_range((
-                operation.expression_range(),
-                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
-            ))
-        })
-    }
-
-    fn require_argument_count(
-        operation: &ParsedRobloxRemoteOperation,
-        expected: usize,
-    ) -> Result<(), CompilationProblem> {
-        let actual = operation.arguments().len();
-        if actual == expected {
-            return Ok(());
-        }
-        Err(CompilationProblem::from_problem_at_range((
-            operation.expression_range(),
-            CompilationProblemReason::WrongArgumentCount {
-                expected: ArgumentCount::from_number_of_arguments(expected),
-                actual: ArgumentCount::from_number_of_arguments(actual),
-            },
-        )))
-    }
-
     fn remote_type(
-        operation: &ParsedRobloxRemoteOperation,
+        remote_type: &(String, SourceRange),
     ) -> Result<(RobloxInstance, SourceRange), CompilationProblem> {
-        let Some((remote_type_name, remote_type_range)) = operation.remote_type() else {
-            return Err(CompilationProblem::from_problem_at_range((
-                operation.expression_range(),
-                CompilationProblemReason::SourceDoesNotFollowLanguageRules,
-            )));
-        };
         Ok((
-            ProgramCheckContext::acquire_roblox_instance((remote_type_name, remote_type_range))?,
-            remote_type_range,
+            ProgramCheckContext::acquire_roblox_instance((remote_type.0.as_str(), remote_type.1))?,
+            remote_type.1,
         ))
     }
 
@@ -504,15 +511,15 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
 
     fn require_remote_side(
         &self,
-        operation: &ParsedRobloxRemoteOperation,
+        source_range: SourceRange,
         required_side: RemoteExecutionSide,
     ) -> Result<(), CompilationProblem> {
-        let actual_side = self.require_module_remote_side(operation.expression_range())?;
+        let actual_side = self.require_module_remote_side(source_range)?;
         if actual_side == required_side {
             return Ok(());
         }
         Err(CompilationProblem::from_problem_at_range((
-            operation.expression_range(),
+            source_range,
             CompilationProblemReason::RobloxRemoteWrongExecutionSide,
         )))
     }
@@ -551,38 +558,54 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
     ) -> Result<CheckedExpression, CompilationProblem> {
         let (checked_expression, checked_value_type) = self.check_expression(parsed_expression)?;
         self.check_context
-            .require_remote_payload_type(&checked_value_type, parsed_expression.source_range())?;
+            .remote_payload_shape(&checked_value_type, parsed_expression.source_range())?;
         Ok(checked_expression)
     }
 
-    fn check_callback_argument(
+    fn check_remote_callback(
         &mut self,
-        parsed_expression: &ParsedExpression,
-        expected_callback_type: CheckedValueType,
-    ) -> Result<CheckedExpression, CompilationProblem> {
+        callback_parts: (&ParsedExpression, RemoteExecutionSide, CheckedValueType),
+    ) -> Result<
+        (
+            CheckedExpression,
+            crate::remote_payload_shape::RemotePayloadShape,
+        ),
+        CompilationProblem,
+    > {
+        let (parsed_expression, execution_side, expected_returned_type) = callback_parts;
         let (checked_expression, actual_type) = self.check_expression(parsed_expression)?;
+        let CheckedValueType::Function {
+            parameter_types,
+            returned_value_type,
+        } = actual_type
+        else {
+            return Err(CompilationProblem::from_problem_at_range((
+                parsed_expression.source_range(),
+                CompilationProblemReason::TypesDoNotMatch,
+            )));
+        };
+        let payload_type = match (execution_side, parameter_types.as_slice()) {
+            (
+                RemoteExecutionSide::Server,
+                [CheckedValueType::RobloxInstance(RobloxInstance::Player), payload_type],
+            )
+            | (RemoteExecutionSide::Client, [payload_type]) => payload_type,
+            (RemoteExecutionSide::Server | RemoteExecutionSide::Client, _) => {
+                return Err(CompilationProblem::from_problem_at_range((
+                    parsed_expression.source_range(),
+                    CompilationProblemReason::TypesDoNotMatch,
+                )));
+            }
+        };
+        let payload_shape = self
+            .check_context
+            .remote_payload_shape(payload_type, parsed_expression.source_range())?;
         Self::require_matching_type((
-            actual_type,
-            expected_callback_type,
+            *returned_value_type,
+            expected_returned_type,
             parsed_expression.source_range(),
         ))?;
-        Ok(checked_expression)
-    }
-
-    fn remote_callback_type(
-        execution_side: RemoteExecutionSide,
-        returned_value_type: CheckedValueType,
-    ) -> CheckedValueType {
-        let server_callback = matches!(execution_side, RemoteExecutionSide::Server);
-        let mut parameter_types = Vec::new();
-        if server_callback {
-            parameter_types.push(CheckedValueType::RobloxInstance(RobloxInstance::Player));
-        }
-        parameter_types.push(CheckedValueType::String);
-        CheckedValueType::Function {
-            parameter_types,
-            returned_value_type: Box::new(returned_value_type),
-        }
+        Ok((checked_expression, payload_shape))
     }
 
     fn check_function_literal(

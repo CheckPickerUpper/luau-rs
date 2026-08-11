@@ -2,8 +2,7 @@ use crate::generated_luau::{
     LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
     LuauEqualityOperation, LuauFieldRead, LuauFunctionCall, LuauFunctionLiteral,
     LuauInstanceConstruction, LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation,
-    LuauRecordLiteral, LuauRobloxRemoteOperation,
-    LuauNumericOperation,
+    LuauNumericOperation, LuauRecordLiteral, LuauRobloxRemoteOperation,
 };
 
 /// Represents expressions after source-language meaning has been resolved.
