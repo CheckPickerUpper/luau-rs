@@ -1,5 +1,4 @@
-use std::fmt::Write as _;
-
+use crate::json_string::append_json_string;
 use crate::{CompilationProblem, SourceRange};
 
 /// Identifies one 1-based position in the original source text.
@@ -116,16 +115,19 @@ impl CompilationDiagnostic {
         append_json_string(&mut json, &self.file_name);
         json.push_str("\",\"code\":\"");
         append_json_string(&mut json, self.reason_code);
-        let _ = write!(
-            json,
-            "\",\"span\":{{\"start\":{{\"byte\":{},\"line\":{},\"column\":{}}},\"end\":{{\"byte\":{},\"line\":{},\"column\":{}}}}}}}",
-            start.byte(),
-            start.line(),
-            start.column(),
-            end.byte(),
-            end.line(),
-            end.column(),
-        );
+        json.push_str("\",\"span\":{\"start\":{\"byte\":");
+        json.push_str(&start.byte().to_string());
+        json.push_str(",\"line\":");
+        json.push_str(&start.line().to_string());
+        json.push_str(",\"column\":");
+        json.push_str(&start.column().to_string());
+        json.push_str("},\"end\":{\"byte\":");
+        json.push_str(&end.byte().to_string());
+        json.push_str(",\"line\":");
+        json.push_str(&end.line().to_string());
+        json.push_str(",\"column\":");
+        json.push_str(&end.column().to_string());
+        json.push_str("}}}");
         json
     }
 }
@@ -168,20 +170,4 @@ fn diagnostic_position(position_parts: (&str, usize)) -> DiagnosticPosition {
         }
     }
     DiagnosticPosition { line, column, byte }
-}
-
-fn append_json_string(output: &mut String, value: &str) {
-    for character in value.chars() {
-        match character {
-            '"' => output.push_str("\\\""),
-            '\\' => output.push_str("\\\\"),
-            '\n' => output.push_str("\\n"),
-            '\r' => output.push_str("\\r"),
-            '\t' => output.push_str("\\t"),
-            character if character.is_control() => {
-                let _ = write!(output, "\\u{:04x}", character as u32);
-            }
-            character => output.push(character),
-        }
-    }
 }

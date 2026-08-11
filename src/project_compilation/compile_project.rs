@@ -8,10 +8,10 @@ use crate::{
         parse_source_program, split_source_into_tokens, ParsedFunction, ParsedFunctionVisibility,
         ParsedProgram,
     },
-    CompiledProject, GeneratedLuauText, GeneratedProjectModule, ModuleExecutionSide,
-    ProjectCompilationOutcome, ProjectCompilationProblem, ProjectCompilationRejection,
-    ProjectCompilationRequest, ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource,
-    ProjectOutputPath,
+    CompilationDiagnostic, CompiledProject, GeneratedLuauText, GeneratedProjectModule,
+    ModuleExecutionSide, ProjectCompilationOutcome, ProjectCompilationProblem,
+    ProjectCompilationRejection, ProjectCompilationRequest, ProjectModuleIdentity,
+    ProjectModuleRole, ProjectModuleSource, ProjectOutputPath,
 };
 
 /// Compiles a complete project after resolving all module dependencies before any output is accepted.
@@ -23,26 +23,30 @@ pub fn compile_project(project_request: ProjectCompilationRequest) -> ProjectCom
             .module_identity()
             .cmp(right_module.module_identity())
     });
+    let diagnostic_sources = source_modules
+        .iter()
+        .map(ProjectDiagnosticSource::from_module)
+        .collect::<Vec<_>>();
 
     match validate_project_modules(&source_modules) {
         Ok(()) => {}
-        Err(project_problem) => return rejected(project_problem),
+        Err(project_problem) => return rejected((project_problem, &diagnostic_sources)),
     }
     let parsed_modules = match parse_project_modules(source_modules) {
         Ok(parsed_modules) => parsed_modules,
-        Err(project_problem) => return rejected(project_problem),
+        Err(project_problem) => return rejected((project_problem, &diagnostic_sources)),
     };
     let resolved_modules = match resolve_project_imports(&parsed_modules) {
         Ok(resolved_modules) => resolved_modules,
-        Err(project_problem) => return rejected(project_problem),
+        Err(project_problem) => return rejected((project_problem, &diagnostic_sources)),
     };
     match reject_import_cycles(&resolved_modules) {
         Ok(()) => {}
-        Err(project_problem) => return rejected(project_problem),
+        Err(project_problem) => return rejected((project_problem, &diagnostic_sources)),
     }
     let generated_modules = match check_and_lower_modules(resolved_modules) {
         Ok(generated_modules) => generated_modules,
-        Err(project_problem) => return rejected(project_problem),
+        Err(project_problem) => return rejected((project_problem, &diagnostic_sources)),
     };
     ProjectCompilationOutcome::Compiled(CompiledProject::from_generated_modules(generated_modules))
 }
@@ -567,8 +571,124 @@ fn module_path_segment_is_valid(module_path_segment: &str) -> bool {
             .all(|path_character| path_character.is_ascii_alphanumeric() || path_character == '_')
 }
 
-const fn rejected(project_problem: ProjectCompilationProblem) -> ProjectCompilationOutcome {
-    ProjectCompilationOutcome::Rejected(ProjectCompilationRejection::from_problem(project_problem))
+fn rejected(
+    rejection_parts: (ProjectCompilationProblem, &[ProjectDiagnosticSource]),
+) -> ProjectCompilationOutcome {
+    let (project_problem, diagnostic_sources) = rejection_parts;
+    let diagnostic = project_diagnostic((&project_problem, diagnostic_sources));
+    ProjectCompilationOutcome::Rejected(ProjectCompilationRejection::from_parts((
+        project_problem,
+        diagnostic,
+    )))
+}
+
+fn project_diagnostic(
+    diagnostic_parts: (&ProjectCompilationProblem, &[ProjectDiagnosticSource]),
+) -> CompilationDiagnostic {
+    let (project_problem, diagnostic_sources) = diagnostic_parts;
+    if let ProjectCompilationProblem::SourceModuleRejected {
+        module_identity,
+        compilation_rejection,
+    } = project_problem
+    {
+        return diagnostic_source((diagnostic_sources, module_identity)).map_or_else(
+            || compilation_rejection.first_diagnostic(("<project>", "")),
+            |source| {
+                compilation_rejection
+                    .first_diagnostic((source.file_name.as_str(), source.source_text.as_str()))
+            },
+        );
+    }
+    let source_identity = problem_source_identity(project_problem);
+    let source = source_identity.map_or_else(ProjectDiagnosticSource::project, |module_identity| {
+        diagnostic_source((diagnostic_sources, module_identity))
+            .map_or_else(ProjectDiagnosticSource::project, Clone::clone)
+    });
+    CompilationDiagnostic::from_parts((
+        source.file_name.as_str(),
+        source.source_text.as_str(),
+        project_problem
+            .source_range()
+            .unwrap_or_else(|| crate::SourceRange::from_byte_range((0, 0))),
+        project_problem.code(),
+    ))
+}
+
+fn problem_source_identity(
+    project_problem: &ProjectCompilationProblem,
+) -> Option<&ProjectModuleIdentity> {
+    match project_problem {
+        ProjectCompilationProblem::MissingEntrypointModule => None,
+        ProjectCompilationProblem::SharedModuleCannotBeEntrypoint { module_identity }
+        | ProjectCompilationProblem::InvalidModuleIdentity { module_identity }
+        | ProjectCompilationProblem::DuplicateModuleIdentity { module_identity } => {
+            Some(module_identity)
+        }
+        ProjectCompilationProblem::ImportedModuleNotFound {
+            importing_module_identity,
+            ..
+        }
+        | ProjectCompilationProblem::ImportedModuleIsEntrypoint {
+            importing_module_identity,
+            ..
+        }
+        | ProjectCompilationProblem::ImportExecutionSideNotAllowed {
+            importing_module_identity,
+            ..
+        }
+        | ProjectCompilationProblem::ImportedFunctionNotFound {
+            importing_module_identity,
+            ..
+        }
+        | ProjectCompilationProblem::ImportedFunctionIsPrivate {
+            importing_module_identity,
+            ..
+        }
+        | ProjectCompilationProblem::ImportNameCollidesWithLocalDeclaration {
+            importing_module_identity,
+            ..
+        } => Some(importing_module_identity),
+        ProjectCompilationProblem::ImportCycle { cycle_path } => cycle_path.first(),
+        ProjectCompilationProblem::SourceModuleRejected {
+            module_identity, ..
+        } => Some(module_identity),
+    }
+}
+
+fn diagnostic_source<'source>(
+    source_parts: (&'source [ProjectDiagnosticSource], &ProjectModuleIdentity),
+) -> Option<&'source ProjectDiagnosticSource> {
+    let (diagnostic_sources, module_identity) = source_parts;
+    diagnostic_sources
+        .iter()
+        .find(|source| source.module_identity == *module_identity)
+}
+
+#[derive(Clone)]
+struct ProjectDiagnosticSource {
+    module_identity: ProjectModuleIdentity,
+    file_name: String,
+    source_text: String,
+}
+
+impl ProjectDiagnosticSource {
+    fn from_module(source_module: &ProjectModuleSource) -> Self {
+        Self {
+            module_identity: source_module.module_identity().clone(),
+            file_name: source_module.module_identity().module_path().to_owned(),
+            source_text: source_module.source_text().to_owned(),
+        }
+    }
+
+    fn project() -> Self {
+        Self {
+            module_identity: ProjectModuleIdentity::Shared {
+                module_path: String::new(),
+            },
+            file_name: "<project>".to_owned(),
+            source_text: String::new(),
+        }
+    }
 }
 
 struct ParsedProjectModule {

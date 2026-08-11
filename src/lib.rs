@@ -3,6 +3,7 @@
 mod checked_program;
 mod compilation;
 mod generated_luau;
+mod json_string;
 mod project_compilation;
 mod source_language;
 
