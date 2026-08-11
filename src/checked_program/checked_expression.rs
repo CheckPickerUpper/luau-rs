@@ -1,7 +1,7 @@
 use crate::checked_program::{
     CheckedArrayLiteral, CheckedArrayRead, CheckedBooleanLiteral, CheckedComparisonOperation,
-    CheckedEqualityOperation, CheckedFieldRead, CheckedInstanceLookup, CheckedLogicalNegation,
-    CheckedLogicalOperation, CheckedNumericOperation, CheckedRecordLiteral,
+    CheckedEqualityOperation, CheckedFieldRead, CheckedInstanceConstruction, CheckedInstanceLookup,
+    CheckedLogicalNegation, CheckedLogicalOperation, CheckedNumericOperation, CheckedRecordLiteral,
 };
 
 /// Represents expressions whose names and types have been validated.
@@ -17,7 +17,7 @@ pub enum CheckedExpression {
     /// Preserves one catalogued service acquisition for writer-owned `GetService` lowering.
     RobloxServiceAcquisition(super::roblox_service::RobloxService),
     /// Constructs a catalogued Roblox Instance through `Instance.new`.
-    RobloxInstanceAcquisition(super::roblox_instance::RobloxInstance),
+    RobloxInstanceAcquisition(CheckedInstanceConstruction),
     /// Performs a checked, explicitly yielding `WaitForChild` lookup.
     RobloxInstanceWaitForChild(CheckedInstanceLookup),
     /// Constructs a checked homogeneous array.

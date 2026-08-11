@@ -233,10 +233,26 @@ impl LuauTextWriter {
                 self.luau_text.push_str(service_name);
                 self.luau_text.push_str("\")");
             }
-            LuauExpression::RobloxInstanceAcquisition(instance_name) => {
-                self.luau_text.push_str("Instance.new(\"");
-                self.luau_text.push_str(instance_name);
-                self.luau_text.push_str("\")");
+            LuauExpression::RobloxInstanceAcquisition(construction) => {
+                match construction.parent_expression() {
+                    None => {
+                        self.luau_text.push_str("Instance.new(\"");
+                        self.luau_text.push_str(construction.instance_name());
+                        self.luau_text.push_str("\")");
+                    }
+                    Some(parent_expression) => {
+                        self.luau_text.push_str("(function(__parent: Instance): ");
+                        self.luau_text.push_str(construction.instance_name());
+                        self.luau_text.push_str(" local __instance: ");
+                        self.luau_text.push_str(construction.instance_name());
+                        self.luau_text.push_str(" = Instance.new(\"");
+                        self.luau_text.push_str(construction.instance_name());
+                        self.luau_text
+                            .push_str("\"); __instance.Parent = __parent; return __instance end)(");
+                        self.write_expression(parent_expression);
+                        self.luau_text.push(')');
+                    }
+                }
             }
             LuauExpression::RobloxInstanceWaitForChild(lookup) => {
                 self.write_expression_in((

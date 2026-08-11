@@ -4,8 +4,9 @@ use crate::{
     checked_program::{
         program_check_context::ProgramCheckContext, CheckedArrayLiteral, CheckedArrayRead,
         CheckedBooleanLiteral, CheckedExpression, CheckedFieldRead, CheckedFunctionCall,
-        CheckedInstanceLookup, CheckedNumericOperation, CheckedNumericOperator,
-        CheckedRecordFieldInitializer, CheckedRecordLiteral, CheckedValueType,
+        CheckedInstanceConstruction, CheckedInstanceLookup, CheckedNumericOperation,
+        CheckedNumericOperator, CheckedRecordFieldInitializer, CheckedRecordLiteral,
+        CheckedValueType,
     },
     source_language::{
         ParsedArrayLiteral, ParsedArrayRead, ParsedExpression, ParsedFieldRead, ParsedFunctionCall,
@@ -80,14 +81,35 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
             ParsedExpression::RobloxInstanceAcquisition {
                 instance_type_name,
                 instance_type_range,
+                parent_expression,
                 ..
             } => {
                 let roblox_instance = ProgramCheckContext::acquire_roblox_instance((
                     instance_type_name,
                     *instance_type_range,
                 ))?;
+                let checked_parent = match parent_expression {
+                    Some(parent_expression) => {
+                        let (checked_parent, parent_type) =
+                            self.check_expression(parent_expression)?;
+                        if !matches!(
+                            parent_type,
+                            CheckedValueType::RobloxInstance(_)
+                                | CheckedValueType::RobloxService(_)
+                        ) {
+                            return Err(CompilationProblem::from_problem_at_range((
+                                parent_expression.source_range(),
+                                CompilationProblemReason::TypesDoNotMatch,
+                            )));
+                        }
+                        Some(Box::new(checked_parent))
+                    }
+                    None => None,
+                };
                 Ok((
-                    CheckedExpression::RobloxInstanceAcquisition(roblox_instance),
+                    CheckedExpression::RobloxInstanceAcquisition(
+                        CheckedInstanceConstruction::from_parts((roblox_instance, checked_parent)),
+                    ),
                     CheckedValueType::RobloxInstance(roblox_instance),
                 ))
             }
@@ -103,7 +125,10 @@ impl<'context, 'program> ExpressionChecker<'context, 'program> {
                     *instance_type_range,
                 ))?;
                 let (checked_parent, parent_type) = self.check_expression(parent_expression)?;
-                if !matches!(parent_type, CheckedValueType::RobloxInstance(_)) {
+                if !matches!(
+                    parent_type,
+                    CheckedValueType::RobloxInstance(_) | CheckedValueType::RobloxService(_)
+                ) {
                     return Err(CompilationProblem::from_problem_at_range((
                         parent_expression.source_range(),
                         CompilationProblemReason::FieldAccessRequiresRecord,

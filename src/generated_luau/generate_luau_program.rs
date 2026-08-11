@@ -216,9 +216,14 @@ impl LuauProgramGenerator {
             CheckedExpression::RobloxServiceAcquisition(roblox_service) => {
                 LuauExpression::RobloxServiceAcquisition(roblox_service.canonical_name().to_owned())
             }
-            CheckedExpression::RobloxInstanceAcquisition(roblox_instance) => {
+            CheckedExpression::RobloxInstanceAcquisition(construction) => {
                 LuauExpression::RobloxInstanceAcquisition(
-                    roblox_instance.canonical_name().to_owned(),
+                    crate::generated_luau::LuauInstanceConstruction::from_parts((
+                        construction.instance().canonical_name().to_owned(),
+                        construction
+                            .parent_expression()
+                            .map(|parent| Box::new(Self::generate_expression(parent))),
+                    )),
                 )
             }
             CheckedExpression::RobloxInstanceWaitForChild(lookup) => {

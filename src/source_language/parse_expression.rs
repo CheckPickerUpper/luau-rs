@@ -500,28 +500,35 @@ impl SourceProgramParser {
         self.take_required_symbol(&SourceTokenKind::GreaterThan)?;
         self.take_required_symbol(&SourceTokenKind::LeftParenthesis)?;
         match intrinsic_name.as_str() {
-            "service" | "instance" => {
+            "service" => {
                 let right_parenthesis =
                     self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
-                if intrinsic_name == "service" {
-                    Ok(ParsedExpression::RobloxServiceAcquisition {
-                        service_type_name: instance_type_name,
-                        service_type_range: instance_type_range,
-                        expression_range: SourceRange::from_byte_range((
-                            namespace_range.start_byte(),
-                            right_parenthesis.source_range().end_byte(),
-                        )),
-                    })
-                } else {
-                    Ok(ParsedExpression::RobloxInstanceAcquisition {
-                        instance_type_name,
-                        instance_type_range,
-                        expression_range: SourceRange::from_byte_range((
-                            namespace_range.start_byte(),
-                            right_parenthesis.source_range().end_byte(),
-                        )),
-                    })
+                Ok(ParsedExpression::RobloxServiceAcquisition {
+                    service_type_name: instance_type_name,
+                    service_type_range: instance_type_range,
+                    expression_range: SourceRange::from_byte_range((
+                        namespace_range.start_byte(),
+                        right_parenthesis.source_range().end_byte(),
+                    )),
+                })
+            }
+            "instance" => {
+                let mut arguments = self.parse_function_arguments()?.into_iter();
+                let parent_expression = arguments.next().map(Box::new);
+                if arguments.next().is_some() {
+                    return Err(self.problem_at_current_token());
                 }
+                let right_parenthesis =
+                    self.take_required_symbol(&SourceTokenKind::RightParenthesis)?;
+                Ok(ParsedExpression::RobloxInstanceAcquisition {
+                    instance_type_name,
+                    instance_type_range,
+                    parent_expression,
+                    expression_range: SourceRange::from_byte_range((
+                        namespace_range.start_byte(),
+                        right_parenthesis.source_range().end_byte(),
+                    )),
+                })
             }
             "wait_for_child" => {
                 let arguments = self.parse_function_arguments()?;

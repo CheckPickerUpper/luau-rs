@@ -1,7 +1,8 @@
 use crate::generated_luau::{
     LuauArrayLiteral, LuauArrayRead, LuauBooleanLiteral, LuauComparisonOperation,
-    LuauEqualityOperation, LuauFieldRead, LuauFunctionCall, LuauInstanceLookup,
-    LuauLogicalNegation, LuauLogicalOperation, LuauNumericOperation, LuauRecordLiteral,
+    LuauEqualityOperation, LuauFieldRead, LuauFunctionCall, LuauInstanceConstruction,
+    LuauInstanceLookup, LuauLogicalNegation, LuauLogicalOperation, LuauNumericOperation,
+    LuauRecordLiteral,
 };
 
 /// Represents expressions after source-language meaning has been resolved.
@@ -18,7 +19,7 @@ pub enum LuauExpression {
     /// Acquires a fixed Roblox service through the sole generated runtime bridge.
     RobloxServiceAcquisition(String),
     /// Constructs one approved Roblox Instance class.
-    RobloxInstanceAcquisition(String),
+    RobloxInstanceAcquisition(LuauInstanceConstruction),
     /// Performs an explicit `WaitForChild` hierarchy lookup.
     RobloxInstanceWaitForChild(LuauInstanceLookup),
     /// Constructs a target table whose positions match source array order.

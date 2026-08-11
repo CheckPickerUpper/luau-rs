@@ -33,6 +33,7 @@ pub enum ParsedExpression {
     RobloxInstanceAcquisition {
         instance_type_name: String,
         instance_type_range: SourceRange,
+        parent_expression: Option<Box<Self>>,
         expression_range: SourceRange,
     },
     /// Performs an explicitly yielding typed hierarchy lookup.
