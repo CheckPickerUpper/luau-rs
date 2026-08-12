@@ -1,9 +1,7 @@
 //! Verifies project imports resolve across Roblox module boundaries before lowering output.
 
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+mod support;
+use support::{official_luau_tool, run_official_luau_tool_required, temporary_luau_file};
 
 use full_moon::ast::LuaVersion;
 use luau_rs::{
@@ -238,15 +236,10 @@ fn shared_identity(module_path: &str) -> ProjectModuleIdentity {
 }
 
 fn validate_every_generated_module(generated_modules: &[luau_rs::GeneratedProjectModule]) {
-    let Some(luau_analyze_path) = official_luau_analyze_path() else {
-        assert!(
-            false,
-            "official luau-analyze is required for project import validation"
-        );
-        return;
-    };
+    let luau_analyze_path = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
     for (module_index, generated_module) in generated_modules.iter().enumerate() {
         let generated_luau = generated_module.generated_luau_text().as_text();
+        insta::assert_snapshot!(format!("module-{module_index}"), generated_luau);
         assert!(
             full_moon::parse_fallible(generated_luau, LuaVersion::luau())
                 .into_result()
@@ -254,70 +247,25 @@ fn validate_every_generated_module(generated_modules: &[luau_rs::GeneratedProjec
             "Full Moon rejected {}",
             generated_module.output_path().as_str()
         );
-        let generated_luau_path = std::env::temp_dir().join(format!(
-            "roblox-rust-project-import-{module_index}-{}.luau",
-            std::process::id()
-        ));
+        let generated_luau_path =
+            temporary_luau_file(&format!("luau-rs-project-import-{module_index}"));
         let analyzer_harness = format!(
             "--!strict\nlocal game: any = {{}}\nlocal require: any = function(...) return nil end\n{generated_luau}"
         );
-        match std::fs::write(&generated_luau_path, analyzer_harness) {
+        match std::fs::write(generated_luau_path.path(), analyzer_harness) {
             Ok(()) => {}
             Err(write_error) => {
                 assert!(false, "could not write generated module: {write_error}");
                 return;
             }
         }
-        let analyzer_output = match Command::new(&luau_analyze_path)
-            .arg(&generated_luau_path)
-            .output()
-        {
-            Ok(analyzer_output) => analyzer_output,
-            Err(execution_error) => {
-                assert!(false, "could not invoke luau-analyze: {execution_error}");
-                return;
-            }
-        };
+        let analyzer_output =
+            run_official_luau_tool_required((&luau_analyze_path, generated_luau_path.path()));
         assert!(
             analyzer_output.status.success(),
             "luau-analyze rejected {}:\n{}",
             generated_module.output_path().as_str(),
             String::from_utf8_lossy(&analyzer_output.stderr)
         );
-        match std::fs::remove_file(&generated_luau_path) {
-            Ok(()) => {}
-            Err(remove_error) => {
-                assert!(false, "could not remove generated module: {remove_error}");
-            }
-        }
     }
-}
-
-fn official_luau_analyze_path() -> Option<PathBuf> {
-    std::env::var_os("LUAU_ANALYZE_BIN").map_or_else(
-        || {
-            let executable_name = if cfg!(windows) {
-                "luau-analyze.exe"
-            } else {
-                "luau-analyze"
-            };
-            let build_directory = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("references")
-                .join("checkouts")
-                .join("luau")
-                .join("build");
-            let cmake_binary = build_directory.join(executable_name);
-            if cmake_binary.is_file() {
-                Some(cmake_binary)
-            } else {
-                let release_binary = build_directory.join("release").join(executable_name);
-                if release_binary.is_file() {
-                    Some(release_binary)
-                } else {
-                    None
-                }
-            }
-        },
-        |configured_path| Some(PathBuf::from(configured_path)),
-    )
 }

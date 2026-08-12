@@ -1,0 +1,15 @@
+---
+source: tests/typed_while_loops.rs
+expression: generated_luau
+---
+--!strict
+
+local function main(): ()
+    local count: number = 0
+    while count < 3 do
+        count = count + 1
+    end
+    print(count)
+end
+
+main()

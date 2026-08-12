@@ -13,20 +13,6 @@ fn main() {
     print(total);
 }
 ";
-    let expected_luau_text = r"--!strict
-
-local function add(left: number, right: number): number
-    return left + right
-end
-
-local function main(): ()
-    const total: number = add(20, 22)
-    print(total)
-end
-
-main()
-";
-
     let actual_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),
         CompilationOutcome::Rejected(compilation_rejection) => {
@@ -35,5 +21,5 @@ main()
         }
     };
 
-    assert_eq!(actual_luau_text, expected_luau_text);
+    insta::assert_snapshot!(actual_luau_text);
 }

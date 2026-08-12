@@ -1,0 +1,26 @@
+---
+source: tests/loop_exits.rs
+expression: generated_luau
+---
+--!strict
+
+local function main(): ()
+    local outer: number = 0
+    local inner: number = 0
+    while outer < 3 do
+        outer = outer + 1
+        inner = 0
+        while true do
+            inner = inner + 1
+            if inner == 2 then
+                break
+            else
+                continue
+            end
+        end
+    end
+    print(outer)
+    print(inner)
+end
+
+main()

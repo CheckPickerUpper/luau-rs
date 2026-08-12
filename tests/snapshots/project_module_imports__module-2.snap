@@ -1,0 +1,13 @@
+---
+source: tests/project_module_imports.rs
+expression: generated_luau
+---
+--!strict
+
+local function double(value: number): number
+    return value * 2
+end
+
+return {
+    double = double,
+}

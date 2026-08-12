@@ -1,0 +1,21 @@
+---
+source: tests/mutable_record_fields.rs
+expression: generated_luau
+---
+--!strict
+
+type Level = {
+    value: number,
+}
+
+type Profile = {
+    level: Level,
+}
+
+local function main(): ()
+    local profile: Profile = {level = {value = 1}}
+    profile.level.value = profile.level.value + 41
+    print(profile.level.value)
+end
+
+main()

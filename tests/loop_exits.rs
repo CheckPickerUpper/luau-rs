@@ -1,9 +1,7 @@
 //! Integration coverage for loop-exit parsing, checking, lowering, and Luau execution.
 
-use std::{
-    path::{Path, PathBuf},
-    process::{Command, Output},
-};
+mod support;
+use support::{official_luau_tool, run_official_luau_tool_required, temporary_luau_file};
 
 use full_moon::ast::LuaVersion;
 use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
@@ -82,8 +80,7 @@ fn main() {}
 }
 ";
     let generated_luau = compiled_luau(nested_loop_source);
-    assert!(generated_luau.contains("                break\n"));
-    assert!(generated_luau.contains("                continue\n"));
+    insta::assert_snapshot!(generated_luau);
     match full_moon::parse_fallible(&generated_luau, LuaVersion::luau()).into_result() {
         Ok(_) => {}
         Err(parse_errors) => {
@@ -92,17 +89,14 @@ fn main() {}
         }
     }
 
-    let generated_luau_path = std::env::temp_dir().join(format!(
-        "roblox-rust-loop-exits-{}.luau",
-        std::process::id()
-    ));
-    match std::fs::write(&generated_luau_path, generated_luau) {
+    let generated_luau_path = temporary_luau_file("luau-rs-loop-exits");
+    match std::fs::write(generated_luau_path.path(), generated_luau) {
         Ok(()) => {}
         Err(write_error) => {
             assert!(
                 false,
                 "could not write generated loop-exit fixture to {}: {write_error}",
-                generated_luau_path.display()
+                generated_luau_path.path().display()
             );
             return;
         }
@@ -110,7 +104,7 @@ fn main() {}
 
     let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
     let luau_analyze_path = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
-    let runtime_output = run_official_luau_tool((&luau_path, &generated_luau_path));
+    let runtime_output = run_official_luau_tool_required((&luau_path, generated_luau_path.path()));
     assert!(
         runtime_output.status.success(),
         "official luau rejected loop-exit execution:\n{}",
@@ -123,21 +117,13 @@ fn main() {}
     };
     assert_eq!(runtime_output.stdout, expected_runtime_output);
 
-    let analysis_output = run_official_luau_tool((&luau_analyze_path, &generated_luau_path));
+    let analysis_output =
+        run_official_luau_tool_required((&luau_analyze_path, generated_luau_path.path()));
     assert!(
         analysis_output.status.success(),
         "official luau-analyze rejected loop-exit Luau:\n{}",
         String::from_utf8_lossy(&analysis_output.stderr)
     );
-
-    match std::fs::remove_file(&generated_luau_path) {
-        Ok(()) => {}
-        Err(remove_error) => assert!(
-            false,
-            "could not remove generated loop-exit fixture {}: {remove_error}",
-            generated_luau_path.display()
-        ),
-    }
 }
 
 fn assert_outside_loop_exit_is_rejected(exit_keyword: &str) {
@@ -199,44 +185,6 @@ fn compiled_luau(source: &str) -> String {
                 false,
                 "compiler rejected loop-exit fixture with {} problems",
                 compilation_rejection.problem_count()
-            );
-            unreachable!();
-        }
-    }
-}
-
-fn official_luau_tool(tool_name: (&str, &str)) -> PathBuf {
-    let (environment_variable, executable_name) = tool_name;
-    if let Some(configured_path) = std::env::var_os(environment_variable) {
-        return PathBuf::from(configured_path);
-    }
-    let executable_filename = if cfg!(windows) {
-        format!("{executable_name}.exe")
-    } else {
-        executable_name.to_owned()
-    };
-    let checkout_build_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("references")
-        .join("checkouts")
-        .join("luau")
-        .join("build")
-        .join(executable_filename);
-    assert!(
-        checkout_build_path.is_file(),
-        "official Luau tool is required; set {environment_variable} or build it in references/checkouts/luau/build"
-    );
-    checkout_build_path
-}
-
-fn run_official_luau_tool(tool_and_source: (&Path, &Path)) -> Output {
-    let (tool_path, generated_luau_path) = tool_and_source;
-    match Command::new(tool_path).arg(generated_luau_path).output() {
-        Ok(tool_output) => tool_output,
-        Err(execution_error) => {
-            assert!(
-                false,
-                "could not invoke official Luau tool {}: {execution_error}",
-                tool_path.display()
             );
             unreachable!();
         }

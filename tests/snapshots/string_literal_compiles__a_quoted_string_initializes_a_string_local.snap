@@ -1,0 +1,11 @@
+---
+source: tests/string_literal_compiles.rs
+expression: generated_luau_text
+---
+--!strict
+
+local function main(): ()
+    const greeting: string = "hello"
+end
+
+main()

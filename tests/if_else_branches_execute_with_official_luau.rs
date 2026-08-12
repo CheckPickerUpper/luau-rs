@@ -1,6 +1,7 @@
 //! Integration coverage for executing conditional branches with Luau.
 
-use std::{path::Path, process::Command};
+mod support;
+use support::{official_luau_tool, run_official_luau_tool_required, temporary_luau_file};
 
 use luau_rs::{compile_source, CompilationOutcome};
 
@@ -32,39 +33,21 @@ fn main() {
             return;
         }
     };
-    let generated_luau_path = std::env::temp_dir().join(format!(
-        "roblox-rust-if-else-runtime-{}.luau",
-        std::process::id()
-    ));
-    match std::fs::write(&generated_luau_path, generated_luau_text) {
+    insta::assert_snapshot!(generated_luau_text);
+    let generated_luau_path = temporary_luau_file("luau-rs-if-else-runtime");
+    match std::fs::write(generated_luau_path.path(), generated_luau_text) {
         Ok(()) => {}
         Err(write_error) => {
             assert!(
                 false,
                 "could not write control-flow runtime fixture {}: {write_error}",
-                generated_luau_path.display()
+                generated_luau_path.path().display()
             );
             return;
         }
     }
-    let Some(luau_path) = resolve_official_luau_path() else {
-        assert!(
-            false,
-            "official luau is required; set LUAU_BIN or build references/checkouts/luau"
-        );
-        return;
-    };
-    let runtime_output = match Command::new(&luau_path).arg(&generated_luau_path).output() {
-        Ok(runtime_output) => runtime_output,
-        Err(execution_error) => {
-            assert!(
-                false,
-                "could not invoke official Luau {}: {execution_error}",
-                luau_path.display()
-            );
-            return;
-        }
-    };
+    let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
+    let runtime_output = run_official_luau_tool_required((&luau_path, generated_luau_path.path()));
     assert!(
         runtime_output.status.success(),
         "official Luau rejected control-flow runtime fixture:\n{}",
@@ -76,33 +59,4 @@ fn main() {
         b"42\n7\n"
     };
     assert_eq!(runtime_output.stdout, expected_runtime_output);
-    match std::fs::remove_file(&generated_luau_path) {
-        Ok(()) => {}
-        Err(remove_error) => assert!(
-            false,
-            "could not remove control-flow runtime fixture {}: {remove_error}",
-            generated_luau_path.display()
-        ),
-    }
-}
-
-fn resolve_official_luau_path() -> Option<std::path::PathBuf> {
-    std::env::var_os("LUAU_BIN").map_or_else(
-        || {
-            let executable_name = if cfg!(windows) { "luau.exe" } else { "luau" };
-            let checkout_build_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("references")
-                .join("checkouts")
-                .join("luau")
-                .join("build")
-                .join("release")
-                .join(executable_name);
-            if checkout_build_path.is_file() {
-                Some(checkout_build_path)
-            } else {
-                None
-            }
-        },
-        |configured_path| Some(std::path::PathBuf::from(configured_path)),
-    )
 }

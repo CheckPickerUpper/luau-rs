@@ -1,0 +1,19 @@
+---
+source: tests/mutable_local_bindings_execute_with_official_luau.rs
+expression: generated_luau
+---
+--!strict
+
+local function main(): ()
+    local count: number = 1
+    local message: string = "before"
+    local enabled: boolean = false
+    count = count + 41
+    message = "after"
+    enabled = true
+    print(count)
+    print(message)
+    print(enabled)
+end
+
+main()

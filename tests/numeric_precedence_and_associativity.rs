@@ -24,12 +24,5 @@ fn multiplication_binds_tighter_and_same_tier_operations_are_left_associative() 
         }
     };
 
-    assert!(
-        generated_luau_text.contains("const precedence: number = 2 + (3 * 4)"),
-        "generated Luau changed multiplication precedence:\n{generated_luau_text}"
-    );
-    assert!(
-        generated_luau_text.contains("const order: number = 20 - 5 - 3"),
-        "generated Luau changed left associativity:\n{generated_luau_text}"
-    );
+    insta::assert_snapshot!(generated_luau_text);
 }

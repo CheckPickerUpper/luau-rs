@@ -1,0 +1,13 @@
+---
+source: tests/roblox_service_acquisition.rs
+expression: generated_luau
+---
+--!strict
+
+local function acquire_shared_services(): ()
+    const players: Players = game:GetService("Players")
+    const storage: ReplicatedStorage = game:GetService("ReplicatedStorage")
+end
+
+return {
+}

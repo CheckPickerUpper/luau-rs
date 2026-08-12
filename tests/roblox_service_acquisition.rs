@@ -1,9 +1,8 @@
 //! Exercises the bounded V1 Roblox service intrinsic through the public compiler APIs.
 
-use std::{
-    path::{Path, PathBuf},
-    process::{Command, Output},
-};
+mod support;
+use std::path::Path;
+use support::{official_luau_tool, run_official_luau_tool_required, temporary_luau_file};
 
 use full_moon::ast::LuaVersion;
 use luau_rs::{
@@ -26,17 +25,13 @@ fn project_service_acquisition_is_side_checked_and_lowers_to_recorded_get_servic
         }
     };
 
-    let Some(luau_path) = official_luau_tool(("LUAU_BIN", "luau")) else {
-        assert!(false, "the installed CMake Luau runtime is required");
-        return;
-    };
-    let Some(luau_analyze_path) = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze")) else {
-        assert!(false, "the installed CMake Luau analyzer is required");
-        return;
-    };
+    let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
+    let luau_analyze_path = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
 
-    for generated_module in compiled_project.generated_modules() {
+    for (module_index, generated_module) in compiled_project.generated_modules().iter().enumerate()
+    {
         let generated_luau = generated_module.generated_luau_text().as_text();
+        insta::assert_snapshot!(format!("module-{module_index}"), generated_luau);
         assert!(
             full_moon::parse_fallible(generated_luau, LuaVersion::luau())
                 .into_result()
@@ -208,24 +203,22 @@ fn assert_get_service_calls(service_call_text: (&str, &[&str])) {
 
 fn run_luau_analyzer(analyzer_run: (&Path, &str, &str)) {
     let (luau_analyze_path, generated_luau, module_name) = analyzer_run;
-    let generated_luau_path = temporary_luau_path(module_name);
+    let generated_luau_path = temporary_luau_file(module_name);
     let analyzer_source = analyzer_harness_source(generated_luau);
-    match std::fs::write(&generated_luau_path, analyzer_source) {
+    match std::fs::write(generated_luau_path.path(), analyzer_source) {
         Ok(()) => {}
         Err(write_error) => {
             assert!(false, "could not write {module_name}: {write_error}");
             return;
         }
     }
-    let Some(analysis_output) = run_luau_tool((luau_analyze_path, &generated_luau_path)) else {
-        return;
-    };
+    let analysis_output =
+        run_official_luau_tool_required((luau_analyze_path, generated_luau_path.path()));
     assert!(
         analysis_output.status.success(),
         "luau-analyze rejected {module_name}:\n{}",
         String::from_utf8_lossy(&analysis_output.stderr)
     );
-    remove_temporary_luau(&generated_luau_path);
 }
 
 fn analyzer_harness_source(generated_luau: &str) -> String {
@@ -253,8 +246,8 @@ fn run_service_runtime_harness(runtime_harness: (&Path, &str, &[&str], &str)) {
     harness_source.push_str("} do\n    assert(requested_services[index] == expected_name)\nend\nassert(#requested_services == ");
     harness_source.push_str(&expected_service_names.len().to_string());
     harness_source.push_str(")\n");
-    let harness_path = temporary_luau_path(runtime_name);
-    match std::fs::write(&harness_path, harness_source) {
+    let harness_path = temporary_luau_file(runtime_name);
+    match std::fs::write(harness_path.path(), harness_source) {
         Ok(()) => {}
         Err(write_error) => {
             assert!(
@@ -264,15 +257,12 @@ fn run_service_runtime_harness(runtime_harness: (&Path, &str, &[&str], &str)) {
             return;
         }
     }
-    let Some(runtime_output) = run_luau_tool((luau_path, &harness_path)) else {
-        return;
-    };
+    let runtime_output = run_official_luau_tool_required((luau_path, harness_path.path()));
     assert!(
         runtime_output.status.success(),
         "fake game runtime rejected {runtime_name}:\n{}",
         String::from_utf8_lossy(&runtime_output.stderr)
     );
-    remove_temporary_luau(&harness_path);
 }
 
 fn assert_rejected_service_project(
@@ -484,59 +474,4 @@ fn assert_service_members_are_rejected() {
             if compilation_rejection.first_problem().reason()
                 == &CompilationProblemReason::FieldAccessRequiresRecord
     ));
-}
-
-fn official_luau_tool(tool_name: (&str, &str)) -> Option<PathBuf> {
-    let (environment_variable, executable_name) = tool_name;
-    std::env::var_os(environment_variable).map_or_else(
-        || {
-            let executable_filename = if cfg!(windows) {
-                format!("{executable_name}.exe")
-            } else {
-                executable_name.to_owned()
-            };
-            let build_directory = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("references")
-                .join("checkouts")
-                .join("luau")
-                .join("build");
-            [
-                build_directory.join(&executable_filename),
-                build_directory.join("release").join(executable_filename),
-            ]
-            .into_iter()
-            .find(|candidate_path| candidate_path.is_file())
-        },
-        |configured_path| Some(PathBuf::from(configured_path)),
-    )
-}
-
-fn run_luau_tool(tool_run: (&Path, &Path)) -> Option<Output> {
-    let (tool_path, source_path) = tool_run;
-    match Command::new(tool_path).arg(source_path).output() {
-        Ok(tool_output) => Some(tool_output),
-        Err(execution_error) => {
-            assert!(
-                false,
-                "could not invoke {}: {execution_error}",
-                tool_path.display()
-            );
-            None
-        }
-    }
-}
-
-fn temporary_luau_path(label: &str) -> PathBuf {
-    let filename = label.replace('/', "-");
-    std::env::temp_dir().join(format!(
-        "roblox-rust-service-{filename}-{}.luau",
-        std::process::id()
-    ))
-}
-
-fn remove_temporary_luau(path: &Path) {
-    match std::fs::remove_file(path) {
-        Ok(()) => {}
-        Err(remove_error) => assert!(false, "could not remove {}: {remove_error}", path.display()),
-    }
 }
