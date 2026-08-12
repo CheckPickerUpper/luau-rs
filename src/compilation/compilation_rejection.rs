@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::CompilationProblem;
 
 /// Owns all typed failures from one source compilation attempt.
@@ -27,5 +29,19 @@ impl CompilationRejection {
     #[must_use]
     pub const fn first_problem(&self) -> &CompilationProblem {
         &self.first_problem
+    }
+}
+
+impl fmt::Display for CompilationRejection {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.first_problem.fmt(formatter)?;
+        let additional_problem_count = self.remaining_problems.len();
+        if additional_problem_count > 0 {
+            write!(
+                formatter,
+                " and {additional_problem_count} additional problem(s)"
+            )?;
+        }
+        Ok(())
     }
 }

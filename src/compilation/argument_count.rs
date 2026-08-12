@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Carries an observed number of function arguments without exposing mutable count state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ArgumentCount {
@@ -17,5 +19,11 @@ impl ArgumentCount {
     #[must_use]
     pub const fn number_of_arguments(&self) -> usize {
         self.argument_count
+    }
+}
+
+impl fmt::Display for ArgumentCount {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.argument_count.fmt(formatter)
     }
 }

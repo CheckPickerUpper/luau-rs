@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Identifies the half-open byte range associated with source syntax.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SourceRange {
@@ -26,5 +28,11 @@ impl SourceRange {
     #[must_use]
     pub const fn end_byte(&self) -> usize {
         self.end_byte
+    }
+}
+
+impl fmt::Display for SourceRange {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "bytes {}..{}", self.start_byte, self.end_byte)
     }
 }

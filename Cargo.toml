@@ -7,6 +7,7 @@ license = "MIT"
 repository = "https://github.com/CheckPickerUpper/luau-rs"
 
 [dependencies]
+thiserror = "2.0.20"
 
 [dev-dependencies]
 full_moon = { version = "=2.2.0", features = ["luau"] }

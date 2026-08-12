@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::ProjectCompilationProblem;
 
 /// Guarantees a rejected project always retains its first typed and file-aware diagnostic.
@@ -16,5 +18,11 @@ impl ProjectCompilationRejection {
     #[must_use]
     pub const fn first_problem(&self) -> &ProjectCompilationProblem {
         &self.first_problem
+    }
+}
+
+impl fmt::Display for ProjectCompilationRejection {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.first_problem.fmt(formatter)
     }
 }
