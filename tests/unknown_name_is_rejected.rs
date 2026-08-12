@@ -1,6 +1,6 @@
 //! Integration coverage for unknown name rejection.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const MISSING_NAME_START_BYTE: usize = 18;
 const MISSING_NAME_END_BYTE: usize = 25;

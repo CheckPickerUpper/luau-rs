@@ -1,6 +1,6 @@
 //! Integration coverage for duplicate function rejection.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const SECOND_FUNCTION_NAME_START_BYTE: usize = 16;
 const SECOND_FUNCTION_NAME_END_BYTE: usize = 20;

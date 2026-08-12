@@ -1,6 +1,6 @@
 //! Verifies that mutable-binding diagnostics identify the rejected source intent.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn an_immutable_local_write_points_to_the_assigned_name() {

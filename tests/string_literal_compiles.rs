@@ -1,6 +1,6 @@
 //! Integration coverage for compiling string literals.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn a_quoted_string_initializes_a_string_local() {

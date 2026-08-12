@@ -1,6 +1,6 @@
 //! Integration coverage for initializer mismatch ranges.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const INITIALIZER_START_BYTE: usize = 28;
 const INITIALIZER_END_BYTE: usize = 36;

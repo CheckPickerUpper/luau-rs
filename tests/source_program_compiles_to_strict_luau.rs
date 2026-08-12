@@ -1,6 +1,6 @@
 //! Integration coverage for strict Luau program generation.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn a_program_with_functions_and_a_call_compiles_to_strict_luau() {

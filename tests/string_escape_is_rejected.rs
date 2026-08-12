@@ -1,6 +1,6 @@
 //! Integration coverage for rejecting unsupported string escapes.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const BACKSLASH_START_BYTE: usize = 36;
 const BACKSLASH_END_BYTE: usize = 37;

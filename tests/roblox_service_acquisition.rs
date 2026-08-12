@@ -6,7 +6,7 @@ use std::{
 };
 
 use full_moon::ast::LuaVersion;
-use roblox_rust::{
+use luau_rs::{
     compile_project, compile_source, CompilationOutcome, CompilationProblemReason,
     ModuleExecutionSide, ProjectCompilationOutcome, ProjectCompilationProblem,
     ProjectCompilationRequest, ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource,
@@ -181,7 +181,7 @@ fn project_module(
 }
 
 fn generated_module_at<'project>(
-    module_lookup: (&'project roblox_rust::CompiledProject, &str),
+    module_lookup: (&'project luau_rs::CompiledProject, &str),
 ) -> &'project str {
     let (compiled_project, output_path) = module_lookup;
     let generated_module = compiled_project

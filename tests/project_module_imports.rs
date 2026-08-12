@@ -6,7 +6,7 @@ use std::{
 };
 
 use full_moon::ast::LuaVersion;
-use roblox_rust::{
+use luau_rs::{
     compile_project, compile_source, CompilationOutcome, CompilationProblemReason,
     ProjectCompilationOutcome, ProjectCompilationProblem, ProjectCompilationRequest,
     ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource,
@@ -237,7 +237,7 @@ fn shared_identity(module_path: &str) -> ProjectModuleIdentity {
     }
 }
 
-fn validate_every_generated_module(generated_modules: &[roblox_rust::GeneratedProjectModule]) {
+fn validate_every_generated_module(generated_modules: &[luau_rs::GeneratedProjectModule]) {
     let Some(luau_analyze_path) = official_luau_analyze_path() else {
         assert!(
             false,

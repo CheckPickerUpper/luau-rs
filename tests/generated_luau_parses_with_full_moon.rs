@@ -1,7 +1,7 @@
 //! Integration coverage for parsing generated Luau with `full_moon`.
 
 use full_moon::ast::{LuaVersion, Stmt};
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn generated_luau_has_two_functions_and_an_entry_call() {

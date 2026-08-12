@@ -1,6 +1,6 @@
 //! Integration coverage for grouped and boolean expressions.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn grouped_comparative_and_logical_expressions_reach_luau_through_public_api() {

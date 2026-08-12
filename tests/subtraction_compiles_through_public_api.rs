@@ -1,6 +1,6 @@
 //! Integration coverage for subtraction compilation.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn subtraction_reaches_generated_luau_through_public_api() {

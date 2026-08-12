@@ -2,7 +2,7 @@
 
 use std::{path::Path, process::Command};
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn if_else_branches_scope_locals_and_return_on_every_path() {

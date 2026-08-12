@@ -1,6 +1,6 @@
 //! Integration coverage for total nested conditional returns.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn nested_if_else_branches_satisfy_a_number_return_contract() {

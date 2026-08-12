@@ -1,5 +1,5 @@
-//! Command-line entry point for the roblox-rust compiler experiment.
+//! Command-line entry point for the luau-rs compiler.
 
 fn main() {
-    println!("roblox-rust: compiler experiment scaffold is ready");
+    println!("luau-rs: compiler experiment scaffold is ready");
 }

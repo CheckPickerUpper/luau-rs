@@ -1,6 +1,6 @@
 //! Integration coverage for branch-local binding visibility.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn a_branch_local_cannot_be_referenced_after_its_if_else_statement() {

@@ -1,6 +1,6 @@
 //! Integration coverage for missing numeric function returns.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const FUNCTION_NAME_START_BYTE: usize = 3;
 const FUNCTION_NAME_END_BYTE: usize = 8;

@@ -15,6 +15,7 @@ AGENTS.md
 CLAUDE.md
 CONTEXT.md
 *.md
+!/README.md
 
 # Runtime logs and temporary scratch files are disposable artifacts.
 *.log

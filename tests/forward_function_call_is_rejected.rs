@@ -1,6 +1,6 @@
 //! Integration coverage for forward function-call rejection.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const FORWARD_CALL_START_BYTE: usize = 12;
 const FORWARD_CALL_END_BYTE: usize = 17;

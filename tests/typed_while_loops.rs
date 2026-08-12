@@ -6,7 +6,7 @@ use std::{
 };
 
 use full_moon::ast::LuaVersion;
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const NUMBER_CONDITION_START_BYTE: usize = 18;
 const NUMBER_CONDITION_END_BYTE: usize = 19;
