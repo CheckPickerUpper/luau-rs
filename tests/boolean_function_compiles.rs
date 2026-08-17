@@ -15,22 +15,6 @@ fn main() {
     print(disabled);
 }
 ";
-    let expected_luau_text = r"--!strict
-
-local function identity(flag: boolean): boolean
-    return flag
-end
-
-local function main(): ()
-    const enabled: boolean = identity(true)
-    const disabled: boolean = false
-    print(enabled)
-    print(disabled)
-end
-
-main()
-";
-
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),
         CompilationOutcome::Rejected(compilation_rejection) => {
@@ -43,5 +27,5 @@ main()
         }
     };
 
-    assert_eq!(generated_luau_text, expected_luau_text);
+    insta::assert_snapshot!(generated_luau_text);
 }

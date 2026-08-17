@@ -1,16 +1,14 @@
 //! Public compiler coverage for zero-based homogeneous arrays.
 
+mod support;
 use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use support::{official_luau_tool, run_official_luau_tool_required, temporary_luau_file};
 
 #[test]
 fn typed_arrays_lower_to_strict_one_based_luau_and_reject_invalid_access() {
     let source = "fn pick(values: [number], index: number) -> number {\n    return values[index];\n}\n\nfn main() {\n    let mut values: [number] = [20, 0];\n    values[1] = 42;\n    print(pick(values, 1));\n}\n";
     let generated = compiled_text(source);
-    assert_eq!(generated, "--!strict\n\nlocal function pick(values: {number}, index: number): number\n    return values[(index) + 1]\nend\n\nlocal function main(): ()\n    local values: {number} = {20, 0}\n    values[(1) + 1] = 42\n    print(pick(values, 1))\nend\n\nmain()\n");
+    insta::assert_snapshot!(generated);
     match full_moon::parse(&generated) {
         Ok(_) => {}
         Err(parse_errors) => assert!(false, "Full Moon rejected arrays: {parse_errors:?}"),
@@ -44,20 +42,17 @@ fn typed_arrays_lower_to_strict_one_based_luau_and_reject_invalid_access() {
 }
 
 fn assert_official_tools_execute(generated: &str) {
-    let path = std::env::temp_dir().join(format!(
-        "roblox-rust-typed-arrays-{}.luau",
-        std::process::id()
-    ));
-    assert!(std::fs::write(&path, generated).is_ok());
-    let luau = official_tool(("LUAU_BIN", "luau"));
-    let analyzer = official_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
-    let runtime = match Command::new(luau).arg(&path).output() {
-        Ok(output) => output,
+    let path = temporary_luau_file("luau-rs-arrays");
+    match std::fs::write(path.path(), generated) {
+        Ok(()) => {}
         Err(error) => {
-            assert!(false, "official Luau must run: {error}");
+            assert!(false, "could not write array fixture: {error}");
             return;
         }
-    };
+    }
+    let luau = official_luau_tool(("LUAU_BIN", "luau"));
+    let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
+    let runtime = run_official_luau_tool_required((&luau, path.path()));
     assert!(
         runtime.status.success(),
         "{}",
@@ -71,39 +66,12 @@ fn assert_official_tools_execute(generated: &str) {
             b"42\n".as_slice()
         }
     );
-    let analysis = match Command::new(analyzer).arg(&path).output() {
-        Ok(output) => output,
-        Err(error) => {
-            assert!(false, "official analyzer must run: {error}");
-            return;
-        }
-    };
+    let analysis = run_official_luau_tool_required((&analyzer, path.path()));
     assert!(
         analysis.status.success(),
         "{}",
         String::from_utf8_lossy(&analysis.stderr)
     );
-    assert!(std::fs::remove_file(path).is_ok());
-}
-
-fn official_tool(parts: (&str, &str)) -> PathBuf {
-    let (environment_variable, executable_name) = parts;
-    std::env::var_os(environment_variable).map_or_else(
-        || {
-            let executable = if cfg!(windows) {
-                format!("{executable_name}.exe")
-            } else {
-                executable_name.to_owned()
-            };
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("references")
-                .join("checkouts")
-                .join("luau")
-                .join("build")
-                .join(executable)
-        },
-        PathBuf::from,
-    )
 }
 
 fn compiled_text(source: &str) -> String {

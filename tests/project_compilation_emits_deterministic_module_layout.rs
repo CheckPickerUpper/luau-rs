@@ -1,9 +1,8 @@
 //! Verifies project compilation preserves deterministic Luau module placement.
 
-use std::{
-    path::{Path, PathBuf},
-    process::{Command, Output},
-};
+mod support;
+use std::path::Path;
+use support::{official_luau_tool, run_official_luau_tool_required, temporary_luau_file};
 
 use full_moon::ast::LuaVersion;
 use luau_rs::{
@@ -53,15 +52,8 @@ fn a_project_emits_sorted_strict_modules_at_their_roblox_locations() {
     );
     assert_eq!(first_output_paths, second_output_paths);
 
-    let Some(luau_path) = resolve_official_luau_tool(("LUAU_BIN", "luau")) else {
-        fail_missing_official_luau_tool("LUAU_BIN", "luau");
-        return;
-    };
-    let Some(luau_analyze_path) = resolve_official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))
-    else {
-        fail_missing_official_luau_tool("LUAU_ANALYZE_BIN", "luau-analyze");
-        return;
-    };
+    let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
+    let luau_analyze_path = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
 
     for (module_index, generated_module) in first_compiled_project
         .generated_modules()
@@ -187,6 +179,7 @@ fn project_request() -> ProjectCompilationRequest {
 fn validate_generated_module(generated_module_parts: (&str, &str, usize, &Path, &Path)) {
     let (output_path, generated_luau, module_index, luau_path, luau_analyze_path) =
         generated_module_parts;
+    insta::assert_snapshot!(format!("module-{module_index}"), generated_luau);
     assert!(generated_luau.starts_with("--!strict\n"));
     assert!(
         full_moon::parse_fallible(generated_luau, LuaVersion::luau())
@@ -195,11 +188,9 @@ fn validate_generated_module(generated_module_parts: (&str, &str, usize, &Path, 
         "Full Moon rejected {output_path}"
     );
 
-    let generated_luau_path = std::env::temp_dir().join(format!(
-        "roblox-rust-project-layout-{}-{module_index}.luau",
-        std::process::id()
-    ));
-    match std::fs::write(&generated_luau_path, generated_luau) {
+    let generated_luau_path =
+        temporary_luau_file(&format!("luau-rs-project-layout-{module_index}"));
+    match std::fs::write(generated_luau_path.path(), generated_luau) {
         Ok(()) => {}
         Err(write_error) => {
             assert!(
@@ -210,10 +201,8 @@ fn validate_generated_module(generated_module_parts: (&str, &str, usize, &Path, 
         }
     }
 
-    let Some(analysis_output) = run_official_luau_tool((luau_analyze_path, &generated_luau_path))
-    else {
-        return;
-    };
+    let analysis_output =
+        run_official_luau_tool_required((luau_analyze_path, generated_luau_path.path()));
     assert!(
         analysis_output.status.success(),
         "official luau-analyze rejected {output_path}:\n{}",
@@ -221,76 +210,12 @@ fn validate_generated_module(generated_module_parts: (&str, &str, usize, &Path, 
     );
 
     if output_path.ends_with(".server.luau") || output_path.ends_with(".client.luau") {
-        let Some(runtime_output) = run_official_luau_tool((luau_path, &generated_luau_path)) else {
-            return;
-        };
+        let runtime_output =
+            run_official_luau_tool_required((luau_path, generated_luau_path.path()));
         assert!(
             runtime_output.status.success(),
             "official luau could not execute {output_path}:\n{}",
             String::from_utf8_lossy(&runtime_output.stderr)
         );
     }
-
-    match std::fs::remove_file(&generated_luau_path) {
-        Ok(()) => {}
-        Err(remove_error) => assert!(
-            false,
-            "could not remove generated Luau validation artifact {}: {remove_error}",
-            generated_luau_path.display()
-        ),
-    }
-}
-
-fn resolve_official_luau_tool(tool_name: (&str, &str)) -> Option<PathBuf> {
-    let (environment_variable, executable_name) = tool_name;
-    std::env::var_os(environment_variable).map_or_else(
-        || {
-            let executable_filename = if cfg!(windows) {
-                format!("{executable_name}.exe")
-            } else {
-                executable_name.to_owned()
-            };
-            let checkout_build_directory = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("references")
-                .join("checkouts")
-                .join("luau")
-                .join("build");
-            let cmake_binary = checkout_build_directory.join(&executable_filename);
-            if cmake_binary.is_file() {
-                Some(cmake_binary)
-            } else {
-                let release_binary = checkout_build_directory
-                    .join("release")
-                    .join(executable_filename);
-                if release_binary.is_file() {
-                    Some(release_binary)
-                } else {
-                    None
-                }
-            }
-        },
-        |configured_path| Some(PathBuf::from(configured_path)),
-    )
-}
-
-fn run_official_luau_tool(tool_and_source: (&Path, &Path)) -> Option<Output> {
-    let (tool_path, generated_luau_path) = tool_and_source;
-    match Command::new(tool_path).arg(generated_luau_path).output() {
-        Ok(tool_output) => Some(tool_output),
-        Err(execution_error) => {
-            assert!(
-                false,
-                "could not invoke official Luau tool {}: {execution_error}",
-                tool_path.display()
-            );
-            None
-        }
-    }
-}
-
-fn fail_missing_official_luau_tool(environment_variable: &str, executable_name: &str) {
-    assert!(
-        false,
-        "official {executable_name} is required; set {environment_variable} or build it in references/checkouts/luau/build"
-    );
 }

@@ -13,20 +13,6 @@ fn main() {
     print(greeting);
 }
 "#;
-    let expected_luau_text = r#"--!strict
-
-local function echo(message: string): string
-    return message
-end
-
-local function main(): ()
-    const greeting: string = echo("hello")
-    print(greeting)
-end
-
-main()
-"#;
-
     let generated_luau_text = match compile_source(source) {
         CompilationOutcome::Compiled(generated_luau_text) => generated_luau_text.into_text(),
         CompilationOutcome::Rejected(compilation_rejection) => {
@@ -39,5 +25,5 @@ main()
         }
     };
 
-    assert_eq!(generated_luau_text, expected_luau_text);
+    insta::assert_snapshot!(generated_luau_text);
 }

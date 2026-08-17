@@ -24,12 +24,5 @@ fn multiplication_and_division_reach_generated_luau_through_public_api() {
         }
     };
 
-    assert!(
-        generated_luau_text.contains("const product: number = 6 * 7"),
-        "generated Luau did not preserve multiplication:\n{generated_luau_text}"
-    );
-    assert!(
-        generated_luau_text.contains("const quotient: number = 84 / 2"),
-        "generated Luau did not preserve division:\n{generated_luau_text}"
-    );
+    insta::assert_snapshot!(generated_luau_text);
 }

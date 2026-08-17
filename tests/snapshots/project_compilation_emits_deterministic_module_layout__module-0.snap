@@ -1,0 +1,12 @@
+---
+source: tests/project_compilation_emits_deterministic_module_layout.rs
+expression: generated_luau
+---
+--!strict
+
+local function cache_size(): number
+    return 0
+end
+
+return {
+}

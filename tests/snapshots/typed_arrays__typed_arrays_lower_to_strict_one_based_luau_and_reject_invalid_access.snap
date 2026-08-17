@@ -1,0 +1,17 @@
+---
+source: tests/typed_arrays.rs
+expression: generated
+---
+--!strict
+
+local function pick(values: {number}, index: number): number
+    return values[(index) + 1]
+end
+
+local function main(): ()
+    local values: {number} = {20, 0}
+    values[(1) + 1] = 42
+    print(pick(values, 1))
+end
+
+main()

@@ -1,0 +1,14 @@
+---
+source: tests/numeric_precedence_and_associativity.rs
+expression: generated_luau_text
+---
+--!strict
+
+local function main(): ()
+    const precedence: number = 2 + (3 * 4)
+    const order: number = 20 - 5 - 3
+    print(precedence)
+    print(order)
+end
+
+main()

@@ -26,6 +26,7 @@ fn main() {
             return;
         }
     };
+    insta::assert_snapshot!(generated_luau_text);
 
     let generated_luau_ast =
         match full_moon::parse_fallible(&generated_luau_text, LuaVersion::luau()).into_result() {

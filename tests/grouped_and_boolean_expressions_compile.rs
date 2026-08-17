@@ -27,16 +27,5 @@ fn grouped_comparative_and_logical_expressions_reach_luau_through_public_api() {
         }
     };
 
-    assert!(
-        generated_luau_text.contains("const grouped: number = (2 + 3) * 4"),
-        "generated Luau lost source grouping:\n{generated_luau_text}"
-    );
-    assert!(
-        generated_luau_text.contains("grouped >= 20 and grouped ~= 21"),
-        "generated Luau did not emit comparison/conjunction:\n{generated_luau_text}"
-    );
-    assert!(
-        generated_luau_text.contains("not false or same_text"),
-        "generated Luau did not emit negation/disjunction:\n{generated_luau_text}"
-    );
+    insta::assert_snapshot!(generated_luau_text);
 }

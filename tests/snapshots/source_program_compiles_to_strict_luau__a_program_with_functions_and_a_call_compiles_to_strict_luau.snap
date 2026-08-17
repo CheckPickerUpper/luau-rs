@@ -1,0 +1,16 @@
+---
+source: tests/source_program_compiles_to_strict_luau.rs
+expression: actual_luau_text
+---
+--!strict
+
+local function add(left: number, right: number): number
+    return left + right
+end
+
+local function main(): ()
+    const total: number = add(20, 22)
+    print(total)
+end
+
+main()

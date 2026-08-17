@@ -22,8 +22,5 @@ fn subtraction_reaches_generated_luau_through_public_api() {
         }
     };
 
-    assert!(
-        generated_luau_text.contains("const total: number = 20 - 8"),
-        "generated Luau did not preserve subtraction:\n{generated_luau_text}"
-    );
+    insta::assert_snapshot!(generated_luau_text);
 }

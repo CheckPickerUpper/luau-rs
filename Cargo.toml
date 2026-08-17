@@ -10,6 +10,8 @@ repository = "https://github.com/CheckPickerUpper/luau-rs"
 
 [dev-dependencies]
 full_moon = { version = "=2.2.0", features = ["luau"] }
+insta = "1.48.0"
+tempfile = "3.27.0"
 
 [lints.rust]
 unsafe_code = "forbid"
