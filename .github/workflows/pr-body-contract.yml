@@ -9,6 +9,9 @@ permissions:
 
 jobs:
   validate:
+    # Shares the CI_ENABLED switch with the compiler contracts so "CI is off"
+    # means every hosted job, not a subset. Absent means enabled.
+    if: vars.CI_ENABLED != 'false'
     name: Require linked work, behavior, and proof
     runs-on: ubuntu-latest
     timeout-minutes: 2
