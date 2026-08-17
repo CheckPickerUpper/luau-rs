@@ -15,6 +15,10 @@ concurrency:
 
 jobs:
   validate:
+    # Set the CI_ENABLED repository variable to 'false' to pause hosted runs
+    # while the Actions minute budget is exhausted. Absent means enabled, so a
+    # fresh clone gets the gate rather than silence.
+    if: vars.CI_ENABLED != 'false'
     name: Rust and Luau integration contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 20
