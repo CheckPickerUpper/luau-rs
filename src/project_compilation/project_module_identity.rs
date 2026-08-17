@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{ModuleExecutionSide, ProjectModuleRole};
 
 /// Identifies one source module and its Roblox execution boundary.
@@ -62,5 +64,16 @@ impl ProjectModuleIdentity {
             }
             (Self::Shared { .. }, ProjectModuleRole::Entrypoint) => None,
         }
+    }
+}
+
+impl fmt::Display for ProjectModuleIdentity {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let execution_side = match self {
+            Self::Server { .. } => "server",
+            Self::Client { .. } => "client",
+            Self::Shared { .. } => "shared",
+        };
+        write!(formatter, "{execution_side}:{}", self.module_path())
     }
 }

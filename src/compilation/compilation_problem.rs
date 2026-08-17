@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{CompilationProblemReason, SourceRange};
 
 /// Couples a typed compiler failure with its original source location.
@@ -30,5 +32,11 @@ impl CompilationProblem {
     #[must_use]
     pub const fn source_range(&self) -> SourceRange {
         self.source_range
+    }
+}
+
+impl fmt::Display for CompilationProblem {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{} at {}", self.reason, self.source_range)
     }
 }
