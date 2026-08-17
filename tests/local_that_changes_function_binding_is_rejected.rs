@@ -1,6 +1,6 @@
 //! Integration coverage for function binding mutation rejection.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const COLLIDING_LOCAL_START_BYTE: usize = 28;
 const COLLIDING_LOCAL_END_BYTE: usize = 31;

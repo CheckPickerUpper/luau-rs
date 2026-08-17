@@ -6,7 +6,7 @@ use std::{
 };
 
 use full_moon::ast::LuaVersion;
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn mutable_nested_record_fields_update_in_strict_luau() {

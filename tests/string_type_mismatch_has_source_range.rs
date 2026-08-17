@@ -1,6 +1,6 @@
 //! Integration coverage for string type mismatch ranges.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const NUMBER_LITERAL_START_BYTE: usize = 35;
 const NUMBER_LITERAL_END_BYTE: usize = 36;

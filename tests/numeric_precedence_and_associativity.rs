@@ -1,6 +1,6 @@
 //! Integration coverage for numeric precedence and associativity.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn multiplication_binds_tighter_and_same_tier_operations_are_left_associative() {

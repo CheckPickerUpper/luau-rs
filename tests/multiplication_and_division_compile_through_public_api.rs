@@ -1,6 +1,6 @@
 //! Integration coverage for multiplication and division compilation.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn multiplication_and_division_reach_generated_luau_through_public_api() {

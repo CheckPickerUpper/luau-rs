@@ -6,7 +6,7 @@ use std::{
 };
 
 use full_moon::ast::LuaVersion;
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn mutable_number_string_and_boolean_locals_update_in_official_luau() {

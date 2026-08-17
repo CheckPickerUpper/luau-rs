@@ -1,6 +1,6 @@
 //! Integration coverage for compiling boolean functions.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn both_boolean_literals_flow_through_a_function_and_print() {

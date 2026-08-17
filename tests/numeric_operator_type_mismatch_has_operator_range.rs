@@ -1,6 +1,6 @@
 //! Integration coverage for numeric operator mismatch ranges.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn subtraction_rejects_a_string_operand_at_the_operator_range() {

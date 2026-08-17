@@ -5,7 +5,7 @@ use std::{
     process::{Command, Output},
 };
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn typed_records_compile_diagnose_and_execute_as_strict_luau() {

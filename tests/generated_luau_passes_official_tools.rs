@@ -5,7 +5,7 @@ use std::{
     process::{Command, Output},
 };
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn official_luau_tools_execute_and_validate_generated_program() {

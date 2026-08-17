@@ -2,7 +2,7 @@
 
 use std::{path::Path, process::Command};
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn logical_expressions_short_circuit_with_official_luau() {

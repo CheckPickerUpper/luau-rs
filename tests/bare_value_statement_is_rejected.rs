@@ -1,6 +1,6 @@
 //! Integration coverage for rejecting bare value statements.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 const VALUE_START_BYTE: usize = 12;
 const VALUE_END_BYTE: usize = 13;

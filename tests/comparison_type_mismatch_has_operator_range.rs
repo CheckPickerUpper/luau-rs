@@ -1,6 +1,6 @@
 //! Integration coverage for comparison type mismatch ranges.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn equality_with_different_value_types_is_rejected_at_the_operator() {

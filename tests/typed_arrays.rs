@@ -1,6 +1,6 @@
 //! Public compiler coverage for zero-based homogeneous arrays.
 
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 use std::{
     path::{Path, PathBuf},
     process::Command,

@@ -1,6 +1,6 @@
 //! Integration coverage for compiling string functions.
 
-use roblox_rust::{compile_source, CompilationOutcome};
+use luau_rs::{compile_source, CompilationOutcome};
 
 #[test]
 fn a_string_flows_through_a_function_and_print() {

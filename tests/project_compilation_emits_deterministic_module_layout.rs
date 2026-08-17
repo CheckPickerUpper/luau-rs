@@ -6,7 +6,7 @@ use std::{
 };
 
 use full_moon::ast::LuaVersion;
-use roblox_rust::{
+use luau_rs::{
     compile_project, ProjectCompilationOutcome, ProjectCompilationProblem,
     ProjectCompilationRequest, ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource,
 };

@@ -6,7 +6,7 @@ use std::{
 };
 
 use full_moon::ast::LuaVersion;
-use roblox_rust::{compile_source, CompilationOutcome, CompilationProblemReason};
+use luau_rs::{compile_source, CompilationOutcome, CompilationProblemReason};
 
 #[test]
 fn loop_exits_are_scoped_checked_and_lowered_to_luau() {
@@ -177,7 +177,7 @@ fn assert_unreachable_statement_is_rejected(source: &str, statement_name: &str) 
     );
 }
 
-fn rejected_compilation(source: &str) -> roblox_rust::CompilationRejection {
+fn rejected_compilation(source: &str) -> luau_rs::CompilationRejection {
     match compile_source(source) {
         CompilationOutcome::Rejected(compilation_rejection) => compilation_rejection,
         CompilationOutcome::Compiled(generated_luau_text) => {
