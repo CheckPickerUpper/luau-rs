@@ -1,13 +1,14 @@
 //! End-to-end round trip: the committed Rust fixture (compiled to wasm32)
-//! decodes, translates, parses as Luau, and passes the official Luau tools.
+//! decodes, translates, and passes the official Luau tools.
 
 mod support;
 
+use assert_cmd::Command;
 use luau_rs::{
     decode_module, translate_module, DecodeOutcome, MainInvocation, TranslateOptions,
     TranslateOutcome,
 };
-use support::{official_luau_tool, run_official_luau_tool, temporary_directory};
+use support::official_luau_tool;
 
 /// Reads the committed wasm fixture built from `fixtures/rust-hello`.
 fn fixture_wasm_bytes() -> Vec<u8> {
@@ -46,6 +47,17 @@ fn generate_fixture_luau() -> String {
     }
 }
 
+/// Creates a temporary directory for generated-file tests.
+fn temporary_directory(prefix: &str) -> tempfile::TempDir {
+    match tempfile::Builder::new().prefix(prefix).tempdir() {
+        Ok(directory) => directory,
+        Err(error) => {
+            assert!(false, "could not create temporary directory: {error}");
+            std::process::exit(1)
+        }
+    }
+}
+
 /// The generated module must name the exported surface it declares.
 #[test]
 fn generated_luau_declares_expected_exports() {
@@ -65,6 +77,13 @@ fn generated_luau_declares_expected_exports() {
     assert!(generated.contains("MEMORY"), "generated Luau lacks memory");
 }
 
+/// The generated output must be byte-for-byte stable (guards against drift).
+#[test]
+fn generated_luau_matches_snapshot() {
+    let generated = generate_fixture_luau();
+    insta::assert_snapshot!("fixture_generated_luau", generated);
+}
+
 /// The official Luau tools must accept the generated module.
 #[test]
 fn official_luau_analyze_accepts_generated_fixture() {
@@ -81,12 +100,10 @@ fn official_luau_analyze_accepts_generated_fixture() {
         }
     }
 
-    let analysis_output = run_official_luau_tool((&luau_analyze_path, &source_path));
-    assert!(
-        analysis_output.status.success(),
-        "luau-analyze rejected generated Luau:\n{}",
-        String::from_utf8_lossy(&analysis_output.stderr)
-    );
+    Command::new(luau_analyze_path)
+        .arg(&source_path)
+        .assert()
+        .success();
 }
 
 /// The official Luau runtime must execute the generated exports correctly.
@@ -118,10 +135,5 @@ fn official_luau_executes_fixture_with_expected_results() {
         }
     }
 
-    let runtime_output = run_official_luau_tool((&luau_path, &source_path));
-    assert!(
-        runtime_output.status.success(),
-        "luau rejected generated module:\n{}",
-        String::from_utf8_lossy(&runtime_output.stderr)
-    );
+    Command::new(luau_path).arg(&source_path).assert().success();
 }

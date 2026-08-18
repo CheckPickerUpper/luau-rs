@@ -369,23 +369,37 @@ impl DecodedMemory {
     }
 }
 
-/// An active data segment to write into memory during instantiation.
+/// How one data segment is materialized into the module.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecodedDataSegmentKind {
+    /// The segment is written into linear memory at a fixed offset during
+    /// instantiation.
+    Active {
+        /// Byte offset into linear memory.
+        offset: u32,
+    },
+    /// The segment lives in its own buffer and is copied into memory by
+    /// `memory.init` instructions.
+    Passive,
+}
+
+/// A data segment decoded for instantiation or `memory.init`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedDataSegment {
-    /// Byte offset into linear memory.
-    offset: u32,
-    /// The raw bytes to write.
+    /// Whether the segment is active (offset in linear memory) or passive.
+    kind: DecodedDataSegmentKind,
+    /// The raw bytes carried by the segment.
     bytes: Vec<u8>,
 }
 
 impl DecodedDataSegment {
-    /// @why Lets the backend emit the write target.
+    /// @why Lets the backend choose the write target per segment kind.
     #[must_use]
-    pub const fn offset(&self) -> u32 {
-        self.offset
+    pub const fn kind(&self) -> DecodedDataSegmentKind {
+        self.kind
     }
 
-    /// @why Lets the backend emit the written bytes.
+    /// @why Lets the backend emit the carried bytes.
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
@@ -754,10 +768,12 @@ fn decode_data_segments(
                 }
                 match fold_const_i32(offset) {
                     Ok(offset_value) => match u32::try_from(offset_value) {
-                        Ok(offset_u32) => decoded_segments.push(DecodedDataSegment {
-                            offset: offset_u32,
-                            bytes: data_segment.value.clone(),
-                        }),
+                        Ok(offset_u32) => {
+                            decoded_segments.push(DecodedDataSegment {
+                                kind: DecodedDataSegmentKind::Active { offset: offset_u32 },
+                                bytes: data_segment.value.clone(),
+                            });
+                        }
                         Err(_) => {
                             problems.push(WasmDecodeProblemReason::NegativeSegmentOffset {
                                 offset: offset_value,
@@ -768,8 +784,9 @@ fn decode_data_segments(
                 }
             }
             DataKind::Passive => {
-                problems.push(WasmDecodeProblemReason::UnsupportedInstruction {
-                    instruction: "passive data segment (memory.init)".into(),
+                decoded_segments.push(DecodedDataSegment {
+                    kind: DecodedDataSegmentKind::Passive,
+                    bytes: data_segment.value.clone(),
                 });
             }
         }

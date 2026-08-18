@@ -69,14 +69,14 @@ pub fn emit_function_body(
         .map_or_else(String::new, |name| format!(" -- {name}"));
     if return_annotation.is_empty() {
         writer.line(&format!(
-            "local function FUNC_{}({}){}",
+            "FUNC_{} = function({}){}",
             input.function.index(),
             parameters.join(", "),
             comment_name
         ));
     } else {
         writer.line(&format!(
-            "local function FUNC_{}({}): {}{}",
+            "FUNC_{} = function({}): {}{}",
             input.function.index(),
             parameters.join(", "),
             return_annotation,
@@ -280,7 +280,7 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(())
             }
             Instr::Call(call) => {
-                self.emit_call(call.func.index());
+                self.emit_call(call.func.index())?;
                 Ok(())
             }
             Instr::CallIndirect(call_indirect) => {
@@ -322,6 +322,19 @@ impl<'a> FunctionEmitter<'a> {
                 self.emit_memory_grow();
                 Ok(())
             }
+            Instr::MemoryCopy(_) => {
+                self.emit_memory_copy();
+                Ok(())
+            }
+            Instr::MemoryFill(_) => {
+                self.emit_memory_fill();
+                Ok(())
+            }
+            Instr::MemoryInit(memory_init) => {
+                self.emit_memory_init(memory_init.data.index());
+                Ok(())
+            }
+            Instr::DataDrop(_) => Ok(()),
             Instr::Load(load) => self.emit_load(load.kind, load.arg),
             Instr::Store(store) => self.emit_store(store.kind, store.arg),
             unsupported => Err(TranslationProblemReason::UnsupportedInstruction {
@@ -514,6 +527,9 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn emit_final_return(&mut self) {
+        if self.unreachable {
+            return;
+        }
         let result_count = self.input.function.results().len();
         if result_count == 0 {
             return;
@@ -630,10 +646,22 @@ impl<'a> FunctionEmitter<'a> {
         Ok(())
     }
 
-    fn emit_call(&mut self, function_index: usize) {
-        let arity = self.input.function.params().len();
-        let arguments = self.pop_arguments(arity);
+    fn emit_call(&mut self, function_index: usize) -> Result<(), TranslationProblemReason> {
+        let callee_arity = self
+            .input
+            .module
+            .funcs
+            .iter()
+            .find(|function| function.id().index() == function_index)
+            .map(|function| self.input.module.types.get(function.ty()).params().len())
+            .ok_or_else(|| {
+                TranslationProblemReason::Internal(format!(
+                    "call targets unknown function {function_index}"
+                ))
+            })?;
+        let arguments = self.pop_arguments(callee_arity);
         self.emit_push(&format!("FUNC_{function_index}({})", arguments.join(", ")));
+        Ok(())
     }
 
     fn emit_call_indirect(&mut self, function_type: walrus::TypeId, _table: walrus::TableId) {
@@ -679,6 +707,36 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_push("-1");
         self.writer.pop_indent();
         self.writer.line("end");
+    }
+
+    /// Lowers `memory.copy`: `buffer.copy(MEMORY, dest, MEMORY, src, len)`.
+    fn emit_memory_copy(&mut self) {
+        let length = self.pop_value();
+        let source = self.pop_value();
+        let destination = self.pop_value();
+        self.writer.line(&format!(
+            "buffer.copy(MEMORY, {destination}, MEMORY, {source}, {length})"
+        ));
+    }
+
+    /// Lowers `memory.fill`: `buffer.fill(MEMORY, dest, value, len)`.
+    fn emit_memory_fill(&mut self) {
+        let length = self.pop_value();
+        let value = self.pop_value();
+        let destination = self.pop_value();
+        self.writer.line(&format!(
+            "buffer.fill(MEMORY, {destination}, {value}, {length})"
+        ));
+    }
+
+    /// Lowers `memory.init`: copy from the segment's passive buffer.
+    fn emit_memory_init(&mut self, data_index: usize) {
+        let length = self.pop_value();
+        let source = self.pop_value();
+        let destination = self.pop_value();
+        self.writer.line(&format!(
+            "buffer.copy(MEMORY, {destination}, DATA_{data_index}, {source}, {length})"
+        ));
     }
 
     fn emit_load(&mut self, kind: LoadKind, arg: MemArg) -> Result<(), TranslationProblemReason> {

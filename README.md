@@ -18,9 +18,15 @@ translates a stable, well-defined instruction set into Luau. The Luau backend
 models wasm's linear memory as a `buffer`, globals and indirect-call tables as
 Luau tables, and wasm's stack machine as an explicit per-function stack.
 
-Roblox bindings (Instances, events, services) arrive through the **import
-seam**: wasm imports become Luau callbacks resolved from the `imports` table
-passed to the generated `instantiate(imports)` factory.
+Roblox bindings arrive through the **import seam** plus the bundled
+`runtime/roblox.luau` binding layer: wasm imports become Luau callbacks
+resolved from the `imports` table, and Rust receives Roblox objects as
+integer handles (0 is null) that the runtime resolves to real Instances.
+
+```bash
+# Try the Roblox binding layer with a mock environment
+cargo test --test roblox_bindings   # after python scripts/build_pinned_luau.py
+```
 
 ## Try it
 
@@ -53,10 +59,14 @@ cargo run -- build <module.wasm> --out <dir> [--entrypoint] [--side server|clien
 ## Current scope
 
 Supported: the full core wasm instruction set — numeric ops (i32/i64/f32/f64),
-comparisons, conversions, locals, globals, memory load/store, `call` /
-`call_indirect`, `block` / `loop` / `if` / `br` / `br_table`, `select`,
-`memory.grow`, data segments, element segments, start function, exports,
-function imports.
+comparisons, conversions, locals, globals, memory load/store, **bulk memory
+(copy/fill/init + passive data segments)**, `call` / `call_indirect`,
+`block` / `loop` / `if` / `br` / `br_table`, `select`, `memory.grow`, data
+segments, element segments, start function, exports, function imports.
+
+The bundled `runtime/roblox.luau` provides a handle-based Roblox binding layer
+(get service, instance creation, number + Vector3 properties, print, destroy),
+tested against a mock Roblox environment.
 
 Rejected loudly (typed reasons): SIMD (`v128`), atomics, bulk memory, memory
 imports, exception tags, shared/64-bit memories, table/global exports,

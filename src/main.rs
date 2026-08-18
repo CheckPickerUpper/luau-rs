@@ -69,7 +69,10 @@ fn main() {
             tracing_subscriber::EnvFilter::new("luau_rs=info")
         }
     };
-    tracing_subscriber::fmt().with_env_filter(env_filter).init();
+    tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .with_writer(std::io::stderr)
+        .init();
 
     let cli = Cli::parse();
     match cli.command {

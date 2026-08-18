@@ -2,8 +2,8 @@
 //! import proxies, data segments, exports, and the entrypoint invocation.
 
 use crate::wasm::{
-    DecodedExport, DecodedFunction, DecodedFunctionBody, DecodedGlobalValue, DecodedModule,
-    StartFunctionPresence,
+    DecodedDataSegmentKind, DecodedExport, DecodedFunction, DecodedFunctionBody,
+    DecodedGlobalValue, DecodedModule, StartFunctionPresence,
 };
 use std::collections::HashMap;
 use walrus::FunctionKind;
@@ -63,6 +63,7 @@ pub fn emit_module(
     ));
     writer.push_indent();
     writer.line(&format!("local WASM_IMPORTS = {IMPORTS_NAME}"));
+    emit_function_name_declarations(decoded, &mut writer);
 
     emit_memory(decoded, &mut writer);
     emit_globals(decoded, &mut writer);
@@ -82,6 +83,18 @@ pub fn emit_module(
     writer.line("return instantiate");
 
     Ok(writer.finish())
+}
+
+/// Declares every `FUNC_N` name before any body is emitted, so wasm index
+/// order never shadows call order and recursion resolves. The names are typed
+/// `any` so strict analysis allows calls before a body is assigned.
+fn emit_function_name_declarations(decoded: &DecodedModule, writer: &mut TextWriter) {
+    let names = decoded
+        .functions()
+        .iter()
+        .map(|function| format!("FUNC_{}: any", function.index()))
+        .collect::<Vec<_>>();
+    writer.line(&format!("local {}", names.join(", ")));
 }
 
 fn emit_memory(decoded: &DecodedModule, writer: &mut TextWriter) {
@@ -180,36 +193,32 @@ fn emit_import_proxy(
     let (parameters, return_annotation) = function_signature(function);
     if return_annotation.is_empty() {
         writer.line(&format!(
-            "local function FUNC_{}({})",
+            "FUNC_{} = function({})",
             function.index(),
             parameters.join(", ")
         ));
     } else {
         writer.line(&format!(
-            "local function FUNC_{}({}): {}",
+            "FUNC_{} = function({}): {}",
             function.index(),
             parameters.join(", "),
             return_annotation
         ));
     }
     writer.push_indent();
-    let argument_names = argument_names(function.params().len());
+    let parameter_names = (0..function.params().len())
+        .map(|index| format!("p{index}"))
+        .collect::<Vec<_>>();
     writer.line(&format!(
         "return WASM_IMPORTS[{}][{}]({})",
         luau_string_literal(&route.0),
         luau_string_literal(&route.1),
-        argument_names.join(", ")
+        parameter_names.join(", ")
     ));
     writer.pop_indent();
     writer.line("end");
     writer.line("");
     Ok(())
-}
-
-fn argument_names(argument_count: usize) -> Vec<String> {
-    (0..argument_count)
-        .map(|index| format!("a{index}"))
-        .collect()
 }
 
 fn find_local_function(
@@ -235,12 +244,24 @@ fn find_local_function(
 }
 
 fn emit_data_segments(decoded: &DecodedModule, writer: &mut TextWriter) {
-    for segment in decoded.data_segments() {
+    for (index, segment) in decoded.data_segments().iter().enumerate() {
         let byte_literal = luau_byte_string(segment.bytes());
-        writer.line(&format!(
-            "buffer.writestring(MEMORY, {}, {byte_literal})",
-            segment.offset()
-        ));
+        match segment.kind() {
+            DecodedDataSegmentKind::Active { offset } => {
+                writer.line(&format!(
+                    "buffer.writestring(MEMORY, {offset}, {byte_literal})"
+                ));
+            }
+            DecodedDataSegmentKind::Passive => {
+                writer.line(&format!(
+                    "local DATA_{index}: buffer = buffer.create({})",
+                    segment.bytes().len()
+                ));
+                writer.line(&format!(
+                    "buffer.writestring(DATA_{index}, 0, {byte_literal})"
+                ));
+            }
+        }
     }
 }
 
