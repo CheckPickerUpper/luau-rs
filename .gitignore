@@ -20,3 +20,6 @@ CONTEXT.md
 # Runtime logs and temporary scratch files are disposable artifacts.
 *.log
 *.tmp
+
+# Fixture build output (rebuild via scripts/build_fixture.sh)
+/fixtures/rust-hello/target/

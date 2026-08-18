@@ -1,0 +1,101 @@
+//! Roblox project layout: identities, execution sides, and output paths.
+
+use std::fmt;
+
+/// Which Roblox runtime realm a module executes in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleExecutionSide {
+    /// Runs only in the authoritative server runtime.
+    Server,
+    /// Runs only in each player's client runtime.
+    Client,
+    /// Is available to both runtimes and initialized independently by each one.
+    Shared,
+}
+
+/// Whether a module is an eager entrypoint or a lazily-initialized library.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectModuleRole {
+    /// Instantiates and invokes the module's `main` export eagerly.
+    Entrypoint,
+    /// Emits declarations only; a later import surface owns initialization.
+    Library,
+}
+
+/// Identifies one source module and its Roblox execution boundary.
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+pub enum ProjectModuleIdentity {
+    /// Places the module beneath `ServerScriptService`.
+    Server {
+        /// Is a slash-separated path relative to the server source root.
+        module_path: String,
+    },
+    /// Places the module beneath `StarterPlayerScripts`.
+    Client {
+        /// Is a slash-separated path relative to the client source root.
+        module_path: String,
+    },
+    /// Places the module beneath `ReplicatedStorage` for independent client
+    /// and server initialization.
+    Shared {
+        /// Is a slash-separated path relative to the shared source root.
+        module_path: String,
+    },
+}
+
+/// Keeps source identity decisions centralized before project layout derives target paths.
+impl ProjectModuleIdentity {
+    /// @why Lets compilation select Roblox placement without duplicating execution-side checks.
+    #[must_use]
+    pub const fn execution_side(&self) -> ModuleExecutionSide {
+        match self {
+            Self::Server { .. } => ModuleExecutionSide::Server,
+            Self::Client { .. } => ModuleExecutionSide::Client,
+            Self::Shared { .. } => ModuleExecutionSide::Shared,
+        }
+    }
+
+    /// @why Lets diagnostics name the offending source module without exposing storage.
+    #[must_use]
+    pub fn module_path(&self) -> &str {
+        match self {
+            Self::Server { module_path }
+            | Self::Client { module_path }
+            | Self::Shared { module_path } => module_path,
+        }
+    }
+
+    /// Derives the Roblox destination path for a module identity and role.
+    pub(crate) fn output_path_text(&self, module_role: ProjectModuleRole) -> Option<String> {
+        let module_path = self.module_path();
+        match (self, module_role) {
+            (Self::Server { .. }, ProjectModuleRole::Entrypoint) => {
+                Some(format!("ServerScriptService/{module_path}.server.luau"))
+            }
+            (Self::Client { .. }, ProjectModuleRole::Entrypoint) => Some(format!(
+                "StarterPlayer/StarterPlayerScripts/{module_path}.client.luau"
+            )),
+            (Self::Server { .. }, ProjectModuleRole::Library) => {
+                Some(format!("ServerScriptService/{module_path}.luau"))
+            }
+            (Self::Client { .. }, ProjectModuleRole::Library) => Some(format!(
+                "StarterPlayer/StarterPlayerScripts/{module_path}.luau"
+            )),
+            (Self::Shared { .. }, ProjectModuleRole::Library) => {
+                Some(format!("ReplicatedStorage/{module_path}.luau"))
+            }
+            (Self::Shared { .. }, ProjectModuleRole::Entrypoint) => None,
+        }
+    }
+}
+
+impl fmt::Display for ProjectModuleIdentity {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let execution_side = match self {
+            Self::Server { .. } => "server",
+            Self::Client { .. } => "client",
+            Self::Shared { .. } => "shared",
+        };
+        write!(formatter, "{execution_side}:{}", self.module_path())
+    }
+}
