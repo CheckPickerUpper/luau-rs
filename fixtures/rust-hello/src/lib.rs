@@ -17,6 +17,7 @@ unsafe extern "C" {
     fn roblox_instance_new(class_ptr: i32, parent_handle: i32) -> i32;
     fn roblox_set_property(handle: i32, property_ptr: i32, value: f64);
     fn roblox_set_vector3(handle: i32, property_ptr: i32, x: f64, y: f64, z: f64);
+    fn roblox_connect(handle: i32, event_ptr: i32, callback: extern "C" fn(i32) -> i32);
 }
 
 /// Casts a static C string's pointer to the wasm32 `i32` address space.
@@ -63,6 +64,31 @@ pub extern "C" fn fib(index: i32) -> i32 {
 pub extern "C" fn double_at(address: *mut i32) {
     unsafe {
         *address *= 2;
+    }
+}
+
+/// The most recent value the event callback observed, observable by tests.
+static mut LAST_CLICK: i32 = 0;
+
+/// Event callback registered through `roblox_connect`; doubles its input.
+extern "C" fn on_clicked(value: i32) -> i32 {
+    unsafe {
+        LAST_CLICK = value * 2;
+    }
+    value * 2
+}
+
+/// Returns the last value the event callback observed.
+#[unsafe(no_mangle)]
+pub extern "C" fn get_last_click() -> i32 {
+    unsafe { LAST_CLICK }
+}
+
+/// Connects a Rust callback to a mock event on the given instance handle.
+#[unsafe(no_mangle)]
+pub extern "C" fn subscribe(handle: i32) {
+    unsafe {
+        roblox_connect(handle, c_str_pointer(c"Clicked"), on_clicked);
     }
 }
 

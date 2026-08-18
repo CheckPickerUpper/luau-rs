@@ -61,6 +61,20 @@ fn generated_fixture_luau() -> String {
 
 /// A mock Roblox environment whose instances record what the runtime does.
 const MOCK_ROBLOX_ENVIRONMENT: &str = r#"
+local function make_event()
+    local connections = {}
+    return {
+        Connect = function(self, callback)
+            table.insert(connections, callback)
+            return { Disconnect = function(self) end }
+        end,
+        Fire = function(self, ...)
+            for _, callback in ipairs(connections) do
+                callback(...)
+            end
+        end,
+    }
+end
 local services = {
     Workspace = { Name = "Workspace", Children = {}, Destroy = function(self) end },
 }
@@ -72,6 +86,7 @@ local Instance = {
             Children = {},
             Parent = nil,
             Anchored = nil,
+            Clicked = make_event(),
             Destroy = function(self) end,
         }
     end,
@@ -98,7 +113,8 @@ fn driver_source(generated: &str, runtime: &str) -> String {
          {mock}\n\
          local runtime = RobloxRuntime.new(env)\n\
          local m = make()(runtime.imports)\n\
-         runtime:bind_memory(m.memory)\n\
+         runtime:bind_memory(m.memory)
+         runtime:bind_exports(m)\n\
          local handle = m.make_part(1, 2, 3)\n\
          local part = runtime:instance_at(handle)\n\
          assert(handle == 2, \"part handle should be 2, got \" .. tostring(handle))\n\
@@ -107,6 +123,9 @@ fn driver_source(generated: &str, runtime: &str) -> String {
          assert(part.Size.x == 1 and part.Size.y == 2 and part.Size.z == 3, \"size mismatch\")\n\
          assert(part.Anchored == 1, \"anchored should be 1\")\n\
          assert(printed[1] == \"part created\", \"print import mismatch\")\n\
+         m.subscribe(handle)\n\
+         part.Clicked:Fire(21)\n\
+         assert(m.get_last_click() == 42, \"event callback mismatch\")\n\
          assert(m.add(20, 22) == 42, \"add mismatch\")\n\
          assert(m.fib(9) == 34, \"fib mismatch\")\n"
     )

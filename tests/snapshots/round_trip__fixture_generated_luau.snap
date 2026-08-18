@@ -178,7 +178,7 @@ end
 
 local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any}
     local WASM_IMPORTS = imports
-    local FUNC_0: any, FUNC_1: any, FUNC_2: any, FUNC_3: any, FUNC_4: any, FUNC_5: any, FUNC_6: any, FUNC_7: any, FUNC_8: any, FUNC_9: any, FUNC_10: any, FUNC_11: any, FUNC_12: any, FUNC_13: any, FUNC_14: any
+    local FUNC_0: any, FUNC_1: any, FUNC_2: any, FUNC_3: any, FUNC_4: any, FUNC_5: any, FUNC_6: any, FUNC_7: any, FUNC_8: any, FUNC_9: any, FUNC_10: any, FUNC_11: any, FUNC_12: any, FUNC_13: any, FUNC_14: any, FUNC_15: any, FUNC_16: any, FUNC_17: any, FUNC_18: any
     local MEMORY: buffer = buffer.create(1114112)
     local MEMORY_PAGES: number = 17
     local MAXIMUM_PAGES: number = 1024
@@ -204,7 +204,38 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return WASM_IMPORTS["roblox"]["roblox_print"](p0)
     end
     
-    FUNC_5 = function(p0: number): number -- _RNvCs32fV4Cmf70g_10rust_hello13c_str_pointer
+    FUNC_5 = function(p0: number, p1: number, p2: number)
+        return WASM_IMPORTS["roblox"]["roblox_connect"](p0, p1, p2)
+    end
+    
+    FUNC_6 = function(p0: number): number -- _RNvCs32fV4Cmf70g_10rust_hello10on_clicked
+        local stack: {any} = {}
+        local sp: number = 0
+        sp += 1
+        stack[sp] = 0
+        sp += 1
+        stack[sp] = p0
+        sp += 1
+        stack[sp] = 1
+        local t0 = stack[sp]
+        sp -= 1
+        local t1 = stack[sp]
+        sp -= 1
+        sp += 1
+        stack[sp] = bit32.lshift(t1, t0)
+        local t2 = stack[sp]
+        p0 = t2
+        local t3 = stack[sp]
+        sp -= 1
+        local t4 = stack[sp]
+        sp -= 1
+        buffer.writei32(MEMORY, t4 + 1048740, t3)
+        sp += 1
+        stack[sp] = p0
+        return stack[sp - 0]
+    end
+    
+    FUNC_7 = function(p0: number): number -- _RNvCs32fV4Cmf70g_10rust_hello13c_str_pointer
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -288,7 +319,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             sp += 1
             stack[sp] = (t16 + t15)
             sp += 1
-            stack[sp] = 1048668
+            stack[sp] = 1048676
             local t17 = stack[sp]
             sp -= 1
             local t18 = stack[sp]
@@ -296,7 +327,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t19 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = FUNC_11(t19, t18, t17)
+            stack[sp] = FUNC_15(t19, t18, t17)
             error("wasm trap: unreachable")
         end
         sp += 1
@@ -317,7 +348,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_6 = function(p0: number) -- _RNvCs9hJ03s5DiqP_7___rustc17rust_begin_unwind
+    FUNC_8 = function(p0: number) -- _RNvCs9hJ03s5DiqP_7___rustc17rust_begin_unwind
         local stack: {any} = {}
         local sp: number = 0
         local exit_0: boolean = false
@@ -327,7 +358,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         end
     end
     
-    FUNC_7 = function(p0: number, p1: number): number -- add
+    FUNC_9 = function(p0: number, p1: number): number -- add
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -343,7 +374,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_8 = function(p0: number) -- double_at
+    FUNC_10 = function(p0: number) -- double_at
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -369,7 +400,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         buffer.writei32(MEMORY, t4 + 0, t3)
     end
     
-    FUNC_9 = function(p0: number): number -- fib
+    FUNC_11 = function(p0: number): number -- fib
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -479,7 +510,19 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_10 = function(p0: number, p1: number, p2: number): number -- make_part
+    FUNC_12 = function(): number -- get_last_click
+        local stack: {any} = {}
+        local sp: number = 0
+        sp += 1
+        stack[sp] = 0
+        local t0 = stack[sp]
+        sp -= 1
+        sp += 1
+        stack[sp] = buffer.readi32(MEMORY, t0 + 1048740)
+        return stack[sp - 0]
+    end
+    
+    FUNC_13 = function(p0: number, p1: number, p2: number): number -- make_part
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -488,7 +531,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t0 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = FUNC_5(t0)
+        stack[sp] = FUNC_7(t0)
         local t1 = stack[sp]
         sp -= 1
         sp += 1
@@ -501,7 +544,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t3 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = FUNC_5(t3)
+        stack[sp] = FUNC_7(t3)
         sp += 1
         stack[sp] = l0
         local t4 = stack[sp]
@@ -517,7 +560,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t7 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = FUNC_5(t7)
+        stack[sp] = FUNC_7(t7)
         sp += 1
         stack[sp] = p0
         sp += 1
@@ -543,7 +586,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t13 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = FUNC_5(t13)
+        stack[sp] = FUNC_7(t13)
         sp += 1
         stack[sp] = 1
         local t14 = stack[sp]
@@ -559,7 +602,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t17 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = FUNC_5(t17)
+        stack[sp] = FUNC_7(t17)
         local t18 = stack[sp]
         sp -= 1
         sp += 1
@@ -569,7 +612,30 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_11 = function(p0: number, p1: number, p2: number) -- _RNvNtCsaLlAxGApxxT_4core9panicking9panic_fmt
+    FUNC_14 = function(p0: number) -- subscribe
+        local stack: {any} = {}
+        local sp: number = 0
+        sp += 1
+        stack[sp] = p0
+        sp += 1
+        stack[sp] = 1048666
+        local t0 = stack[sp]
+        sp -= 1
+        sp += 1
+        stack[sp] = FUNC_7(t0)
+        sp += 1
+        stack[sp] = 2
+        local t1 = stack[sp]
+        sp -= 1
+        local t2 = stack[sp]
+        sp -= 1
+        local t3 = stack[sp]
+        sp -= 1
+        sp += 1
+        stack[sp] = FUNC_5(t3, t2, t1)
+    end
+    
+    FUNC_15 = function(p0: number, p1: number, p2: number) -- _RNvNtCsaLlAxGApxxT_4core9panicking9panic_fmt
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -654,11 +720,11 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t18 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = FUNC_6(t18)
+        stack[sp] = FUNC_8(t18)
         error("wasm trap: unreachable")
     end
     
-    FUNC_12 = function(p0: number, p1: number): number -- _RNvNtNtCsaLlAxGApxxT_4core3str5count14do_count_chars
+    FUNC_16 = function(p0: number, p1: number): number -- _RNvNtNtCsaLlAxGApxxT_4core3str5count14do_count_chars
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -2367,7 +2433,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_13 = function(p0: number, p1: number, p2: number): number -- _RNvMsa_NtCsaLlAxGApxxT_4core3fmtNtB5_9Formatter3pad
+    FUNC_17 = function(p0: number, p1: number, p2: number): number -- _RNvMsa_NtCsaLlAxGApxxT_4core3fmtNtB5_9Formatter3pad
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -2489,7 +2555,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                     local t18 = stack[sp]
                                     sp -= 1
                                     sp += 1
-                                    stack[sp] = FUNC_12(t18, t17)
+                                    stack[sp] = FUNC_16(t18, t17)
                                     local t19 = stack[sp]
                                     sp -= 1
                                     l2 = t19
@@ -3554,13 +3620,13 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_14 = function(p0: number, p1: number): number -- _RNvXs_NtNtCsaLlAxGApxxT_4core3num5errorNtB4_15TryFromIntErrorNtNtB8_3fmt7Display3fmt
+    FUNC_18 = function(p0: number, p1: number): number -- _RNvXs_NtNtCsaLlAxGApxxT_4core3num5errorNtB4_15TryFromIntErrorNtNtB8_3fmt7Display3fmt
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
         stack[sp] = p1
         sp += 1
-        stack[sp] = 1048684
+        stack[sp] = 1048692
         sp += 1
         stack[sp] = 47
         local t0 = stack[sp]
@@ -3570,13 +3636,14 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t2 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = FUNC_13(t2, t1, t0)
+        stack[sp] = FUNC_17(t2, t1, t0)
         return stack[sp - 0]
     end
     
-    buffer.writestring(MEMORY, 1048576, "\"wasm32 pointer conversion failed: \192\000Part\000src\\lib.rs\000Size\000Workspace\000part created\000Anchored\000\000\000*\000\016\000\010\000\000\000\031\000\000\000\013\000\000\000out of range integral type conversion attempted")
-    FUNCTIONS[2] = FUNC_14
-    local WASM_EXPORTS: {[string]: any} = { ["memory"] = MEMORY, ["add"] = FUNC_7, ["double_at"] = FUNC_8, ["fib"] = FUNC_9, ["make_part"] = FUNC_10 }
+    buffer.writestring(MEMORY, 1048576, "\"wasm32 pointer conversion failed: \192\000Part\000src\\lib.rs\000Size\000Workspace\000part created\000Anchored\000Clicked\000\000\000*\000\016\000\010\000\000\000 \000\000\000\013\000\000\000out of range integral type conversion attempted")
+    FUNCTIONS[2] = FUNC_18
+    FUNCTIONS[3] = FUNC_6
+    local WASM_EXPORTS: {[string]: any} = { ["memory"] = MEMORY, ["add"] = FUNC_9, ["double_at"] = FUNC_10, ["fib"] = FUNC_11, ["get_last_click"] = FUNC_12, ["make_part"] = FUNC_13, ["subscribe"] = FUNC_14, ["functions"] = FUNCTIONS }
     return WASM_EXPORTS
 end
 

@@ -308,6 +308,9 @@ fn emit_exports(decoded: &DecodedModule, writer: &mut TextWriter) {
             }
         }
     }
+    // The indirect-call table is always exported so the Roblox runtime can
+    // invoke Rust callbacks registered through imports (events).
+    entries.push("[\"functions\"] = FUNCTIONS".to_string());
     writer.line(&format!(
         "local WASM_EXPORTS: {{[string]: any}} = {{ {} }}",
         entries.join(", ")

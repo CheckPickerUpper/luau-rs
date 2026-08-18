@@ -33,6 +33,7 @@ export type RobloxEnvironment = {
 export type RobloxRuntime = {
     imports: { [string]: { [string]: any } },
     bind_memory: (memory: buffer) -> (),
+    bind_exports: (exports: { [string]: any }) -> (),
     handle_for: (instance: any) -> number,
     instance_at: (handle: number) -> any,
 }
@@ -49,6 +50,7 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
     local self = setmetatable({}, RobloxRuntime) :: RobloxRuntime
     self.env = env
     self.memory = nil
+    self.exports = nil
     self.instances = {}
     self.next_handle = FIRST_HANDLE
 
@@ -114,6 +116,27 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
         end
     end
 
+    roblox_imports.roblox_connect = function(
+        handle: number,
+        event_ptr: number,
+        callback_index: number
+    )
+        local instance = self:instance_at(handle)
+        local event_name = self:_read_string(event_ptr)
+        if instance == nil then
+            return
+        end
+        local event = instance[event_name]
+        if event ~= nil and event.Connect ~= nil then
+            event:Connect(function(...)
+                local callback = self.exports.functions[callback_index + 1]
+                if callback ~= nil then
+                    return callback(...)
+                end
+            end)
+        end
+    end
+
     self.imports = imports
     return self
 end
@@ -156,6 +179,11 @@ end
 -- Binds the module's linear memory so string decoding works.
 function RobloxRuntime:bind_memory(memory: buffer)
     self.memory = memory
+end
+
+-- Binds the module's exported surface so imports can invoke Rust callbacks.
+function RobloxRuntime:bind_exports(exports: { [string]: any })
+    self.exports = exports
 end
 
 return RobloxRuntime

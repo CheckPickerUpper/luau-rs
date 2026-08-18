@@ -335,6 +335,32 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(())
             }
             Instr::DataDrop(_) => Ok(()),
+            Instr::RefFunc(ref_func) => {
+                self.emit_push(&format!("FUNC_{}", ref_func.func.index()));
+                Ok(())
+            }
+            Instr::RefNull(_) => {
+                self.emit_push("nil");
+                Ok(())
+            }
+            Instr::RefIsNull(_) => {
+                let operand = self.pop_value();
+                self.emit_push(&format!("({operand} == nil)"));
+                Ok(())
+            }
+            Instr::TableGet(_) => {
+                let index = self.pop_value();
+                self.emit_push(&format!("FUNCTIONS[{index} + {LUAU_INDEX_OFFSET}]"));
+                Ok(())
+            }
+            Instr::TableSet(_) => {
+                let value = self.pop_value();
+                let index = self.pop_value();
+                self.writer.line(&format!(
+                    "FUNCTIONS[{index} + {LUAU_INDEX_OFFSET}] = {value}"
+                ));
+                Ok(())
+            }
             Instr::Load(load) => self.emit_load(load.kind, load.arg),
             Instr::Store(store) => self.emit_store(store.kind, store.arg),
             unsupported => Err(TranslationProblemReason::UnsupportedInstruction {
