@@ -92,7 +92,8 @@ fn given_overflowing_i32_module_when_run_in_luau_then_results_wrap_like_webassem
          assert(m.add(2147483647, 1) == -2147483648, \"i32 add overflow mismatch\")\n\
          assert(m.sub(-2147483648, 1) == 2147483647, \"i32 sub overflow mismatch\")\n\
          assert(m.mul(1073741824, 4) == 0, \"i32 mul overflow mismatch\")\n\
-         assert(m.chain(2147483647, 1, 2) == 0, \"i32 chained overflow mismatch\")\n"
+         assert(m.chain(2147483647, 1, 2) == 0, \"i32 chained overflow mismatch\")\n\
+         assert(m.chain(-2147483648, -1, 2) == -2, \"i32 negative chain overflow mismatch\")\n"
     );
     fs_err::write(&source_path, &driver)?;
 
