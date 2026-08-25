@@ -126,19 +126,50 @@ fn emit_globals(decoded: &DecodedModule, writer: &mut TextWriter) {
         return;
     }
     let mut entries = Vec::new();
-    for (index, global) in decoded.globals().iter().enumerate() {
-        let value_text = match global.initial_value() {
-            DecodedGlobalValue::I32(value) => value.to_string(),
-            DecodedGlobalValue::I64(value) => value.to_string(),
-            DecodedGlobalValue::F32(value) => luau_number_literal(f64::from(value)),
-            DecodedGlobalValue::F64(value) => luau_number_literal(value),
-            DecodedGlobalValue::NullReference => "nil".into(),
-        };
-        entries.push(format!(
-            "[{}] = {}",
-            index + super::writer::LUAU_INDEX_OFFSET,
-            value_text
-        ));
+    let mut slot_index = 0;
+    for global in decoded.globals() {
+        match global.initial_value() {
+            DecodedGlobalValue::I64(value) => {
+                let (low, high) = super::ops::luau_i64_parts(value);
+                entries.push(format!(
+                    "[{}] = {low}, [{}] = {high}",
+                    slot_index + super::writer::LUAU_INDEX_OFFSET,
+                    slot_index + super::writer::LUAU_INDEX_OFFSET + 1
+                ));
+                slot_index += 2;
+            }
+            DecodedGlobalValue::I32(value) => {
+                entries.push(format!(
+                    "[{}] = {}",
+                    slot_index + super::writer::LUAU_INDEX_OFFSET,
+                    value
+                ));
+                slot_index += 1;
+            }
+            DecodedGlobalValue::F32(value) => {
+                entries.push(format!(
+                    "[{}] = {}",
+                    slot_index + super::writer::LUAU_INDEX_OFFSET,
+                    luau_number_literal(f64::from(value))
+                ));
+                slot_index += 1;
+            }
+            DecodedGlobalValue::F64(value) => {
+                entries.push(format!(
+                    "[{}] = {}",
+                    slot_index + super::writer::LUAU_INDEX_OFFSET,
+                    luau_number_literal(value)
+                ));
+                slot_index += 1;
+            }
+            DecodedGlobalValue::NullReference => {
+                entries.push(format!(
+                    "[{}] = nil",
+                    slot_index + super::writer::LUAU_INDEX_OFFSET
+                ));
+                slot_index += 1;
+            }
+        }
     }
     writer.line(&format!(
         "local GLOBALS: {{any}} = {{ {} }}",
@@ -211,8 +242,17 @@ fn emit_import_proxy(
         ));
     }
     writer.push_indent();
-    let parameter_names = (0..function.params().len())
-        .map(|index| format!("p{index}"))
+    let parameter_names = function
+        .params()
+        .iter()
+        .enumerate()
+        .flat_map(|(index, value_type)| {
+            if *value_type == crate::wasm::WasmValueType::I64 {
+                vec![format!("p{index}_lo"), format!("p{index}_hi")]
+            } else {
+                vec![format!("p{index}")]
+            }
+        })
         .collect::<Vec<_>>();
     writer.line(&format!(
         "return WASM_IMPORTS[{}][{}]({})",

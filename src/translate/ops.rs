@@ -5,6 +5,14 @@ use walrus::ir::{BinaryOp, UnaryOp, Value};
 use super::problem::TranslationProblemReason;
 use super::writer::luau_number_literal;
 
+/// Splits a wasm i64 constant into the unsigned halves used by generated Luau.
+pub fn luau_i64_parts(value: i64) -> (String, String) {
+    let bits = u64::from_ne_bytes(value.to_ne_bytes());
+    let low = bits & 0xffff_ffff;
+    let high = bits >> 32;
+    (low.to_string(), high.to_string())
+}
+
 /// Renders a wasm constant as a Luau number literal.
 pub fn luau_constant(value: Value) -> Result<String, TranslationProblemReason> {
     match value {

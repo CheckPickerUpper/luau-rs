@@ -7,7 +7,7 @@
 
 use crate::wasm::{DecodedFunction, WasmDecodeProblemReason, WasmValueType};
 use std::collections::HashSet;
-use walrus::ir::{ExtendedLoad, Instr, InstrSeqId, LoadKind, MemArg, StoreKind};
+use walrus::ir::{ExtendedLoad, Instr, InstrSeqId, LoadKind, MemArg, StoreKind, Value};
 use walrus::{LocalFunction, LocalId, Module};
 
 use super::ops::{binop_expression, luau_constant, unop_expression};
@@ -21,6 +21,22 @@ struct ConstructId(usize);
 /// A stable identifier for one temporary value within a function.
 #[derive(Debug, Clone, Copy)]
 struct TempId(usize);
+
+/// The two scalar slots used for one i64 value.
+#[derive(Debug, Clone)]
+struct ValueParts {
+    low: String,
+    high: String,
+}
+
+impl ValueParts {
+    const fn scalar(value: String) -> Self {
+        Self {
+            low: value,
+            high: String::new(),
+        }
+    }
+}
 
 /// The kind of a structured wasm construct, for branch-target handling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,25 +111,56 @@ pub fn emit_function_body(
 }
 
 /// Returns the (parameter names, return annotation) pair for a generated function.
-/// Returns the (parameter names, return annotation) pair for a generated function.
 #[must_use]
 pub fn function_signature(function: &DecodedFunction) -> (Vec<String>, String) {
-    let parameters = function
-        .params()
-        .iter()
-        .enumerate()
-        .map(|(index, value_type)| format!("p{index}: {}", value_type.luau_type_name()))
-        .collect();
-    let return_annotation = match function.results() {
+    let parameters = expanded_parameters(function.params());
+    let return_types = expanded_types(function.results())
+        .into_iter()
+        .map(WasmValueType::luau_type_name)
+        .collect::<Vec<_>>();
+    let return_annotation = match return_types.as_slice() {
         [] => String::new(),
-        [single] => (*single).luau_type_name().into(),
-        multiple => multiple
-            .iter()
-            .map(|value_type| (*value_type).luau_type_name())
-            .collect::<Vec<_>>()
-            .join(", "),
+        [single] => (*single).to_owned(),
+        _ => format!("({})", return_types.join(", ")),
     };
     (parameters, return_annotation)
+}
+
+fn expanded_parameters(types: &[WasmValueType]) -> Vec<String> {
+    let mut parameters = Vec::new();
+    for (index, value_type) in types.iter().enumerate() {
+        if *value_type == WasmValueType::I64 {
+            parameters.push(format!("p{index}_lo: number"));
+            parameters.push(format!("p{index}_hi: number"));
+        } else {
+            parameters.push(format!("p{index}: {}", value_type.luau_type_name()));
+        }
+    }
+    parameters
+}
+
+fn expanded_types(types: &[WasmValueType]) -> Vec<WasmValueType> {
+    types
+        .iter()
+        .flat_map(|value_type| {
+            if *value_type == WasmValueType::I64 {
+                vec![WasmValueType::I32, WasmValueType::I32]
+            } else {
+                vec![*value_type]
+            }
+        })
+        .collect()
+}
+
+fn wasm_types(types: &[walrus::ValType]) -> Result<Vec<WasmValueType>, TranslationProblemReason> {
+    types
+        .iter()
+        .copied()
+        .map(|value_type| {
+            WasmValueType::try_from(value_type)
+                .map_err(|reason| TranslationProblemReason::Internal(reason.to_string()))
+        })
+        .collect()
 }
 
 const fn zero_initializer(value_type: WasmValueType) -> &'static str {
@@ -203,12 +250,19 @@ impl<'a> FunctionEmitter<'a> {
         self.writer.line(&format!("local {SP_NAME}: number = 0"));
         for local_index in self.input.function.params().len()..self.local_positions.len() {
             let local_type = self.local_type_at(local_index)?;
-            self.writer.line(&format!(
-                "local {}: {} = {}",
-                self.local_name_at(local_index),
-                local_type.luau_type_name(),
-                zero_initializer(local_type)
-            ));
+            let local_name = self.local_base_name_at(local_index);
+            if local_type == WasmValueType::I64 {
+                self.writer
+                    .line(&format!("local {local_name}_lo: number = 0"));
+                self.writer
+                    .line(&format!("local {local_name}_hi: number = 0"));
+            } else {
+                self.writer.line(&format!(
+                    "local {local_name}: {} = {}",
+                    local_type.luau_type_name(),
+                    zero_initializer(local_type)
+                ));
+            }
         }
         Ok(())
     }
@@ -234,36 +288,38 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Result<(), TranslationProblemReason> {
         match instruction {
             Instr::Const(constant) => {
-                self.emit_push(&luau_constant(constant.value)?);
+                match constant.value {
+                    Value::I64(value) => {
+                        let (low, high) = super::ops::luau_i64_parts(value);
+                        self.emit_push_i64(&low, &high);
+                    }
+                    value => self.emit_push(&luau_constant(value)?),
+                }
                 Ok(())
             }
             Instr::LocalGet(local_get) => {
-                let local_name = self.local_name(local_get.local)?;
-                self.emit_push(&local_name);
+                let parts = self.local_parts(local_get.local)?;
+                self.emit_value_parts(&parts);
                 Ok(())
             }
             Instr::LocalSet(local_set) => {
-                let local_name = self.local_name(local_set.local)?;
-                self.emit_pop_into(&local_name);
+                let parts = self.local_parts(local_set.local)?;
+                self.emit_pop_into_parts(&parts);
                 Ok(())
             }
             Instr::LocalTee(local_tee) => {
-                let local_name = self.local_name(local_tee.local)?;
-                self.emit_tee_into(&local_name);
+                let parts = self.local_parts(local_tee.local)?;
+                self.emit_tee_into_parts(&parts);
                 Ok(())
             }
             Instr::GlobalGet(global_get) => {
-                self.emit_push(&format!(
-                    "GLOBALS[{}]",
-                    global_get.global.index() + LUAU_INDEX_OFFSET
-                ));
+                let parts = self.global_parts(global_get.global)?;
+                self.emit_value_parts(&parts);
                 Ok(())
             }
             Instr::GlobalSet(global_set) => {
-                self.emit_pop_into(&format!(
-                    "GLOBALS[{}]",
-                    global_set.global.index() + LUAU_INDEX_OFFSET
-                ));
+                let parts = self.global_parts(global_set.global)?;
+                self.emit_pop_into_parts(&parts);
                 Ok(())
             }
             Instr::Unop(unop) => self.emit_unop(unop.op),
@@ -284,7 +340,7 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(())
             }
             Instr::CallIndirect(call_indirect) => {
-                self.emit_call_indirect(call_indirect.ty, call_indirect.table);
+                self.emit_call_indirect(call_indirect.ty, call_indirect.table)?;
                 Ok(())
             }
             Instr::Block(block) => self.emit_construct(ConstructKind::Block, block.seq),
@@ -556,14 +612,24 @@ impl<'a> FunctionEmitter<'a> {
         if self.unreachable {
             return;
         }
-        let result_count = self.input.function.results().len();
-        if result_count == 0 {
+        let result_types = self.input.function.results();
+        let slot_count = result_types
+            .iter()
+            .map(|value_type| {
+                if *value_type == WasmValueType::I64 {
+                    2
+                } else {
+                    1
+                }
+            })
+            .sum::<usize>();
+        if slot_count == 0 {
             return;
         }
-        let values = (0..result_count)
+        let values = (0..slot_count)
             .map(|offset| {
-                let position = result_count - offset;
-                format!("stack[sp - {}]", position - 1)
+                let position = slot_count - offset;
+                format!("{STACK_NAME}[{SP_NAME} - {}]", position - 1)
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -574,7 +640,7 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_final_return();
     }
 
-    fn local_name(&self, local: walrus::LocalId) -> Result<String, TranslationProblemReason> {
+    fn local_parts(&self, local: walrus::LocalId) -> Result<ValueParts, TranslationProblemReason> {
         let Some(position) = self
             .local_positions
             .iter()
@@ -584,10 +650,18 @@ impl<'a> FunctionEmitter<'a> {
                 "unknown local {local:?}"
             )));
         };
-        Ok(self.local_name_at(position))
+        let local_type = self.local_type_at(position)?;
+        let local_name = self.local_base_name_at(position);
+        if local_type == WasmValueType::I64 {
+            return Ok(ValueParts {
+                low: format!("{local_name}_lo"),
+                high: format!("{local_name}_hi"),
+            });
+        }
+        Ok(ValueParts::scalar(local_name))
     }
 
-    fn local_name_at(&self, position: usize) -> String {
+    fn local_base_name_at(&self, position: usize) -> String {
         if position < self.input.function.params().len() {
             format!("p{position}")
         } else {
@@ -613,10 +687,54 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn global_parts(
+        &self,
+        global: walrus::GlobalId,
+    ) -> Result<ValueParts, TranslationProblemReason> {
+        let global_data = self.input.module.globals.get(global);
+        let value_type = WasmValueType::try_from(global_data.ty)
+            .map_err(|reason| TranslationProblemReason::Internal(reason.to_string()))?;
+        let mut slot = 0;
+        for candidate in self.input.module.globals.iter() {
+            if candidate.id() == global {
+                break;
+            }
+            slot += if candidate.ty == walrus::ValType::I64 {
+                2
+            } else {
+                1
+            };
+        }
+        let index = slot + LUAU_INDEX_OFFSET;
+        if value_type == WasmValueType::I64 {
+            return Ok(ValueParts {
+                low: format!("GLOBALS[{index}]"),
+                high: format!("GLOBALS[{}]", index + 1),
+            });
+        }
+        Ok(ValueParts::scalar(format!("GLOBALS[{index}]")))
+    }
+
     fn emit_push(&mut self, value_expression: &str) {
         self.writer.line(&format!("{SP_NAME} += 1"));
         self.writer
             .line(&format!("{STACK_NAME}[{SP_NAME}] = {value_expression}"));
+    }
+
+    fn emit_push_i64(&mut self, low: &str, high: &str) {
+        self.writer.line(&format!("{SP_NAME} += 2"));
+        self.writer
+            .line(&format!("{STACK_NAME}[{SP_NAME} - 1] = {low}"));
+        self.writer
+            .line(&format!("{STACK_NAME}[{SP_NAME}] = {high}"));
+    }
+
+    fn emit_value_parts(&mut self, parts: &ValueParts) {
+        if parts.high.is_empty() {
+            self.emit_push(&parts.low);
+        } else {
+            self.emit_push_i64(&parts.low, &parts.high);
+        }
     }
 
     /// Pops one value into a fresh temporary and returns its name.
@@ -628,9 +746,25 @@ impl<'a> FunctionEmitter<'a> {
         temp
     }
 
+    fn pop_i64(&mut self) -> (String, String) {
+        let high = self.pop_value();
+        let low = self.pop_value();
+        (low, high)
+    }
+
     fn emit_pop_into(&mut self, target: &str) {
         let value = self.pop_value();
         self.writer.line(&format!("{target} = {value}"));
+    }
+
+    fn emit_pop_into_parts(&mut self, target: &ValueParts) {
+        if target.high.is_empty() {
+            self.emit_pop_into(&target.low);
+        } else {
+            let (low, high) = self.pop_i64();
+            self.writer.line(&format!("{} = {low}", target.low));
+            self.writer.line(&format!("{} = {high}", target.high));
+        }
     }
 
     fn emit_tee_into(&mut self, target: &str) {
@@ -638,6 +772,21 @@ impl<'a> FunctionEmitter<'a> {
         self.writer
             .line(&format!("local {temp} = {STACK_NAME}[{SP_NAME}]"));
         self.writer.line(&format!("{target} = {temp}"));
+    }
+
+    fn emit_tee_into_parts(&mut self, target: &ValueParts) {
+        if target.high.is_empty() {
+            self.emit_tee_into(&target.low);
+        } else {
+            let high = self.next_temp();
+            let low = self.next_temp();
+            self.writer
+                .line(&format!("local {high} = {STACK_NAME}[{SP_NAME}]"));
+            self.writer
+                .line(&format!("local {low} = {STACK_NAME}[{SP_NAME} - 1]"));
+            self.writer.line(&format!("{} = {low}", target.low));
+            self.writer.line(&format!("{} = {high}", target.high));
+        }
     }
 
     fn emit_drop(&mut self) {
@@ -660,54 +809,226 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn emit_unop(&mut self, op: walrus::ir::UnaryOp) -> Result<(), TranslationProblemReason> {
-        let operand = self.pop_value();
-        self.emit_push(&unop_expression(op, &operand)?);
+        match op {
+            walrus::ir::UnaryOp::I64Eqz => {
+                let (low, high) = self.pop_i64();
+                self.emit_push(&format!("wasm_i64_eqz({low}, {high})"));
+            }
+            walrus::ir::UnaryOp::I32WrapI64 => {
+                let (low, _) = self.pop_i64();
+                self.emit_push(&format!("wasm_i32_wrap({low})"));
+            }
+            walrus::ir::UnaryOp::I64ExtendSI32 => {
+                let operand = self.pop_value();
+                self.emit_i64_call(&format!("wasm_i64_from_i32s({operand})"));
+            }
+            walrus::ir::UnaryOp::I64ExtendUI32 => {
+                let operand = self.pop_value();
+                self.emit_i64_call(&format!("wasm_i64_from_i32u({operand})"));
+            }
+            walrus::ir::UnaryOp::I64Extend8S => {
+                let (low, _) = self.pop_i64();
+                self.emit_i64_call(&format!("wasm_i64_extend8s({low})"));
+            }
+            walrus::ir::UnaryOp::I64Extend16S => {
+                let (low, _) = self.pop_i64();
+                self.emit_i64_call(&format!("wasm_i64_extend16s({low})"));
+            }
+            walrus::ir::UnaryOp::I64Extend32S => {
+                let (low, _) = self.pop_i64();
+                self.emit_i64_call(&format!("wasm_i64_extend32s({low})"));
+            }
+            walrus::ir::UnaryOp::F32ConvertSI64 | walrus::ir::UnaryOp::F64ConvertSI64 => {
+                let (low, high) = self.pop_i64();
+                self.emit_push(&format!("wasm_i64_to_f64s({low}, {high})"));
+            }
+            walrus::ir::UnaryOp::F32ConvertUI64 | walrus::ir::UnaryOp::F64ConvertUI64 => {
+                let (low, high) = self.pop_i64();
+                self.emit_push(&format!("wasm_i64_to_f64u({low}, {high})"));
+            }
+            walrus::ir::UnaryOp::I64TruncSF32 | walrus::ir::UnaryOp::I64TruncSF64 => {
+                let operand = self.pop_value();
+                self.emit_i64_call(&format!("wasm_i64_truncs_pair({operand})"));
+            }
+            walrus::ir::UnaryOp::I64TruncUF32 | walrus::ir::UnaryOp::I64TruncUF64 => {
+                let operand = self.pop_value();
+                self.emit_i64_call(&format!("wasm_i64_truncu_pair({operand})"));
+            }
+            walrus::ir::UnaryOp::I64ReinterpretF64 => {
+                let operand = self.pop_value();
+                self.emit_i64_call(&format!("wasm_reinterpret_i64_f64_pair({operand})"));
+            }
+            walrus::ir::UnaryOp::F64ReinterpretI64 => {
+                let (low, high) = self.pop_i64();
+                self.emit_push(&format!("wasm_reinterpret_f64_i64_pair({low}, {high})"));
+            }
+            op => {
+                let operand = self.pop_value();
+                self.emit_push(&unop_expression(op, &operand)?);
+            }
+        }
         Ok(())
     }
 
     fn emit_binop(&mut self, op: walrus::ir::BinaryOp) -> Result<(), TranslationProblemReason> {
+        let i64_helper = match op {
+            walrus::ir::BinaryOp::I64Eq => Some(("wasm_i64_eq", false)),
+            walrus::ir::BinaryOp::I64Ne => Some(("wasm_i64_ne", false)),
+            walrus::ir::BinaryOp::I64LtS => Some(("wasm_i64_lt_s", false)),
+            walrus::ir::BinaryOp::I64LtU => Some(("wasm_i64_lt_u", false)),
+            walrus::ir::BinaryOp::I64GtS => Some(("wasm_i64_gt_s", false)),
+            walrus::ir::BinaryOp::I64GtU => Some(("wasm_i64_gt_u", false)),
+            walrus::ir::BinaryOp::I64LeS => Some(("wasm_i64_le_s", false)),
+            walrus::ir::BinaryOp::I64LeU => Some(("wasm_i64_le_u", false)),
+            walrus::ir::BinaryOp::I64GeS => Some(("wasm_i64_ge_s", false)),
+            walrus::ir::BinaryOp::I64GeU => Some(("wasm_i64_ge_u", false)),
+            walrus::ir::BinaryOp::I64Add => Some(("wasm_i64_add", true)),
+            walrus::ir::BinaryOp::I64Sub => Some(("wasm_i64_sub", true)),
+            walrus::ir::BinaryOp::I64Mul => Some(("wasm_i64_mul", true)),
+            walrus::ir::BinaryOp::I64DivS => Some(("wasm_i64_div_s", true)),
+            walrus::ir::BinaryOp::I64DivU => Some(("wasm_i64_div_u", true)),
+            walrus::ir::BinaryOp::I64RemS => Some(("wasm_i64_rem_s", true)),
+            walrus::ir::BinaryOp::I64RemU => Some(("wasm_i64_rem_u", true)),
+            walrus::ir::BinaryOp::I64And => Some(("wasm_i64_and", true)),
+            walrus::ir::BinaryOp::I64Or => Some(("wasm_i64_or", true)),
+            walrus::ir::BinaryOp::I64Xor => Some(("wasm_i64_xor", true)),
+            walrus::ir::BinaryOp::I64Shl => Some(("wasm_i64_shl", true)),
+            walrus::ir::BinaryOp::I64ShrS => Some(("wasm_i64_shr_s", true)),
+            walrus::ir::BinaryOp::I64ShrU => Some(("wasm_i64_shr_u", true)),
+            walrus::ir::BinaryOp::I64Rotl => Some(("wasm_i64_rotl", true)),
+            walrus::ir::BinaryOp::I64Rotr => Some(("wasm_i64_rotr", true)),
+            _ => None,
+        };
+        if let Some((helper, returns_i64)) = i64_helper {
+            let (right_low, right_high) = self.pop_i64();
+            let (left_low, left_high) = self.pop_i64();
+            let expression = if matches!(
+                op,
+                walrus::ir::BinaryOp::I64Shl
+                    | walrus::ir::BinaryOp::I64ShrS
+                    | walrus::ir::BinaryOp::I64ShrU
+                    | walrus::ir::BinaryOp::I64Rotl
+                    | walrus::ir::BinaryOp::I64Rotr
+            ) {
+                format!("{helper}({left_low}, {left_high}, {right_low})")
+            } else {
+                format!("{helper}({left_low}, {left_high}, {right_low}, {right_high})")
+            };
+            if returns_i64 {
+                self.emit_i64_call(&expression);
+            } else {
+                self.emit_push(&expression);
+            }
+            return Ok(());
+        }
         let right = self.pop_value();
         let left = self.pop_value();
         self.emit_push(&binop_expression(op, &left, &right)?);
         Ok(())
     }
 
+    fn emit_i64_call(&mut self, expression: &str) {
+        let low = self.next_temp();
+        let high = self.next_temp();
+        self.writer
+            .line(&format!("local {low}, {high} = {expression}"));
+        self.emit_push_i64(&low, &high);
+    }
+
     fn emit_call(&mut self, function_index: usize) -> Result<(), TranslationProblemReason> {
-        let callee_arity = self
+        let (parameter_types, result_types) = self
             .input
             .module
             .funcs
             .iter()
             .find(|function| function.id().index() == function_index)
-            .map(|function| self.input.module.types.get(function.ty()).params().len())
+            .map(|function| {
+                let function_type = self.input.module.types.get(function.ty());
+                (
+                    function_type.params().to_vec(),
+                    function_type.results().to_vec(),
+                )
+            })
             .ok_or_else(|| {
                 TranslationProblemReason::Internal(format!(
                     "call targets unknown function {function_index}"
                 ))
             })?;
-        let arguments = self.pop_arguments(callee_arity);
-        self.emit_push(&format!("FUNC_{function_index}({})", arguments.join(", ")));
+        let parameter_types = wasm_types(&parameter_types)?;
+        let result_types = wasm_types(&result_types)?;
+        let arguments = self.pop_arguments(&parameter_types);
+        self.emit_call_results(
+            &result_types,
+            &format!("FUNC_{function_index}({})", arguments.join(", ")),
+        );
         Ok(())
     }
 
-    fn emit_call_indirect(&mut self, function_type: walrus::TypeId, _table: walrus::TableId) {
+    fn emit_call_indirect(
+        &mut self,
+        function_type: walrus::TypeId,
+        _table: walrus::TableId,
+    ) -> Result<(), TranslationProblemReason> {
         let table_index = self.pop_value();
         let function_type = self.input.module.types.get(function_type);
-        let arguments = self.pop_arguments(function_type.params().len());
-        self.emit_push(&format!(
-            "FUNCTIONS[{table_index} + {LUAU_INDEX_OFFSET}]({})",
-            arguments.join(", ")
-        ));
+        let parameter_types = wasm_types(function_type.params())?;
+        let result_types = wasm_types(function_type.results())?;
+        let arguments = self.pop_arguments(&parameter_types);
+        self.emit_call_results(
+            &result_types,
+            &format!(
+                "FUNCTIONS[{table_index} + {LUAU_INDEX_OFFSET}]({})",
+                arguments.join(", ")
+            ),
+        );
+        Ok(())
+    }
+
+    fn emit_call_results(&mut self, result_types: &[WasmValueType], expression: &str) {
+        if result_types.is_empty() {
+            self.writer.line(expression);
+            return;
+        }
+        let expanded_result_count = result_types
+            .iter()
+            .map(|value_type| {
+                if *value_type == WasmValueType::I64 {
+                    2
+                } else {
+                    1
+                }
+            })
+            .sum::<usize>();
+        let temporaries = (0..expanded_result_count)
+            .map(|_| self.next_temp())
+            .collect::<Vec<_>>();
+        self.writer
+            .line(&format!("local {} = {expression}", temporaries.join(", ")));
+        let mut offset = 0;
+        for value_type in result_types {
+            if *value_type == WasmValueType::I64 {
+                self.emit_push_i64(&temporaries[offset], &temporaries[offset + 1]);
+                offset += 2;
+            } else {
+                self.emit_push(&temporaries[offset]);
+                offset += 1;
+            }
+        }
     }
 
     /// Pops call arguments (last argument on top) and returns them in order.
-    fn pop_arguments(&mut self, arity: usize) -> Vec<String> {
-        let mut arguments = Vec::with_capacity(arity);
-        for _ in 0..arity {
-            arguments.push(self.pop_value());
+    fn pop_arguments(&mut self, types: &[WasmValueType]) -> Vec<String> {
+        let mut groups = Vec::with_capacity(types.len());
+        for value_type in types.iter().rev() {
+            if *value_type == WasmValueType::I64 {
+                let (low, high) = self.pop_i64();
+                groups.push(vec![low, high]);
+            } else {
+                groups.push(vec![self.pop_value()]);
+            }
         }
-        arguments.reverse();
-        arguments
+        groups.reverse();
+        groups.into_iter().flatten().collect()
     }
 
     fn emit_memory_grow(&mut self) {
@@ -767,72 +1088,175 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_load(&mut self, kind: LoadKind, arg: MemArg) -> Result<(), TranslationProblemReason> {
         let address = self.pop_value();
-        let read_expression = match kind {
-            LoadKind::I32 { atomic: false }
-            | LoadKind::I64_32 {
-                kind: ExtendedLoad::SignExtend,
-            } => "readi32",
-            LoadKind::I64 { atomic: false } | LoadKind::F64 => "readf64",
-            LoadKind::F32 => "readf32",
-            LoadKind::I32_8 {
-                kind: ExtendedLoad::ZeroExtend,
+        let offset = arg.offset;
+        match kind {
+            LoadKind::I64 { atomic: false } => {
+                let low = self.next_temp();
+                let high = self.next_temp();
+                self.writer.line(&format!(
+                    "local {low} = buffer.readu32(MEMORY, {address} + {offset})"
+                ));
+                self.writer.line(&format!(
+                    "local {high} = buffer.readu32(MEMORY, {address} + {})",
+                    offset + 4
+                ));
+                self.emit_push_i64(&low, &high);
             }
-            | LoadKind::I64_8 {
-                kind: ExtendedLoad::ZeroExtend,
-            } => "readu8",
-            LoadKind::I32_8 {
+            LoadKind::I64_8 {
                 kind: ExtendedLoad::SignExtend,
+            } => {
+                self.emit_i64_call(&format!(
+                    "wasm_i64_from_i32s(buffer.readi8(MEMORY, {address} + {offset}))"
+                ));
             }
-            | LoadKind::I64_8 {
-                kind: ExtendedLoad::SignExtend,
-            } => "readi8",
-            LoadKind::I32_16 {
+            LoadKind::I64_8 {
                 kind: ExtendedLoad::ZeroExtend,
+            } => {
+                self.emit_i64_call(&format!(
+                    "wasm_i64_from_i32u(buffer.readu8(MEMORY, {address} + {offset}))"
+                ));
             }
-            | LoadKind::I64_16 {
+            LoadKind::I64_16 {
+                kind: ExtendedLoad::SignExtend,
+            } => {
+                self.emit_i64_call(&format!(
+                    "wasm_i64_from_i32s(buffer.readi16(MEMORY, {address} + {offset}))"
+                ));
+            }
+            LoadKind::I64_16 {
                 kind: ExtendedLoad::ZeroExtend,
-            } => "readu16",
-            LoadKind::I32_16 {
-                kind: ExtendedLoad::SignExtend,
+            } => {
+                self.emit_i64_call(&format!(
+                    "wasm_i64_from_i32u(buffer.readu16(MEMORY, {address} + {offset}))"
+                ));
             }
-            | LoadKind::I64_16 {
+            LoadKind::I64_32 {
                 kind: ExtendedLoad::SignExtend,
-            } => "readi16",
+            } => {
+                self.emit_i64_call(&format!(
+                    "wasm_i64_from_i32s(buffer.readi32(MEMORY, {address} + {offset}))"
+                ));
+            }
             LoadKind::I64_32 {
                 kind: ExtendedLoad::ZeroExtend,
-            } => "readu32",
+            } => {
+                self.emit_i64_call(&format!(
+                    "wasm_i64_from_i32u(buffer.readu32(MEMORY, {address} + {offset}))"
+                ));
+            }
+            LoadKind::I32 { atomic: false } => {
+                self.emit_push(&format!("buffer.readi32(MEMORY, {address} + {offset})"));
+            }
+            LoadKind::F64 => {
+                self.emit_push(&format!("buffer.readf64(MEMORY, {address} + {offset})"));
+            }
+            LoadKind::F32 => {
+                self.emit_push(&format!("buffer.readf32(MEMORY, {address} + {offset})"));
+            }
+            LoadKind::I32_8 {
+                kind: ExtendedLoad::ZeroExtend,
+            } => self.emit_push(&format!("buffer.readu8(MEMORY, {address} + {offset})")),
+            LoadKind::I32_8 {
+                kind: ExtendedLoad::SignExtend,
+            } => self.emit_push(&format!("buffer.readi8(MEMORY, {address} + {offset})")),
+            LoadKind::I32_16 {
+                kind: ExtendedLoad::ZeroExtend,
+            } => self.emit_push(&format!("buffer.readu16(MEMORY, {address} + {offset})")),
+            LoadKind::I32_16 {
+                kind: ExtendedLoad::SignExtend,
+            } => self.emit_push(&format!("buffer.readi16(MEMORY, {address} + {offset})")),
             unsupported => {
                 return Err(TranslationProblemReason::UnsupportedInstruction {
                     instruction: format!("load {unsupported:?}"),
                 });
             }
-        };
-        self.emit_push(&format!(
-            "buffer.{read_expression}(MEMORY, {address} + {})",
-            arg.offset
-        ));
+        }
         Ok(())
     }
 
     fn emit_store(&mut self, kind: StoreKind, arg: MemArg) -> Result<(), TranslationProblemReason> {
-        let value = self.pop_value();
-        let address = self.pop_value();
-        let write_expression = match kind {
-            StoreKind::I32 { atomic: false } | StoreKind::I64_32 { atomic: false } => "writei32",
-            StoreKind::I64 { atomic: false } | StoreKind::F64 => "writef64",
-            StoreKind::F32 => "writef32",
-            StoreKind::I32_8 { atomic: false } | StoreKind::I64_8 { atomic: false } => "writei8",
-            StoreKind::I32_16 { atomic: false } | StoreKind::I64_16 { atomic: false } => "writei16",
+        let offset = arg.offset;
+        match kind {
+            StoreKind::I64 { atomic: false } => {
+                let high = self.pop_value();
+                let low = self.pop_value();
+                let address = self.pop_value();
+                self.writer.line(&format!(
+                    "buffer.writeu32(MEMORY, {address} + {offset}, {low})"
+                ));
+                self.writer.line(&format!(
+                    "buffer.writeu32(MEMORY, {address} + {}, {high})",
+                    offset + 4
+                ));
+            }
+            StoreKind::I64_8 { atomic: false } => {
+                let high = self.pop_value();
+                let low = self.pop_value();
+                let address = self.pop_value();
+                let _ = high;
+                self.writer.line(&format!(
+                    "buffer.writeu8(MEMORY, {address} + {offset}, {low})"
+                ));
+            }
+            StoreKind::I64_16 { atomic: false } => {
+                let high = self.pop_value();
+                let low = self.pop_value();
+                let address = self.pop_value();
+                let _ = high;
+                self.writer.line(&format!(
+                    "buffer.writeu16(MEMORY, {address} + {offset}, {low})"
+                ));
+            }
+            StoreKind::I64_32 { atomic: false } => {
+                let high = self.pop_value();
+                let low = self.pop_value();
+                let address = self.pop_value();
+                let _ = high;
+                self.writer.line(&format!(
+                    "buffer.writeu32(MEMORY, {address} + {offset}, {low})"
+                ));
+            }
+            StoreKind::I32 { atomic: false } => {
+                let value = self.pop_value();
+                let address = self.pop_value();
+                self.writer.line(&format!(
+                    "buffer.writei32(MEMORY, {address} + {offset}, {value})"
+                ));
+            }
+            StoreKind::F64 => {
+                let value = self.pop_value();
+                let address = self.pop_value();
+                self.writer.line(&format!(
+                    "buffer.writef64(MEMORY, {address} + {offset}, {value})"
+                ));
+            }
+            StoreKind::F32 => {
+                let value = self.pop_value();
+                let address = self.pop_value();
+                self.writer.line(&format!(
+                    "buffer.writef32(MEMORY, {address} + {offset}, {value})"
+                ));
+            }
+            StoreKind::I32_8 { atomic: false } => {
+                let value = self.pop_value();
+                let address = self.pop_value();
+                self.writer.line(&format!(
+                    "buffer.writei8(MEMORY, {address} + {offset}, {value})"
+                ));
+            }
+            StoreKind::I32_16 { atomic: false } => {
+                let value = self.pop_value();
+                let address = self.pop_value();
+                self.writer.line(&format!(
+                    "buffer.writei16(MEMORY, {address} + {offset}, {value})"
+                ));
+            }
             unsupported => {
                 return Err(TranslationProblemReason::UnsupportedInstruction {
                     instruction: format!("store {unsupported:?}"),
                 });
             }
-        };
-        self.writer.line(&format!(
-            "buffer.{write_expression}(MEMORY, {address} + {}, {value})",
-            arg.offset
-        ));
+        }
         Ok(())
     }
 

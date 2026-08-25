@@ -114,9 +114,10 @@ Rejected loudly (typed reasons): SIMD (`v128`), atomics, memory imports,
 exception tags, shared/64-bit memories, table/global exports, and
 passive/declarative element segments.
 
-Documented approximations: `i64` values are represented as Luau numbers and
-are exact only through 53 bits; some i64 operations currently reuse 32-bit
-helper paths. `f32` rounding is not modeled, and division-by-zero does not
+`i64` values are represented exactly as two unsigned 32-bit Luau number
+values. The pair representation is used across locals, globals, calls,
+results, arithmetic, comparisons, bitwise operations, conversions, and
+memory access. `f32` rounding is not modeled, and division-by-zero does not
 trap.
 
 See `CLAUDE.md` for the full architecture and agent guidance.
