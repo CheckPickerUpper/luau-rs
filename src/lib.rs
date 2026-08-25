@@ -11,10 +11,11 @@ pub mod translate;
 pub mod wasm;
 
 pub use project::{
-    compile_project, CompiledProject, GeneratedProjectModule, ModuleExecutionSide,
-    ProjectCompilationOutcome, ProjectCompilationProblem, ProjectCompilationRejection,
-    ProjectCompilationRequest, ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource,
-    ProjectOutputPath,
+    compile_project, discover_project_request, CompiledProject, GeneratedProjectModule,
+    ModuleExecutionSide, ProjectCompilationOutcome, ProjectCompilationProblem,
+    ProjectCompilationRejection, ProjectCompilationRequest, ProjectDiscoveryProblem,
+    ProjectManifest, ProjectManifestProblem, ProjectModuleIdentity, ProjectModuleRole,
+    ProjectModuleSource, ProjectOutputPath,
 };
 pub use translate::{
     translate_module, GeneratedLuauText, MainInvocation, TranslateOptions, TranslateOutcome,
