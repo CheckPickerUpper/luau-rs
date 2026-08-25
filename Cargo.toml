@@ -20,6 +20,7 @@ walrus = "0.26.5"
 
 [dev-dependencies]
 assert_cmd = "2.2.2"
+full_moon = { version = "2.2.0", features = ["luau"] }
 insta = "1.48.0"
 predicates = "3.1.4"
 rstest = "0.26.1"

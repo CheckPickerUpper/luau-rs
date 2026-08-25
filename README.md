@@ -51,12 +51,17 @@ required oracles (pinned revision, `bit32`-era, no native bitwise ops):
 
 ```bash
 python scripts/build_pinned_luau.py     # one-time bootstrap
-cargo test
+cargo +stable fmt --check
+cargo +stable clippy --all-targets --all-features --locked -- -D warnings
+cargo +stable test --all-targets --all-features --locked
 ```
 
 The complete integration suite is written as Rust-native behavior scenarios
 using `rstest`. Each case has an explicit Given/When/Then structure, so the
 behavior and its evidence live together without a second feature-file DSL.
+Generated Luau is also parsed by Full Moon and compiled, analyzed, and run by
+the pinned official Luau tools; missing oracle binaries fail the suite rather
+than silently skipping validation.
 Scenario names follow `given_<context>_when_<action>_then_<outcome>` so the
 test list itself explains the contract:
 

@@ -9,9 +9,6 @@ permissions:
 
 jobs:
   validate:
-    # Shares the CI_ENABLED switch with the compiler contracts so "CI is off"
-    # means every hosted job, not a subset. Absent means enabled.
-    if: vars.CI_ENABLED != 'false'
     name: Require linked work, behavior, and proof
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -71,6 +68,16 @@ jobs:
               errors.push('`## Proof` must contain at least one bullet with a backticked command or verification artifact.');
             }
 
+            const requiredProofCommands = [
+              /\bcargo(?: \+stable)? fmt --check\b/,
+              /\bcargo(?: \+stable)? clippy --all-targets --all-features --locked -- -D warnings\b/,
+              /\bcargo(?: \+stable)? test --all-targets --all-features --locked\b/,
+            ];
+            const missingProofCommands = requiredProofCommands.filter((command) => !command.test(proofContent));
+            if (missingProofCommands.length > 0) {
+              errors.push('`## Proof` must list `cargo +stable fmt --check`, strict locked Clippy, and the full locked test suite.');
+            }
+
             if (errors.length > 0) {
               core.setFailed([
                 'Pull requests must use this body schema:',
@@ -82,7 +89,9 @@ jobs:
                 'Describe the user-visible result.',
                 '',
                 '## Proof',
-                '- `cargo test --all-targets --locked`',
+                '- `cargo +stable fmt --check`',
+                '- `cargo +stable clippy --all-targets --all-features --locked -- -D warnings`',
+                '- `cargo +stable test --all-targets --all-features --locked`',
                 '',
                 ...errors.map((error) => `- ${error}`),
               ].join('\n'));
