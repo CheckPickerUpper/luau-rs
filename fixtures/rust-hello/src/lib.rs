@@ -17,7 +17,22 @@ unsafe extern "C" {
     fn roblox_instance_new(class_ptr: i32, parent_handle: i32) -> i32;
     fn roblox_set_property(handle: i32, property_ptr: i32, value: f64);
     fn roblox_set_vector3(handle: i32, property_ptr: i32, x: f64, y: f64, z: f64);
-    fn roblox_connect(handle: i32, event_ptr: i32, callback: extern "C" fn(i32) -> i32);
+    fn roblox_connect(handle: i32, event_ptr: i32, callback: extern "C" fn(i32) -> i32) -> i32;
+    fn roblox_disconnect(connection_handle: i32) -> i32;
+    fn roblox_remote_event_fire_server(handle: i32, remote_ptr: i32, payload: i32);
+    fn roblox_remote_event_fire_client(
+        handle: i32,
+        player_handle: i32,
+        remote_ptr: i32,
+        payload: i32,
+    );
+    fn roblox_remote_function_invoke_server(handle: i32, remote_ptr: i32, payload: i32) -> i32;
+    fn roblox_remote_function_invoke_client(
+        handle: i32,
+        player_handle: i32,
+        remote_ptr: i32,
+        payload: i32,
+    ) -> i32;
 }
 
 /// Casts a static C string's pointer to the wasm32 `i32` address space.
@@ -86,9 +101,79 @@ pub extern "C" fn get_last_click() -> i32 {
 
 /// Connects a Rust callback to a mock event on the given instance handle.
 #[unsafe(no_mangle)]
-pub extern "C" fn subscribe(handle: i32) {
+pub extern "C" fn subscribe(handle: i32) -> i32 {
+    unsafe { roblox_connect(handle, c_str_pointer(c"Clicked"), on_clicked) }
+}
+
+/// Disconnects an event callback and reports whether a live connection was removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn unsubscribe(connection_handle: i32) -> i32 {
+    unsafe { roblox_disconnect(connection_handle) }
+}
+
+/// Creates a player-shaped Instance for client-directed remote calls.
+#[unsafe(no_mangle)]
+pub extern "C" fn make_player() -> i32 {
+    unsafe { roblox_instance_new(c_str_pointer(c"Player"), 0) }
+}
+
+/// Creates a RemoteEvent under ReplicatedStorage and returns its handle.
+#[unsafe(no_mangle)]
+pub extern "C" fn make_remote_event() -> i32 {
+    let service = unsafe { roblox_get_service(c_str_pointer(c"ReplicatedStorage")) };
+    unsafe { roblox_instance_new(c_str_pointer(c"RemoteEvent"), service) }
+}
+
+/// Sends a numeric payload through a server-directed RemoteEvent import.
+#[unsafe(no_mangle)]
+pub extern "C" fn fire_remote_event(handle: i32, payload: i32) {
     unsafe {
-        roblox_connect(handle, c_str_pointer(c"Clicked"), on_clicked);
+        roblox_remote_event_fire_server(handle, c_str_pointer(c"RemoteEvent"), payload);
+    }
+}
+
+/// Sends a numeric payload through a client-directed RemoteEvent import.
+#[unsafe(no_mangle)]
+pub extern "C" fn fire_remote_event_to_client(handle: i32, player_handle: i32, payload: i32) {
+    unsafe {
+        roblox_remote_event_fire_client(
+            handle,
+            player_handle,
+            c_str_pointer(c"RemoteEvent"),
+            payload,
+        );
+    }
+}
+
+/// Creates a RemoteFunction under ReplicatedStorage and returns its handle.
+#[unsafe(no_mangle)]
+pub extern "C" fn make_remote_function() -> i32 {
+    let service = unsafe { roblox_get_service(c_str_pointer(c"ReplicatedStorage")) };
+    unsafe { roblox_instance_new(c_str_pointer(c"RemoteFunction"), service) }
+}
+
+/// Invokes a numeric server-directed RemoteFunction and returns its result.
+#[unsafe(no_mangle)]
+pub extern "C" fn invoke_remote_function(handle: i32, payload: i32) -> i32 {
+    unsafe {
+        roblox_remote_function_invoke_server(handle, c_str_pointer(c"RemoteFunction"), payload)
+    }
+}
+
+/// Invokes a numeric client-directed RemoteFunction and returns its result.
+#[unsafe(no_mangle)]
+pub extern "C" fn invoke_remote_function_on_client(
+    handle: i32,
+    player_handle: i32,
+    payload: i32,
+) -> i32 {
+    unsafe {
+        roblox_remote_function_invoke_client(
+            handle,
+            player_handle,
+            c_str_pointer(c"RemoteFunction"),
+            payload,
+        )
     }
 }
 
