@@ -67,9 +67,12 @@ local Instance = {
     new = function(className)
         return {
             ClassName = className,
+            Name = className,
             Children = {},
             Parent = nil,
             Anchored = nil,
+            CanCollide = nil,
+            Size = nil,
             Clicked = make_event(),
             Destroy = function(self) end,
         }
@@ -108,7 +111,8 @@ fn driver_source(generated: &str, runtime: &str) -> String {
          part.Clicked:Fire(21)\n\
          assert(m.get_last_click() == 42, \"event callback mismatch\")\n\
          assert(m.add(20, 22) == 42, \"add mismatch\")\n\
-         assert(m.fib(9) == 34, \"fib mismatch\")\n"
+         assert(m.fib(9) == 34, \"fib mismatch\")\n\
+         m.destroy_part(handle)\n"
     )
 }
 

@@ -15,6 +15,11 @@
 -- arguments arrive as pointers into the module's linear memory and are
 -- decoded by this runtime after bind_memory.
 --
+-- The covered property surface is deliberately small and explicit: Name and
+-- ClassName are strings, Anchored is a number, Size is a Vector3, and
+-- CanCollide is available for missing-property detection. An unknown property
+-- is an error instead of an accidental dynamic capability.
+--
 -- The constructor takes the Roblox globals explicitly so the same module can
 -- run against the real platform or against a mock environment in tests.
 
@@ -63,36 +68,94 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
 
     roblox_imports.roblox_get_service = function(name_ptr: number): number
         local service_name = self:_read_string(name_ptr)
-        return self:handle_for(env.game:GetService(service_name))
+        local service = env.game:GetService(service_name)
+        if service == nil then
+            error("Roblox service capability is not covered: " .. service_name)
+        end
+        return self:handle_for(service)
     end
 
-    roblox_imports.roblox_instance_new = function(class_ptr: number, parent_handle: number): number
+    roblox_imports.roblox_instance_new = function(class_ptr: number): number
         local class_name = self:_read_string(class_ptr)
         local instance = env.Instance.new(class_name)
-        if parent_handle ~= NULL_HANDLE then
-            local parent = self:instance_at(parent_handle)
-            if parent ~= nil then
-                instance.Parent = parent
-            end
-        end
         return self:handle_for(instance)
     end
 
-    roblox_imports.roblox_set_property = function(handle: number, property_ptr: number, value: number)
-        local instance = self:instance_at(handle)
-        local property_name = self:_read_string(property_ptr)
-        if instance ~= nil then
-            instance[property_name] = value
+    roblox_imports.roblox_set_parent = function(handle: number, parent_handle: number)
+        local instance = self:_require_instance(handle)
+        if parent_handle == NULL_HANDLE then
+            instance.Parent = nil
+            return
         end
+        instance.Parent = self:_require_instance(parent_handle)
+    end
+
+    roblox_imports.roblox_set_property = function(handle: number, property_ptr: number, value: number)
+        local instance = self:_require_instance(handle)
+        local property_name = self:_read_string(property_ptr)
+        self:_require_writable_property(property_name, "number")
+        instance[property_name] = value
     end
 
     roblox_imports.roblox_get_property = function(handle: number, property_ptr: number): number
-        local instance = self:instance_at(handle)
+        local instance = self:_require_instance(handle)
         local property_name = self:_read_string(property_ptr)
-        if instance == nil then
-            return 0
+        self:_require_supported_property(property_name)
+        local value = instance[property_name]
+        if typeof(value) ~= "number" then
+            error("Roblox property is not a number: " .. property_name)
         end
-        return instance[property_name] or 0
+        return value
+    end
+
+    roblox_imports.roblox_set_string_property = function(
+        handle: number,
+        property_ptr: number,
+        value_ptr: number
+    )
+        local instance = self:_require_instance(handle)
+        local property_name = self:_read_string(property_ptr)
+        self:_require_writable_property(property_name, "string")
+        instance[property_name] = self:_read_string(value_ptr)
+    end
+
+    roblox_imports.roblox_get_property_kind = function(handle: number, property_ptr: number): number
+        local instance = self:_require_instance(handle)
+        local property_name = self:_read_string(property_ptr)
+        self:_require_supported_property(property_name)
+        local value = instance[property_name]
+        if value == nil then
+            return 0
+        elseif typeof(value) == "number" then
+            return 1
+        elseif typeof(value) == "string" then
+            return 2
+        elseif typeof(value) == "Vector3" then
+            return 3
+        end
+        return 4
+    end
+
+    roblox_imports.roblox_get_string_property = function(
+        handle: number,
+        property_ptr: number,
+        output_ptr: number,
+        output_capacity: number
+    ): number
+        local instance = self:_require_instance(handle)
+        local property_name = self:_read_string(property_ptr)
+        self:_require_supported_property(property_name)
+        local value = instance[property_name]
+        if typeof(value) ~= "string" then
+            error("Roblox property is not a string: " .. property_name)
+        end
+        if #value > output_capacity then
+            return -1
+        end
+        for index = 1, #value do
+            buffer.writeu8(self.memory, output_ptr + index - 1, string.byte(value, index))
+        end
+        return #value
     end
 
     roblox_imports.roblox_set_vector3 = function(
@@ -102,18 +165,16 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
         y: number,
         z: number
     )
-        local instance = self:instance_at(handle)
+        local instance = self:_require_instance(handle)
         local property_name = self:_read_string(property_ptr)
-        if instance ~= nil then
-            instance[property_name] = env.Vector3.new(x, y, z)
-        end
+        self:_require_writable_property(property_name, "Vector3")
+        instance[property_name] = env.Vector3.new(x, y, z)
     end
 
     roblox_imports.roblox_destroy = function(handle: number)
-        local instance = self:instance_at(handle)
-        if instance ~= nil then
-            instance:Destroy()
-        end
+        local instance = self:_require_instance(handle)
+        instance:Destroy()
+        self.instances[handle] = nil
     end
 
     roblox_imports.roblox_connect = function(
@@ -121,20 +182,19 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
         event_ptr: number,
         callback_index: number
     )
-        local instance = self:instance_at(handle)
+        local instance = self:_require_instance(handle)
         local event_name = self:_read_string(event_ptr)
-        if instance == nil then
-            return
-        end
         local event = instance[event_name]
-        if event ~= nil and event.Connect ~= nil then
-            event:Connect(function(...)
-                local callback = self.exports.functions[callback_index + 1]
-                if callback ~= nil then
-                    return callback(...)
-                end
-            end)
+        if event == nil or event.Connect == nil then
+            error("Roblox event capability is not covered: " .. event_name)
         end
+        event:Connect(function(...)
+            local callback = self.exports.functions[callback_index + 1]
+            if callback == nil then
+                error("Roblox callback export is missing: " .. tostring(callback_index))
+            end
+            return callback(...)
+        end)
     end
 
     self.imports = imports
@@ -158,6 +218,36 @@ function RobloxRuntime:_read_string(pointer: number): string
         index += 1
     end
     return table.concat(characters)
+end
+
+function RobloxRuntime:_require_instance(handle: number): any
+    local instance = self:instance_at(handle)
+    if instance == nil then
+        error("Roblox instance handle is not live: " .. tostring(handle))
+    end
+    return instance
+end
+
+function RobloxRuntime:_require_supported_property(property_name: string)
+    if property_name ~= "Name"
+        and property_name ~= "ClassName"
+        and property_name ~= "Anchored"
+        and property_name ~= "Size"
+        and property_name ~= "CanCollide"
+    then
+        error("Roblox property capability is not covered: " .. property_name)
+    end
+end
+
+function RobloxRuntime:_require_writable_property(property_name: string, expected_type: string)
+    if property_name == "Anchored" and expected_type == "number" then
+        return
+    elseif property_name == "Name" and expected_type == "string" then
+        return
+    elseif property_name == "Size" and expected_type == "Vector3" then
+        return
+    end
+    error("Roblox writable property capability is not covered: " .. property_name)
 end
 
 -- Resolves a handle to a live instance, or nil when the handle is absent.
