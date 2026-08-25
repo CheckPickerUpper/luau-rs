@@ -535,6 +535,7 @@ dependencies = [
  "clap",
  "fs-err",
  "full_moon",
+ "gimli",
  "insta",
  "predicates",
  "rstest",
@@ -546,6 +547,7 @@ dependencies = [
  "tracing-subscriber",
  "walkdir",
  "walrus",
+ "wasmparser 0.245.1",
  "wast",
 ]
 

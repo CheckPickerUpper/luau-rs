@@ -6,10 +6,12 @@
 //! Luau module per decoded module, and [`project::compile_project`] assembles
 //! multiple modules into a Roblox project layout.
 
+pub mod diagnostics;
 pub mod project;
 pub mod translate;
 pub mod wasm;
 
+pub use diagnostics::{Diagnostic, DiagnosticReport, SourceLocation};
 pub use project::{
     compile_project, discover_project_request, CompiledProject, GeneratedProjectModule,
     ModuleExecutionSide, ProjectCompilationOutcome, ProjectCompilationProblem,

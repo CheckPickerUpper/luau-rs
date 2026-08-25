@@ -1,3 +1,4 @@
+use crate::diagnostics::{function_context, source_location, Diagnostic, DiagnosticReport};
 use thiserror::Error;
 
 /// Names one reason a wasm module cannot be accepted by the luau-rs pipeline.
@@ -82,13 +83,57 @@ pub enum WasmDecodeProblemReason {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WasmDecodeRejection {
     problems: Vec<WasmDecodeProblemReason>,
+    diagnostics: DiagnosticReport,
 }
 
 impl WasmDecodeRejection {
     /// @why Lets every rejection problem travel together through one outcome.
     #[must_use]
-    pub const fn from_problems(problems: Vec<WasmDecodeProblemReason>) -> Self {
-        Self { problems }
+    pub fn from_problems(problems: Vec<WasmDecodeProblemReason>) -> Self {
+        let diagnostics = DiagnosticReport::without_locations(
+            problems
+                .iter()
+                .map(|problem| (problem_code(problem).into(), problem.to_string())),
+        );
+        Self {
+            problems,
+            diagnostics,
+        }
+    }
+
+    /// Builds diagnostics while the parsed wasm metadata is still available.
+    pub(crate) fn from_module(
+        problems: Vec<WasmDecodeProblemReason>,
+        module: &walrus::Module,
+        raw_wasm: &[u8],
+    ) -> Self {
+        let mut diagnostics = problems
+            .iter()
+            .map(|problem| {
+                let preferred = |function: &walrus::Function| match problem {
+                    WasmDecodeProblemReason::UnsupportedVectorType => {
+                        let ty = module.types.get(function.ty());
+                        ty.params()
+                            .iter()
+                            .chain(ty.results())
+                            .any(|value_type| *value_type == walrus::ValType::V128)
+                    }
+                    _ => true,
+                };
+                let (function, offset) =
+                    function_context(module, preferred).unwrap_or((None, None));
+                Diagnostic {
+                    code: problem_code(problem).into(),
+                    message: problem.to_string(),
+                    location: source_location(raw_wasm, function, offset),
+                }
+            })
+            .collect::<Vec<_>>();
+        diagnostics.dedup();
+        Self {
+            problems,
+            diagnostics: DiagnosticReport::new(diagnostics),
+        }
     }
 
     /// @why Lets callers report every problem at once instead of stopping at the first.
@@ -101,6 +146,12 @@ impl WasmDecodeRejection {
         &self.problems
     }
 
+    /// Returns the stable structured diagnostics for these rejection reasons.
+    #[must_use]
+    pub const fn diagnostics(&self) -> &DiagnosticReport {
+        &self.diagnostics
+    }
+
     /// @why Gives diagnostics a stable count without exposing the problem vector.
     #[must_use]
     pub const fn problem_count(&self) -> usize {
@@ -111,5 +162,24 @@ impl WasmDecodeRejection {
 impl From<WasmDecodeProblemReason> for WasmDecodeRejection {
     fn from(reason: WasmDecodeProblemReason) -> Self {
         Self::from_problems(vec![reason])
+    }
+}
+
+const fn problem_code(problem: &WasmDecodeProblemReason) -> &'static str {
+    match problem {
+        WasmDecodeProblemReason::MalformedModule(_) => "malformed_module",
+        WasmDecodeProblemReason::UnsupportedMemoryCount { .. } => "unsupported_memory_count",
+        WasmDecodeProblemReason::MemorySizeTooLarge { .. } => "memory_size_too_large",
+        WasmDecodeProblemReason::NegativeSegmentOffset { .. } => "negative_segment_offset",
+        WasmDecodeProblemReason::MemoryIndexTooLarge { .. } => "memory_index_too_large",
+        WasmDecodeProblemReason::UnsupportedImportKind { .. } => "unsupported_import_kind",
+        WasmDecodeProblemReason::UnsupportedInstruction { .. } => "unsupported_instruction",
+        WasmDecodeProblemReason::UnsupportedVectorType => "unsupported_vector_type",
+        WasmDecodeProblemReason::UnsupportedExceptionHandling => "unsupported_exception_handling",
+        WasmDecodeProblemReason::InvalidDataSegmentMemory { .. } => "invalid_data_segment_memory",
+        WasmDecodeProblemReason::UnsupportedElementSegment => "unsupported_element_segment",
+        WasmDecodeProblemReason::UnsupportedExportKind { .. } => "unsupported_export_kind",
+        WasmDecodeProblemReason::UnsupportedGlobalInitializer => "unsupported_global_initializer",
+        WasmDecodeProblemReason::UnsupportedDataOffset => "unsupported_data_offset",
     }
 }

@@ -489,7 +489,9 @@ pub fn decode_module(wasm_bytes: &[u8]) -> DecodeOutcome {
             start_function,
         }))
     } else {
-        DecodeOutcome::Rejected(WasmDecodeRejection::from_problems(problems))
+        DecodeOutcome::Rejected(WasmDecodeRejection::from_module(
+            problems, &module, wasm_bytes,
+        ))
     }
 }
 
