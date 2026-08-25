@@ -17,6 +17,11 @@ use super::writer::{
 
 /// The default growth cap in pages when the module declares no maximum.
 const DEFAULT_MAXIMUM_PAGES: u32 = 1_024;
+
+const fn declared_maximum_pages(pages: u32) -> u32 {
+    pages
+}
+
 /// The imports parameter name inside the generated factory.
 const IMPORTS_NAME: &str = "imports";
 
@@ -105,7 +110,7 @@ fn emit_memory(decoded: &DecodedModule, writer: &mut TextWriter) {
         u64::from(memory.initial_pages()) * u64::from(super::writer::WASM_PAGE_SIZE_BYTES);
     let maximum_pages = memory
         .maximum_pages()
-        .map_or(DEFAULT_MAXIMUM_PAGES, |pages| pages);
+        .map_or(DEFAULT_MAXIMUM_PAGES, declared_maximum_pages);
     writer.line(&format!(
         "local MEMORY: buffer = buffer.create({byte_size})"
     ));
