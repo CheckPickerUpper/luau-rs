@@ -100,9 +100,10 @@ ready.
 
 ## Current scope
 
-Supported: the full core wasm instruction set — numeric ops (i32/i64/f32/f64),
+Supported: the currently translated core wasm subset — numeric ops
+(i32/i64/f32/f64),
 comparisons, conversions, locals, globals, memory load/store, **bulk memory
-(copy/fill/init + passive data segments)**, `call` / `call_indirect`,
+(copy/fill/init)**, active and passive data segments, `call` / `call_indirect`,
 `block` / `loop` / `if` / `br` / `br_table`, `select`, `memory.grow`, data
 segments, element segments, start function, exports, function imports.
 
@@ -110,13 +111,15 @@ The bundled `runtime/roblox.luau` provides a handle-based Roblox binding layer
 (get service, instance creation, number + Vector3 properties, print, destroy),
 tested against a mock Roblox environment.
 
-Rejected loudly (typed reasons): SIMD (`v128`), atomics, memory imports,
-exception tags, shared/64-bit memories, table/global exports, and
-passive/declarative element segments.
+Rejected loudly (typed reasons): SIMD (`v128`), atomics,
+exception-handling tags, shared or 64-bit memories, multiple memories,
+non-function imports, global/table/tag exports, and passive/declarative element
+segments. Passive **data** segments are supported
+through `memory.init`; passive element segments are not.
 
-Documented approximations: `i64` values are represented as Luau numbers and
-are exact only through 53 bits; some i64 operations currently reuse 32-bit
-helper paths. `f32` rounding is not modeled, and division-by-zero does not
-trap.
+Documented approximations: `i64` values are represented as Luau numbers, so
+values above the exact-integer range of IEEE-754 doubles are rounded; several
+operations currently reuse 32-bit helper paths. `f32` rounding is not modeled,
+and division-by-zero does not trap.
 
 See `CLAUDE.md` for the full architecture and agent guidance.
