@@ -1,0 +1,117 @@
+//! End-to-end proof that i32 arithmetic keeps WebAssembly wrapping semantics.
+
+mod support;
+
+use assert_cmd::Command;
+use luau_rs::{
+    decode_module, translate_module, DecodeOutcome, MainInvocation, TranslateOptions,
+    TranslateOutcome,
+};
+use support::official_luau_tool;
+use walrus::ir::BinaryOp;
+use walrus::{FunctionBuilder, Module, ValType};
+
+/// Builds a small Wasm module whose exports exercise the overflowing cases.
+fn arithmetic_fixture_wasm() -> Vec<u8> {
+    let mut module = Module::default();
+    add_binary_export(&mut module, "add", BinaryOp::I32Add);
+    add_binary_export(&mut module, "sub", BinaryOp::I32Sub);
+    add_binary_export(&mut module, "mul", BinaryOp::I32Mul);
+
+    let first = module.locals.add(ValType::I32);
+    let second = module.locals.add(ValType::I32);
+    let factor = module.locals.add(ValType::I32);
+    let mut builder = FunctionBuilder::new(
+        &mut module.types,
+        &[ValType::I32, ValType::I32, ValType::I32],
+        &[ValType::I32],
+    );
+    builder
+        .func_body()
+        .local_get(first)
+        .local_get(second)
+        .binop(BinaryOp::I32Add)
+        .local_get(factor)
+        .binop(BinaryOp::I32Mul);
+    let chain = builder.finish(vec![first, second, factor], &mut module.funcs);
+    module.exports.add("chain", chain);
+
+    module.emit_wasm()
+}
+
+/// Adds a two-argument i32 binary export to the fixture module.
+fn add_binary_export(module: &mut Module, name: &str, operation: BinaryOp) {
+    let left = module.locals.add(ValType::I32);
+    let right = module.locals.add(ValType::I32);
+    let mut builder = FunctionBuilder::new(
+        &mut module.types,
+        &[ValType::I32, ValType::I32],
+        &[ValType::I32],
+    );
+    builder
+        .func_body()
+        .local_get(left)
+        .local_get(right)
+        .binop(operation);
+    let function = builder.finish(vec![left, right], &mut module.funcs);
+    module.exports.add(name, function);
+}
+
+/// Translates the arithmetic fixture into Luau source.
+fn generate_arithmetic_luau() -> String {
+    let decoded = match decode_module(&arithmetic_fixture_wasm()) {
+        DecodeOutcome::Decoded(decoded) => decoded,
+        DecodeOutcome::Rejected(rejection) => {
+            assert!(false, "arithmetic fixture rejected: {rejection:?}");
+            return String::new();
+        }
+    };
+    let options = TranslateOptions::with_main_invocation(MainInvocation::LeaveIdle);
+    match translate_module(&decoded, options) {
+        TranslateOutcome::Translated(artifact) => artifact.into_text(),
+        TranslateOutcome::Rejected(rejection) => {
+            assert!(false, "arithmetic translation rejected: {rejection:?}");
+            String::new()
+        }
+    }
+}
+
+/// Creates a temporary directory for the official-runtime fixture.
+fn temporary_directory() -> tempfile::TempDir {
+    match tempfile::Builder::new()
+        .prefix("luau-rs-i32-arithmetic")
+        .tempdir()
+    {
+        Ok(directory) => directory,
+        Err(error) => {
+            assert!(false, "could not create temporary directory: {error}");
+            std::process::exit(1)
+        }
+    }
+}
+
+/// Official Luau must observe WebAssembly's exact i32 wraparound behavior.
+#[test]
+fn official_luau_wraps_i32_arithmetic() {
+    let generated = generate_arithmetic_luau();
+    let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
+    let temp_dir = temporary_directory();
+    let source_path = temp_dir.path().join("driver.luau");
+    let driver = format!(
+        "local function make()\n{generated}\nend\n\
+         local m = make()({{}})\n\
+         assert(m.add(2147483647, 1) == -2147483648, \"i32 add overflow mismatch\")\n\
+         assert(m.sub(-2147483648, 1) == 2147483647, \"i32 sub overflow mismatch\")\n\
+         assert(m.mul(1073741824, 4) == 0, \"i32 mul overflow mismatch\")\n\
+         assert(m.chain(2147483647, 1, 2) == 0, \"i32 chained overflow mismatch\")\n"
+    );
+    match fs_err::write(&source_path, &driver) {
+        Ok(()) => {}
+        Err(error) => {
+            assert!(false, "could not write driver: {error}");
+            return;
+        }
+    }
+
+    Command::new(luau_path).arg(&source_path).assert().success();
+}

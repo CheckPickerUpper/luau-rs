@@ -97,12 +97,13 @@ The bundled `runtime/roblox.luau` provides a handle-based Roblox binding layer
 (get service, instance creation, number + Vector3 properties, print, destroy),
 tested against a mock Roblox environment.
 
-Rejected loudly (typed reasons): SIMD (`v128`), atomics, bulk memory, memory
-imports, exception tags, shared/64-bit memories, table/global exports,
-passive segments.
+Rejected loudly (typed reasons): SIMD (`v128`), atomics, memory imports,
+exception tags, shared/64-bit memories, table/global exports, and
+passive/declarative element segments.
 
-Documented approximations: `i64` beyond 53 bits (Luau numbers are doubles),
-`i64` unsigned ops lower to signed, `f32` rounding is not modeled,
-division-by-zero does not trap.
+Documented approximations: `i64` values are represented as Luau numbers and
+are exact only through 53 bits; some i64 operations currently reuse 32-bit
+helper paths. `f32` rounding is not modeled, and division-by-zero does not
+trap.
 
 See `CLAUDE.md` for the full architecture and agent guidance.

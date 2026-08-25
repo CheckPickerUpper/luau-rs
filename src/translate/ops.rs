@@ -101,13 +101,16 @@ pub fn binop_expression(
         BinaryOp::I32GtU => format!("wasm_i32_gtu({left}, {right})"),
         BinaryOp::I32LeU => format!("wasm_i32_leu({left}, {right})"),
         BinaryOp::I32GeU => format!("wasm_i32_geu({left}, {right})"),
-        BinaryOp::I32Add | BinaryOp::I64Add | BinaryOp::F32Add | BinaryOp::F64Add => {
+        BinaryOp::I32Add => format!("wasm_i32_wrap(({left} + {right}))"),
+        BinaryOp::I32Sub => format!("wasm_i32_wrap(({left} - {right}))"),
+        BinaryOp::I32Mul => format!("wasm_i32_wrap(({left} * {right}))"),
+        BinaryOp::I64Add | BinaryOp::F32Add | BinaryOp::F64Add => {
             format!("({left} + {right})")
         }
-        BinaryOp::I32Sub | BinaryOp::I64Sub | BinaryOp::F32Sub | BinaryOp::F64Sub => {
+        BinaryOp::I64Sub | BinaryOp::F32Sub | BinaryOp::F64Sub => {
             format!("({left} - {right})")
         }
-        BinaryOp::I32Mul | BinaryOp::I64Mul | BinaryOp::F32Mul | BinaryOp::F64Mul => {
+        BinaryOp::I64Mul | BinaryOp::F32Mul | BinaryOp::F64Mul => {
             format!("({left} * {right})")
         }
         BinaryOp::F32Div | BinaryOp::F64Div => format!("({left} / {right})"),

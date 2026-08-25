@@ -1,5 +1,6 @@
 ---
 source: tests/round_trip.rs
+assertion_line: 84
 expression: generated
 ---
 --!strict
@@ -248,7 +249,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t1 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = (t1 - t0)
+        stack[sp] = wasm_i32_wrap((t1 - t0))
         local t2 = stack[sp]
         l0 = t2
         local t3 = stack[sp]
@@ -300,7 +301,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t12 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = (t12 + t11)
+            stack[sp] = wasm_i32_wrap((t12 + t11))
             local t13 = stack[sp]
             sp -= 1
             local t14 = stack[sp]
@@ -317,7 +318,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t16 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = (t16 + t15)
+            stack[sp] = wasm_i32_wrap((t16 + t15))
             sp += 1
             stack[sp] = 1048676
             local t17 = stack[sp]
@@ -339,7 +340,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t21 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = (t21 + t20)
+        stack[sp] = wasm_i32_wrap((t21 + t20))
         local t22 = stack[sp]
         sp -= 1
         GLOBALS[1] = t22
@@ -370,7 +371,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t1 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = (t1 + t0)
+        stack[sp] = wasm_i32_wrap((t1 + t0))
         return stack[sp - 0]
     end
     
@@ -483,7 +484,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t11 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = (t11 + t10)
+            stack[sp] = wasm_i32_wrap((t11 + t10))
             local t12 = stack[sp]
             sp -= 1
             p0 = t12
@@ -496,7 +497,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t14 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = (t14 + t13)
+            stack[sp] = wasm_i32_wrap((t14 + t13))
             local t15 = stack[sp]
             sp -= 1
             l1 = t15
@@ -648,7 +649,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t1 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = (t1 - t0)
+        stack[sp] = wasm_i32_wrap((t1 - t0))
         local t2 = stack[sp]
         l0 = t2
         local t3 = stack[sp]
@@ -701,7 +702,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t13 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = (t13 + t12)
+        stack[sp] = wasm_i32_wrap((t13 + t12))
         local t14 = stack[sp]
         sp -= 1
         local t15 = stack[sp]
@@ -716,7 +717,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t17 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = (t17 + t16)
+        stack[sp] = wasm_i32_wrap((t17 + t16))
         local t18 = stack[sp]
         sp -= 1
         sp += 1
@@ -750,7 +751,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t1 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t1 + t0)
+                stack[sp] = wasm_i32_wrap((t1 + t0))
                 sp += 1
                 stack[sp] = -4
                 local t2 = stack[sp]
@@ -768,7 +769,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t6 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t6 - t5)
+                stack[sp] = wasm_i32_wrap((t6 - t5))
                 local t7 = stack[sp]
                 l1 = t7
                 local t8 = stack[sp]
@@ -791,7 +792,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t12 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t12 - t11)
+                stack[sp] = wasm_i32_wrap((t12 - t11))
                 local t13 = stack[sp]
                 l2 = t13
                 sp += 1
@@ -874,7 +875,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         local t30 = stack[sp]
                         sp -= 1
                         sp += 1
-                        stack[sp] = (t30 - t29)
+                        stack[sp] = wasm_i32_wrap((t30 - t29))
                         local t31 = stack[sp]
                         l7 = t31
                         sp += 1
@@ -914,7 +915,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t38 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t38 + t37)
+                            stack[sp] = wasm_i32_wrap((t38 + t37))
                             local t39 = stack[sp]
                             l0 = t39
                             local t40 = stack[sp]
@@ -934,7 +935,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t44 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t44 + t43)
+                            stack[sp] = wasm_i32_wrap((t44 + t43))
                             sp += 1
                             stack[sp] = l0
                             sp += 1
@@ -944,7 +945,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t46 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t46 + t45)
+                            stack[sp] = wasm_i32_wrap((t46 + t45))
                             local t47 = stack[sp]
                             sp -= 1
                             sp += 1
@@ -962,7 +963,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t51 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t51 + t50)
+                            stack[sp] = wasm_i32_wrap((t51 + t50))
                             sp += 1
                             stack[sp] = l0
                             sp += 1
@@ -972,7 +973,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t53 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t53 + t52)
+                            stack[sp] = wasm_i32_wrap((t53 + t52))
                             local t54 = stack[sp]
                             sp -= 1
                             sp += 1
@@ -990,7 +991,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t58 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t58 + t57)
+                            stack[sp] = wasm_i32_wrap((t58 + t57))
                             sp += 1
                             stack[sp] = l0
                             sp += 1
@@ -1000,7 +1001,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t60 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t60 + t59)
+                            stack[sp] = wasm_i32_wrap((t60 + t59))
                             local t61 = stack[sp]
                             sp -= 1
                             sp += 1
@@ -1018,7 +1019,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t65 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t65 + t64)
+                            stack[sp] = wasm_i32_wrap((t65 + t64))
                             local t66 = stack[sp]
                             sp -= 1
                             p1 = t66
@@ -1031,7 +1032,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t68 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t68 + t67)
+                            stack[sp] = wasm_i32_wrap((t68 + t67))
                             local t69 = stack[sp]
                             l6 = t69
                             local t70 = stack[sp]
@@ -1057,7 +1058,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t72 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t72 + t71)
+                    stack[sp] = wasm_i32_wrap((t72 + t71))
                     local t73 = stack[sp]
                     sp -= 1
                     l0 = t73
@@ -1085,7 +1086,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         local t78 = stack[sp]
                         sp -= 1
                         sp += 1
-                        stack[sp] = (t78 + t77)
+                        stack[sp] = wasm_i32_wrap((t78 + t77))
                         local t79 = stack[sp]
                         sp -= 1
                         p1 = t79
@@ -1098,7 +1099,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         local t81 = stack[sp]
                         sp -= 1
                         sp += 1
-                        stack[sp] = (t81 + t80)
+                        stack[sp] = wasm_i32_wrap((t81 + t80))
                         local t82 = stack[sp]
                         sp -= 1
                         l0 = t82
@@ -1111,7 +1112,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         local t84 = stack[sp]
                         sp -= 1
                         sp += 1
-                        stack[sp] = (t84 + t83)
+                        stack[sp] = wasm_i32_wrap((t84 + t83))
                         local t85 = stack[sp]
                         l7 = t85
                         local t86 = stack[sp]
@@ -1137,7 +1138,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t88 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t88 + t87)
+                stack[sp] = wasm_i32_wrap((t88 + t87))
                 local t89 = stack[sp]
                 sp -= 1
                 l7 = t89
@@ -1171,7 +1172,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t95 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t95 + t94)
+                    stack[sp] = wasm_i32_wrap((t95 + t94))
                     local t96 = stack[sp]
                     l0 = t96
                     local t97 = stack[sp]
@@ -1225,7 +1226,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t108 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t108 + t107)
+                    stack[sp] = wasm_i32_wrap((t108 + t107))
                     local t109 = stack[sp]
                     sp -= 1
                     l5 = t109
@@ -1265,7 +1266,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t117 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t117 + t116)
+                    stack[sp] = wasm_i32_wrap((t117 + t116))
                     local t118 = stack[sp]
                     sp -= 1
                     l5 = t118
@@ -1283,7 +1284,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t120 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t120 + t119)
+                stack[sp] = wasm_i32_wrap((t120 + t119))
                 local t121 = stack[sp]
                 sp -= 1
                 l6 = t121
@@ -1401,7 +1402,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         local t143 = stack[sp]
                         sp -= 1
                         sp += 1
-                        stack[sp] = (t143 + t142)
+                        stack[sp] = wasm_i32_wrap((t143 + t142))
                         local t144 = stack[sp]
                         sp -= 1
                         p0 = t144
@@ -1427,7 +1428,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t148 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t148 + t147)
+                            stack[sp] = wasm_i32_wrap((t148 + t147))
                             local t149 = stack[sp]
                             sp -= 1
                             sp += 1
@@ -1483,7 +1484,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t162 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t162 + t161)
+                            stack[sp] = wasm_i32_wrap((t162 + t161))
                             local t163 = stack[sp]
                             sp -= 1
                             sp += 1
@@ -1539,7 +1540,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t176 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t176 + t175)
+                            stack[sp] = wasm_i32_wrap((t176 + t175))
                             local t177 = stack[sp]
                             sp -= 1
                             sp += 1
@@ -1641,25 +1642,25 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t202 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t202 + t201)
+                            stack[sp] = wasm_i32_wrap((t202 + t201))
                             local t203 = stack[sp]
                             sp -= 1
                             local t204 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t204 + t203)
+                            stack[sp] = wasm_i32_wrap((t204 + t203))
                             local t205 = stack[sp]
                             sp -= 1
                             local t206 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t206 + t205)
+                            stack[sp] = wasm_i32_wrap((t206 + t205))
                             local t207 = stack[sp]
                             sp -= 1
                             local t208 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t208 + t207)
+                            stack[sp] = wasm_i32_wrap((t208 + t207))
                             local t209 = stack[sp]
                             sp -= 1
                             l0 = t209
@@ -1672,7 +1673,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t211 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t211 + t210)
+                            stack[sp] = wasm_i32_wrap((t211 + t210))
                             local t212 = stack[sp]
                             p1 = t212
                             sp += 1
@@ -1710,7 +1711,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t217 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t217 - t216)
+                    stack[sp] = wasm_i32_wrap((t217 - t216))
                     local t218 = stack[sp]
                     sp -= 1
                     l3 = t218
@@ -1723,7 +1724,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t220 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t220 + t219)
+                    stack[sp] = wasm_i32_wrap((t220 + t219))
                     local t221 = stack[sp]
                     sp -= 1
                     l7 = t221
@@ -1760,7 +1761,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t229 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t229 + t228)
+                    stack[sp] = wasm_i32_wrap((t229 + t228))
                     sp += 1
                     stack[sp] = 65537
                     local t230 = stack[sp]
@@ -1768,7 +1769,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t231 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t231 * t230)
+                    stack[sp] = wasm_i32_wrap((t231 * t230))
                     sp += 1
                     stack[sp] = 16
                     local t232 = stack[sp]
@@ -1784,7 +1785,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t235 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t235 + t234)
+                    stack[sp] = wasm_i32_wrap((t235 + t234))
                     local t236 = stack[sp]
                     sp -= 1
                     l6 = t236
@@ -1828,7 +1829,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t244 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t244 + t243)
+                stack[sp] = wasm_i32_wrap((t244 + t243))
                 local t245 = stack[sp]
                 l0 = t245
                 local t246 = stack[sp]
@@ -1952,7 +1953,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t275 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t275 + t274)
+                    stack[sp] = wasm_i32_wrap((t275 + t274))
                     local t276 = stack[sp]
                     sp -= 1
                     p1 = t276
@@ -2026,7 +2027,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t293 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t293 + t292)
+                    stack[sp] = wasm_i32_wrap((t293 + t292))
                     local t294 = stack[sp]
                     sp -= 1
                     p1 = t294
@@ -2068,7 +2069,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t302 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t302 + t301)
+                stack[sp] = wasm_i32_wrap((t302 + t301))
                 sp += 1
                 stack[sp] = 65537
                 local t303 = stack[sp]
@@ -2076,7 +2077,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t304 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t304 * t303)
+                stack[sp] = wasm_i32_wrap((t304 * t303))
                 sp += 1
                 stack[sp] = 16
                 local t305 = stack[sp]
@@ -2092,7 +2093,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t308 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t308 + t307)
+                stack[sp] = wasm_i32_wrap((t308 + t307))
                 local t309 = stack[sp]
                 sp -= 1
                 l6 = t309
@@ -2196,7 +2197,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t325 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t325 + t324)
+                    stack[sp] = wasm_i32_wrap((t325 + t324))
                     local t326 = stack[sp]
                     p1 = t326
                     local t327 = stack[sp]
@@ -2216,7 +2217,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t331 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t331 + t330)
+                    stack[sp] = wasm_i32_wrap((t331 + t330))
                     sp += 1
                     stack[sp] = p1
                     sp += 1
@@ -2226,7 +2227,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t333 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t333 + t332)
+                    stack[sp] = wasm_i32_wrap((t333 + t332))
                     local t334 = stack[sp]
                     sp -= 1
                     sp += 1
@@ -2244,7 +2245,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t338 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t338 + t337)
+                    stack[sp] = wasm_i32_wrap((t338 + t337))
                     sp += 1
                     stack[sp] = p1
                     sp += 1
@@ -2254,7 +2255,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t340 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t340 + t339)
+                    stack[sp] = wasm_i32_wrap((t340 + t339))
                     local t341 = stack[sp]
                     sp -= 1
                     sp += 1
@@ -2272,7 +2273,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t345 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t345 + t344)
+                    stack[sp] = wasm_i32_wrap((t345 + t344))
                     sp += 1
                     stack[sp] = p1
                     sp += 1
@@ -2282,7 +2283,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t347 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t347 + t346)
+                    stack[sp] = wasm_i32_wrap((t347 + t346))
                     local t348 = stack[sp]
                     sp -= 1
                     sp += 1
@@ -2300,7 +2301,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t352 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t352 + t351)
+                    stack[sp] = wasm_i32_wrap((t352 + t351))
                     local t353 = stack[sp]
                     sp -= 1
                     l6 = t353
@@ -2315,7 +2316,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t355 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t355 + t354)
+                    stack[sp] = wasm_i32_wrap((t355 + t354))
                     local t356 = stack[sp]
                     l7 = t356
                     local t357 = stack[sp]
@@ -2360,7 +2361,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t363 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = (t363 + t362)
+            stack[sp] = wasm_i32_wrap((t363 + t362))
             local t364 = stack[sp]
             sp -= 1
             p1 = t364
@@ -2388,7 +2389,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t369 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t369 + t368)
+                stack[sp] = wasm_i32_wrap((t369 + t368))
                 local t370 = stack[sp]
                 sp -= 1
                 l6 = t370
@@ -2401,7 +2402,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t372 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t372 + t371)
+                stack[sp] = wasm_i32_wrap((t372 + t371))
                 local t373 = stack[sp]
                 sp -= 1
                 p1 = t373
@@ -2414,7 +2415,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t375 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t375 + t374)
+                stack[sp] = wasm_i32_wrap((t375 + t374))
                 local t376 = stack[sp]
                 l0 = t376
                 local t377 = stack[sp]
@@ -2670,7 +2671,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t36 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t36 + t35)
+                                        stack[sp] = wasm_i32_wrap((t36 + t35))
                                         local t37 = stack[sp]
                                         l5 = t37
                                         local t38 = stack[sp]
@@ -2690,7 +2691,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t42 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t42 + t41)
+                                        stack[sp] = wasm_i32_wrap((t42 + t41))
                                         sp += 1
                                         stack[sp] = l5
                                         sp += 1
@@ -2700,7 +2701,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t44 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t44 + t43)
+                                        stack[sp] = wasm_i32_wrap((t44 + t43))
                                         local t45 = stack[sp]
                                         sp -= 1
                                         sp += 1
@@ -2718,7 +2719,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t49 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t49 + t48)
+                                        stack[sp] = wasm_i32_wrap((t49 + t48))
                                         sp += 1
                                         stack[sp] = l5
                                         sp += 1
@@ -2728,7 +2729,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t51 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t51 + t50)
+                                        stack[sp] = wasm_i32_wrap((t51 + t50))
                                         local t52 = stack[sp]
                                         sp -= 1
                                         sp += 1
@@ -2746,7 +2747,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t56 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t56 + t55)
+                                        stack[sp] = wasm_i32_wrap((t56 + t55))
                                         sp += 1
                                         stack[sp] = l5
                                         sp += 1
@@ -2756,7 +2757,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t58 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t58 + t57)
+                                        stack[sp] = wasm_i32_wrap((t58 + t57))
                                         local t59 = stack[sp]
                                         sp -= 1
                                         sp += 1
@@ -2774,7 +2775,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t63 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t63 + t62)
+                                        stack[sp] = wasm_i32_wrap((t63 + t62))
                                         local t64 = stack[sp]
                                         sp -= 1
                                         l2 = t64
@@ -2789,7 +2790,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t66 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t66 + t65)
+                                        stack[sp] = wasm_i32_wrap((t66 + t65))
                                         local t67 = stack[sp]
                                         l4 = t67
                                         local t68 = stack[sp]
@@ -2837,7 +2838,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                 local t74 = stack[sp]
                                 sp -= 1
                                 sp += 1
-                                stack[sp] = (t74 + t73)
+                                stack[sp] = wasm_i32_wrap((t74 + t73))
                                 local t75 = stack[sp]
                                 sp -= 1
                                 l5 = t75
@@ -2865,7 +2866,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                     local t80 = stack[sp]
                                     sp -= 1
                                     sp += 1
-                                    stack[sp] = (t80 + t79)
+                                    stack[sp] = wasm_i32_wrap((t80 + t79))
                                     local t81 = stack[sp]
                                     sp -= 1
                                     l2 = t81
@@ -2878,7 +2879,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                     local t83 = stack[sp]
                                     sp -= 1
                                     sp += 1
-                                    stack[sp] = (t83 + t82)
+                                    stack[sp] = wasm_i32_wrap((t83 + t82))
                                     local t84 = stack[sp]
                                     sp -= 1
                                     l5 = t84
@@ -2891,7 +2892,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                     local t86 = stack[sp]
                                     sp -= 1
                                     sp += 1
-                                    stack[sp] = (t86 + t85)
+                                    stack[sp] = wasm_i32_wrap((t86 + t85))
                                     local t87 = stack[sp]
                                     l3 = t87
                                     local t88 = stack[sp]
@@ -2923,7 +2924,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                             local t90 = stack[sp]
                             sp -= 1
                             sp += 1
-                            stack[sp] = (t90 + t89)
+                            stack[sp] = wasm_i32_wrap((t90 + t89))
                             local t91 = stack[sp]
                             sp -= 1
                             l4 = t91
@@ -2999,7 +3000,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t105 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t105 + t104)
+                                        stack[sp] = wasm_i32_wrap((t105 + t104))
                                         local t106 = stack[sp]
                                         sp -= 1
                                         l5 = t106
@@ -3036,7 +3037,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                         local t111 = stack[sp]
                                         sp -= 1
                                         sp += 1
-                                        stack[sp] = (t111 + t110)
+                                        stack[sp] = wasm_i32_wrap((t111 + t110))
                                         local t112 = stack[sp]
                                         sp -= 1
                                         l5 = t112
@@ -3081,7 +3082,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                     local t119 = stack[sp]
                                     sp -= 1
                                     sp += 1
-                                    stack[sp] = (t119 + t118)
+                                    stack[sp] = wasm_i32_wrap((t119 + t118))
                                     local t120 = stack[sp]
                                     sp -= 1
                                     l5 = t120
@@ -3103,7 +3104,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                 local t122 = stack[sp]
                                 sp -= 1
                                 sp += 1
-                                stack[sp] = (t122 - t121)
+                                stack[sp] = wasm_i32_wrap((t122 - t121))
                                 sp += 1
                                 stack[sp] = p2
                                 local t123 = stack[sp]
@@ -3111,7 +3112,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                 local t124 = stack[sp]
                                 sp -= 1
                                 sp += 1
-                                stack[sp] = (t124 + t123)
+                                stack[sp] = wasm_i32_wrap((t124 + t123))
                                 local t125 = stack[sp]
                                 sp -= 1
                                 p2 = t125
@@ -3124,7 +3125,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                 local t127 = stack[sp]
                                 sp -= 1
                                 sp += 1
-                                stack[sp] = (t127 + t126)
+                                stack[sp] = wasm_i32_wrap((t127 + t126))
                                 local t128 = stack[sp]
                                 l3 = t128
                                 local t129 = stack[sp]
@@ -3160,7 +3161,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t132 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t132 - t131)
+                    stack[sp] = wasm_i32_wrap((t132 - t131))
                     local t133 = stack[sp]
                     sp -= 1
                     l2 = t133
@@ -3199,7 +3200,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t140 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t140 - t139)
+                stack[sp] = wasm_i32_wrap((t140 - t139))
                 local t141 = stack[sp]
                 sp -= 1
                 l6 = t141
@@ -3386,7 +3387,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         local t171 = stack[sp]
                         sp -= 1
                         sp += 1
-                        stack[sp] = (t171 + t170)
+                        stack[sp] = wasm_i32_wrap((t171 + t170))
                         local t172 = stack[sp]
                         sp -= 1
                         l2 = t172
@@ -3475,7 +3476,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t187 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = (t187 - t186)
+                stack[sp] = wasm_i32_wrap((t187 - t186))
                 sp += 1
                 stack[sp] = 65535
                 local t188 = stack[sp]
@@ -3540,7 +3541,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     local t201 = stack[sp]
                     sp -= 1
                     sp += 1
-                    stack[sp] = (t201 + t200)
+                    stack[sp] = wasm_i32_wrap((t201 + t200))
                     local t202 = stack[sp]
                     sp -= 1
                     l2 = t202
