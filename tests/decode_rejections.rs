@@ -6,7 +6,7 @@ use std::io::{Error, ErrorKind};
 use walrus::{ImportKind, Module};
 
 #[rstest]
-fn random_bytes_are_rejected_as_a_malformed_module() -> Result<(), Error> {
+fn given_random_bytes_when_decoded_then_malformed_module_is_reported() -> Result<(), Error> {
     // Given input bytes that are not a WebAssembly module.
     let input = b"not wasm at all, sorry";
 
@@ -35,7 +35,8 @@ fn random_bytes_are_rejected_as_a_malformed_module() -> Result<(), Error> {
 }
 
 #[rstest]
-fn imported_memory_is_rejected_as_an_unsupported_host_request() -> Result<(), Error> {
+fn given_imported_memory_when_decoded_then_unsupported_host_request_is_reported(
+) -> Result<(), Error> {
     // Given a WebAssembly module that asks the host to provide memory.
     let mut module = Module::default();
     let memory = module.memories.add_local(false, false, 1, None, None);
@@ -70,7 +71,7 @@ fn imported_memory_is_rejected_as_an_unsupported_host_request() -> Result<(), Er
 }
 
 #[rstest]
-fn an_empty_module_has_a_valid_empty_public_surface() -> Result<(), Error> {
+fn given_empty_module_when_decoded_then_public_surface_is_empty() -> Result<(), Error> {
     // Given an empty WebAssembly module.
     let input = Module::default().emit_wasm();
 

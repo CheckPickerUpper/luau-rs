@@ -41,7 +41,7 @@ fn generate_fixture_luau(wasm_bytes: &[u8]) -> Result<String, Error> {
 }
 
 #[rstest]
-fn rust_exports_survive_translation_into_luau() -> Result<(), Error> {
+fn given_compiled_module_when_translated_then_exports_and_memory_survive() -> Result<(), Error> {
     // Given the compiled Rust hello module.
     let wasm_bytes = fixture_wasm_bytes()?;
 
@@ -67,7 +67,7 @@ fn rust_exports_survive_translation_into_luau() -> Result<(), Error> {
 }
 
 #[rstest]
-fn translated_luau_stays_byte_for_byte_stable_for_review() -> Result<(), Error> {
+fn given_compiled_module_when_translated_then_output_matches_snapshot() -> Result<(), Error> {
     // Given the compiled Rust hello module.
     let wasm_bytes = fixture_wasm_bytes()?;
 
@@ -80,7 +80,7 @@ fn translated_luau_stays_byte_for_byte_stable_for_review() -> Result<(), Error> 
 }
 
 #[rstest]
-fn translated_luau_is_accepted_by_official_analysis() -> Result<(), Error> {
+fn given_translated_module_when_analyzed_then_luau_accepts_it() -> Result<(), Error> {
     // Given the compiled Rust hello module translated into Luau.
     let generated = generate_fixture_luau(&fixture_wasm_bytes()?)?;
     let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
@@ -106,7 +106,7 @@ fn translated_luau_is_accepted_by_official_analysis() -> Result<(), Error> {
 }
 
 #[rstest]
-fn translated_luau_keeps_its_exported_behavior() -> Result<(), Error> {
+fn given_translated_module_when_executed_then_exports_and_memory_match() -> Result<(), Error> {
     // Given the compiled Rust hello module translated into Luau.
     let generated = generate_fixture_luau(&fixture_wasm_bytes()?)?;
     let luau = official_luau_tool(("LUAU_BIN", "luau"))?;

@@ -56,7 +56,9 @@ cargo test
 
 The complete integration suite is written as Rust-native behavior scenarios
 using `rstest`. Each case has an explicit Given/When/Then structure, so the
-behavior and its evidence live together without a second feature-file DSL:
+behavior and its evidence live together without a second feature-file DSL.
+Scenario names follow `given_<context>_when_<action>_then_<outcome>` so the
+test list itself explains the contract:
 
 ```bash
 cargo test --all-targets

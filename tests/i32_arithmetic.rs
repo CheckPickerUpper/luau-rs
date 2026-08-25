@@ -77,7 +77,8 @@ fn generate_arithmetic_luau() -> Result<String, Error> {
 }
 
 #[rstest]
-fn overflowing_i32_arithmetic_keeps_webassembly_wraparound() -> Result<(), Error> {
+fn given_overflowing_i32_module_when_run_in_luau_then_results_wrap_like_webassembly(
+) -> Result<(), Error> {
     // Given a module whose add, subtract, multiply, and chained operations overflow i32.
     let generated = generate_arithmetic_luau()?;
     let luau_path = official_luau_tool(("LUAU_BIN", "luau"))?;

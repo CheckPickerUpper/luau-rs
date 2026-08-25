@@ -113,7 +113,8 @@ fn driver_source(generated: &str, runtime: &str) -> String {
 }
 
 #[rstest]
-fn generated_module_is_accepted_as_roblox_luau() -> Result<(), Error> {
+fn given_generated_module_when_analyzed_with_roblox_runtime_then_luau_is_accepted(
+) -> Result<(), Error> {
     // Given a generated Rust module, its Roblox runtime, and a test world.
     let generated = generated_fixture_luau()?;
     let runtime = read_repo_text("runtime/roblox.luau")?;
@@ -140,7 +141,8 @@ fn generated_module_is_accepted_as_roblox_luau() -> Result<(), Error> {
 }
 
 #[rstest]
-fn generated_module_creates_a_part_and_handles_a_click() -> Result<(), Error> {
+fn given_generated_module_when_run_against_roblox_world_then_part_event_and_exports_behave(
+) -> Result<(), Error> {
     // Given a generated Rust module, its Roblox runtime, and a test world.
     let generated = generated_fixture_luau()?;
     let runtime = read_repo_text("runtime/roblox.luau")?;

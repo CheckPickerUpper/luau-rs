@@ -10,7 +10,8 @@ fn fixture_wasm_path() -> PathBuf {
 }
 
 #[rstest]
-fn a_valid_rust_module_becomes_a_strict_server_script() -> Result<(), Error> {
+fn given_valid_rust_module_when_built_as_server_then_roblox_receives_strict_script(
+) -> Result<(), Error> {
     // Given a valid Rust module compiled to WebAssembly and a temporary Roblox output root.
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-cli-bdd-server")
@@ -62,7 +63,8 @@ fn a_valid_rust_module_becomes_a_strict_server_script() -> Result<(), Error> {
 }
 
 #[rstest]
-fn corrupt_module_input_is_rejected_without_building_a_script() -> Result<(), Error> {
+fn given_corrupt_module_when_built_then_rejection_is_explained_without_script() -> Result<(), Error>
+{
     // Given a file that claims to be WebAssembly but contains invalid bytes.
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-cli-bdd-invalid")
@@ -99,7 +101,8 @@ fn corrupt_module_input_is_rejected_without_building_a_script() -> Result<(), Er
 }
 
 #[rstest]
-fn a_client_module_lands_in_its_roblox_client_container() -> Result<(), Error> {
+fn given_valid_rust_module_when_built_as_client_then_script_lands_in_client_container(
+) -> Result<(), Error> {
     // Given a valid Rust module compiled to WebAssembly and a temporary Roblox output root.
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-cli-bdd-client")

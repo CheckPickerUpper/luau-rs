@@ -26,7 +26,7 @@ fn copy_fixture_module(root: &Path, relative_path: &str) -> Result<PathBuf, Erro
 }
 
 #[rstest]
-fn checking_a_valid_project_does_not_change_the_workspace() -> Result<(), Error> {
+fn given_valid_project_when_checked_then_workspace_stays_unchanged() -> Result<(), Error> {
     // Given a project with a valid server module and no generated output yet.
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-check")
@@ -60,7 +60,8 @@ fn checking_a_valid_project_does_not_change_the_workspace() -> Result<(), Error>
 }
 
 #[rstest]
-fn a_project_tree_maps_modules_to_roblox_containers_and_removes_stale_files() -> Result<(), Error> {
+fn given_nested_project_when_compiled_twice_then_modules_map_and_stale_file_disappears(
+) -> Result<(), Error> {
     // Given a project with a shared library, a server entrypoint, and a manifest.
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-layout")
@@ -134,7 +135,8 @@ fn a_project_tree_maps_modules_to_roblox_containers_and_removes_stale_files() ->
 }
 
 #[rstest]
-fn a_manifest_without_an_output_location_names_the_missing_field() -> Result<(), Error> {
+fn given_manifest_without_output_location_when_checked_then_missing_field_is_named(
+) -> Result<(), Error> {
     // Given a project manifest that omits where generated files should go.
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-invalid")
@@ -167,7 +169,8 @@ fn a_manifest_without_an_output_location_names_the_missing_field() -> Result<(),
 }
 
 #[rstest]
-fn a_broken_update_leaves_the_last_good_server_output_intact() -> Result<(), Error> {
+fn given_good_project_when_recompiled_with_corrupt_module_then_last_output_survives(
+) -> Result<(), Error> {
     // Given a project with a valid server module and a manifest.
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-preserve")
