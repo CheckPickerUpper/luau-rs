@@ -1,27 +1,11 @@
-//! Behaviour-driven Roblox binding coverage using the official Luau tools.
+//! Behavior scenarios for using generated Rust modules with Roblox objects.
 
 mod support;
 
-use rstest::fixture;
-use rstest_bdd::Slot;
-use rstest_bdd_macros::{given, scenario, then, when, ScenarioState};
-use std::io::{Error, ErrorKind};
-use std::process::{Command, Output};
+use rstest::rstest;
+use std::io::Error;
+use std::process::Command;
 use support::official_luau_tool;
-use tempfile::TempDir;
-
-#[derive(Default, ScenarioState)]
-struct RobloxState {
-    generated: Slot<String>,
-    runtime: Slot<String>,
-    result: Slot<Output>,
-    root: Slot<TempDir>,
-}
-
-#[fixture]
-fn state() -> RobloxState {
-    RobloxState::default()
-}
 
 fn read_repo_text(relative_path: &str) -> Result<String, Error> {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative_path);
@@ -49,17 +33,17 @@ fn generated_fixture_luau() -> Result<String, Error> {
             match luau_rs::translate_module(&decoded, options) {
                 luau_rs::TranslateOutcome::Translated(artifact) => Ok(artifact.into_text()),
                 luau_rs::TranslateOutcome::Rejected(rejection) => Err(Error::other(format!(
-                    "fixture translation was rejected: {rejection:?}"
+                    "fixture translation was rejected: rejection={rejection:?}"
                 ))),
             }
         }
-        luau_rs::DecodeOutcome::Rejected(rejection) => {
-            Err(Error::other(format!("fixture was rejected: {rejection:?}")))
-        }
+        luau_rs::DecodeOutcome::Rejected(rejection) => Err(Error::other(format!(
+            "fixture was rejected: rejection={rejection:?}"
+        ))),
     }
 }
 
-/// A mock Roblox environment whose instances record what the runtime does.
+/// The mock Roblox environment used by the behavior scenario.
 const MOCK_ROBLOX_ENVIRONMENT: &str = r#"
 local function make_event()
     local connections = {}
@@ -128,99 +112,58 @@ fn driver_source(generated: &str, runtime: &str) -> String {
     )
 }
 
-fn required_source(state: &RobloxState) -> Result<(String, String), Error> {
-    let generated = state.generated.get().ok_or_else(|| {
-        Error::new(
-            ErrorKind::NotFound,
-            "the generated fixture was not prepared before the binding step",
-        )
-    })?;
-    let runtime = state.runtime.get().ok_or_else(|| {
-        Error::new(
-            ErrorKind::NotFound,
-            "the Roblox runtime was not prepared before the binding step",
-        )
-    })?;
-    Ok((generated, runtime))
-}
-
-#[given("a generated Rust module with its Roblox runtime and a test world")]
-fn translated_fixture_and_runtime(state: &RobloxState) -> Result<(), Error> {
-    state.generated.set(generated_fixture_luau()?);
-    state.runtime.set(read_repo_text("runtime/roblox.luau")?);
-    Ok(())
-}
-
-#[when("Luau analysis checks the module and runtime together")]
-fn analyze_binding_driver(state: &RobloxState) -> Result<(), Error> {
-    let (generated, runtime) = required_source(state)?;
+#[rstest]
+fn generated_module_is_accepted_as_roblox_luau() -> Result<(), Error> {
+    // Given a generated Rust module, its Roblox runtime, and a test world.
+    let generated = generated_fixture_luau()?;
+    let runtime = read_repo_text("runtime/roblox.luau")?;
     let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
-    let root = tempfile::Builder::new()
+    let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-bindings-bdd-analyze")
         .tempdir()?;
-    let source_path = root.path().join("driver.luau");
+    let source_path = temp_dir.path().join("driver.luau");
     fs_err::write(&source_path, driver_source(&generated, &runtime))?;
+
+    // When Luau analysis checks the module and runtime together.
     let result = Command::new(analyzer).arg(&source_path).output()?;
-    state.result.set(result);
-    state.root.set(root);
-    Ok(())
+
+    // Then the combined program passes analysis without errors.
+    let success = result.status.success();
+    if success {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "Roblox Luau analysis failed: success={success}, stderr={}",
+            String::from_utf8_lossy(&result.stderr)
+        )))
+    }
 }
 
-#[when("the module creates a Part at position (1, 2, 3) and handles click 21")]
-fn run_binding_driver(state: &RobloxState) -> Result<(), Error> {
-    let (generated, runtime) = required_source(state)?;
+#[rstest]
+fn generated_module_creates_a_part_and_handles_a_click() -> Result<(), Error> {
+    // Given a generated Rust module, its Roblox runtime, and a test world.
+    let generated = generated_fixture_luau()?;
+    let runtime = read_repo_text("runtime/roblox.luau")?;
     let luau = official_luau_tool(("LUAU_BIN", "luau"))?;
-    let root = tempfile::Builder::new()
+    let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-bindings-bdd-run")
         .tempdir()?;
-    let source_path = root.path().join("driver.luau");
+    let source_path = temp_dir.path().join("driver.luau");
     fs_err::write(&source_path, driver_source(&generated, &runtime))?;
+
+    // When the module creates a Part at (1, 2, 3), subscribes to its click event,
+    // and handles click 21.
     let result = Command::new(luau).arg(&source_path).output()?;
-    state.result.set(result);
-    state.root.set(root);
-    Ok(())
-}
 
-#[then("the combined program passes analysis without errors")]
-fn analyzer_accepts_binding_driver(state: &RobloxState) -> Result<(), Error> {
-    let success = state
-        .result
-        .with_ref(|output| output.status.success())
-        .ok_or_else(|| Error::new(ErrorKind::NotFound, "Luau analysis did not run"))?;
+    // Then the test world has the anchored Part and the module reports click 42,
+    // add 42, and fib 34. The Luau assertions above are the independent oracle.
+    let success = result.status.success();
     if success {
         Ok(())
     } else {
-        let stderr = state
-            .result
-            .with_ref(|output| String::from_utf8_lossy(&output.stderr).into_owned())
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "analysis result disappeared"))?;
         Err(Error::other(format!(
-            "binding driver failed Luau analysis: success={success}, stderr={stderr}"
+            "Roblox behavior failed: success={success}, stderr={}",
+            String::from_utf8_lossy(&result.stderr)
         )))
     }
 }
-
-#[then("the Roblox test world contains an anchored Part of size (1, 2, 3), and the module reports click 42 with add 42 and fib 34")]
-fn binding_driver_completes(state: &RobloxState) -> Result<(), Error> {
-    let success = state
-        .result
-        .with_ref(|output| output.status.success())
-        .ok_or_else(|| Error::new(ErrorKind::NotFound, "the binding driver did not run"))?;
-    if success {
-        Ok(())
-    } else {
-        let stderr = state
-            .result
-            .with_ref(|output| String::from_utf8_lossy(&output.stderr).into_owned())
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "binding result disappeared"))?;
-        Err(Error::other(format!(
-            "binding driver failed against the Roblox mock: success={success}, stderr={stderr}"
-        )))
-    }
-}
-
-#[scenario(path = "tests/features/roblox_bindings.feature")]
-fn analyze_roblox_binding_driver(_state: RobloxState) {}
-
-#[scenario(path = "tests/features/roblox_bindings.feature")]
-fn execute_roblox_binding_driver(_state: RobloxState) {}

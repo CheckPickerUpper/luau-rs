@@ -54,17 +54,16 @@ python scripts/build_pinned_luau.py     # one-time bootstrap
 cargo test
 ```
 
-The complete integration suite is written as Gherkin features and run by
-`rstest-bdd` through the normal Rust test runner. Every scenario uses
-Given/When/Then steps; there are no standalone Rust test functions:
+The complete integration suite is written as Rust-native behavior scenarios
+using `rstest`. Each case has an explicit Given/When/Then structure, so the
+behavior and its evidence live together without a second feature-file DSL:
 
 ```bash
 cargo test --all-targets
 ```
 
-Feature files live under `tests/features/`. Step definitions use the existing
-`tempfile`, `assert_cmd`, `predicates`, and `insta` crates for project setup,
-CLI execution, assertions, and snapshots.
+The scenarios use the existing `tempfile`, `assert_cmd`, `predicates`, and
+`insta` crates for project setup, CLI execution, assertions, and snapshots.
 
 ## Commands
 

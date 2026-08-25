@@ -1,121 +1,117 @@
-//! Behaviour-driven CLI coverage for building individual WebAssembly modules.
+//! Behavior scenarios for building individual WebAssembly modules.
 
 use predicates::prelude::*;
-use rstest::fixture;
-use rstest_bdd::Slot;
-use rstest_bdd_macros::{given, scenario, then, when, ScenarioState};
+use rstest::rstest;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
-use std::process::Output;
-use tempfile::TempDir;
-
-#[derive(Default, ScenarioState)]
-struct BuildState {
-    root: Slot<TempDir>,
-    input: Slot<PathBuf>,
-    output: Slot<PathBuf>,
-    command: Slot<Output>,
-}
-
-#[fixture]
-fn state() -> BuildState {
-    BuildState::default()
-}
 
 fn fixture_wasm_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/rust-hello/rust_hello.wasm")
 }
 
-fn required_input(state: &BuildState) -> Result<PathBuf, Error> {
-    state.input.get().ok_or_else(|| {
-        Error::new(
-            ErrorKind::NotFound,
-            "the build input was not prepared before the build step",
-        )
-    })
-}
-
-fn required_output(state: &BuildState) -> Result<PathBuf, Error> {
-    state.output.get().ok_or_else(|| {
-        Error::new(
-            ErrorKind::NotFound,
-            "the build output was not prepared before the build step",
-        )
-    })
-}
-
-fn command_succeeded(state: &BuildState) -> Result<bool, Error> {
-    state
-        .command
-        .with_ref(|output| output.status.success())
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::NotFound,
-                "the build command did not run before its result was checked",
-            )
-        })
-}
-
-fn command_stderr(state: &BuildState) -> Result<String, Error> {
-    state
-        .command
-        .with_ref(|output| String::from_utf8_lossy(&output.stderr).into_owned())
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::NotFound,
-                "the build command did not run before its error was checked",
-            )
-        })
-}
-
-#[given("a valid Rust module compiled to WebAssembly")]
-fn committed_module(state: &BuildState) -> Result<(), Error> {
-    let root = tempfile::Builder::new()
-        .prefix("luau-rs-cli-bdd")
+#[rstest]
+fn a_valid_rust_module_becomes_a_strict_server_script() -> Result<(), Error> {
+    // Given a valid Rust module compiled to WebAssembly and a temporary Roblox output root.
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-cli-bdd-server")
         .tempdir()?;
-    state.input.set(fixture_wasm_path());
-    state.output.set(root.path().join("build"));
-    state.root.set(root);
-    Ok(())
-}
+    let output_root = temp_dir.path().join("build");
 
-#[given("a file that claims to be WebAssembly but contains invalid bytes")]
-fn invalid_module(state: &BuildState) -> Result<(), Error> {
-    let root = tempfile::Builder::new()
-        .prefix("luau-rs-cli-bdd-invalid")
-        .tempdir()?;
-    let input = root.path().join("invalid.wasm");
-    fs_err::write(&input, b"definitely not wasm")?;
-    state.input.set(input);
-    state.output.set(root.path().join("build"));
-    state.root.set(root);
-    Ok(())
-}
-
-#[when("I build it as a server entrypoint")]
-fn build_server(state: &BuildState) -> Result<(), Error> {
-    let input = required_input(state)?;
-    let output = required_output(state)?;
+    // When the module is built as a server entrypoint.
     let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
         .args(["build"])
-        .arg(input)
+        .arg(fixture_wasm_path())
         .args(["--out"])
-        .arg(output)
+        .arg(&output_root)
         .args(["--entrypoint"])
         .output()?;
-    state.command.set(command);
+
+    // Then Roblox receives a strict server script with an instantiate factory.
+    let success = command.status.success();
+    if !success {
+        return Err(Error::other(format!(
+            "server build failed: success={success}, stderr={}",
+            String::from_utf8_lossy(&command.stderr)
+        )));
+    }
+    let artifact = output_root.join("ServerScriptService/main.server.luau");
+    let exists = predicate::path::exists().eval(&artifact);
+    if !exists {
+        return Err(Error::new(
+            ErrorKind::NotFound,
+            format!(
+                "server script was not written: exists={exists}, path={}",
+                artifact.display()
+            ),
+        ));
+    }
+    let text = fs_err::read_to_string(&artifact)?;
+    let strict = text.starts_with("--!strict");
+    if !strict {
+        return Err(Error::other(format!(
+            "server script is not strict Luau: strict={strict}"
+        )));
+    }
+    let has_factory = text.contains("instantiate");
+    if !has_factory {
+        return Err(Error::other(format!(
+            "server script has no instantiate factory: has_factory={has_factory}"
+        )));
+    }
     Ok(())
 }
 
-#[when("I build it as a client module at \"game/main\"")]
-fn build_client(state: &BuildState) -> Result<(), Error> {
-    let input = required_input(state)?;
-    let output = required_output(state)?;
+#[rstest]
+fn corrupt_module_input_is_rejected_without_building_a_script() -> Result<(), Error> {
+    // Given a file that claims to be WebAssembly but contains invalid bytes.
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-cli-bdd-invalid")
+        .tempdir()?;
+    let input = temp_dir.path().join("invalid.wasm");
+    fs_err::write(&input, b"definitely not wasm")?;
+    let output_root = temp_dir.path().join("build");
+
+    // When the corrupt input is built as a server entrypoint.
     let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
         .args(["build"])
-        .arg(input)
+        .arg(&input)
         .args(["--out"])
-        .arg(output)
+        .arg(&output_root)
+        .args(["--entrypoint"])
+        .output()?;
+
+    // Then the build explains the rejection and does not report success.
+    let success = command.status.success();
+    if success {
+        return Err(Error::other(format!(
+            "corrupt input unexpectedly built: success={success}"
+        )));
+    }
+    let stderr = String::from_utf8_lossy(&command.stderr);
+    let mentions_rejection = predicate::str::contains("rejected").eval(&stderr);
+    if mentions_rejection {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "corrupt-input failure did not explain rejection: mentions_rejection={mentions_rejection}, stderr={stderr}"
+        )))
+    }
+}
+
+#[rstest]
+fn a_client_module_lands_in_its_roblox_client_container() -> Result<(), Error> {
+    // Given a valid Rust module compiled to WebAssembly and a temporary Roblox output root.
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-cli-bdd-client")
+        .tempdir()?;
+    let output_root = temp_dir.path().join("build");
+
+    // When the module is built as a client entrypoint at game/main.
+    let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
+        .args(["build"])
+        .arg(fixture_wasm_path())
+        .args(["--out"])
+        .arg(&output_root)
         .args([
             "--entrypoint",
             "--side",
@@ -124,102 +120,26 @@ fn build_client(state: &BuildState) -> Result<(), Error> {
             "game/main",
         ])
         .output()?;
-    state.command.set(command);
-    Ok(())
-}
 
-fn artifact_path(state: &BuildState, relative_path: &str) -> Result<PathBuf, Error> {
-    state
-        .output
-        .with_ref(|output| output.join(relative_path))
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::NotFound,
-                "the build output was not prepared before the artifact was checked",
-            )
-        })
-}
-
-#[then("Roblox receives a server script under ServerScriptService")]
-fn server_script_exists(state: &BuildState) -> Result<(), Error> {
-    let artifact = artifact_path(state, "ServerScriptService/main.server.luau")?;
-    if predicate::path::exists().eval(&artifact) {
-        Ok(())
-    } else {
-        Err(Error::new(
-            ErrorKind::NotFound,
-            format!("server script was not written at {}", artifact.display()),
-        ))
-    }
-}
-
-#[then("the server script is strict Luau")]
-fn server_script_is_strict(state: &BuildState) -> Result<(), Error> {
-    let artifact = artifact_path(state, "ServerScriptService/main.server.luau")?;
-    let text = fs_err::read_to_string(&artifact)?;
-    if text.starts_with("--!strict") {
-        Ok(())
-    } else {
-        Err(Error::other(format!(
-            "server script at {} did not start with --!strict",
-            artifact.display()
-        )))
-    }
-}
-
-#[then("callers can instantiate the generated module")]
-fn server_script_exposes_factory(state: &BuildState) -> Result<(), Error> {
-    let artifact = artifact_path(state, "ServerScriptService/main.server.luau")?;
-    let text = fs_err::read_to_string(&artifact)?;
-    if text.contains("instantiate") {
-        Ok(())
-    } else {
-        Err(Error::other(format!(
-            "server script at {} did not expose instantiate",
-            artifact.display()
-        )))
-    }
-}
-
-#[then("the build explains that the module was rejected")]
-fn invalid_input_is_rejected(state: &BuildState) -> Result<(), Error> {
-    let succeeded = command_succeeded(state)?;
-    if succeeded {
+    // Then Roblox receives the client script at StarterPlayerScripts/game/main.
+    let success = command.status.success();
+    if !success {
         return Err(Error::other(format!(
-            "invalid WebAssembly input unexpectedly built: command_succeeded={succeeded}"
+            "client build failed: success={success}, stderr={}",
+            String::from_utf8_lossy(&command.stderr)
         )));
     }
-    let stderr = command_stderr(state)?;
-    if predicate::str::contains("rejected").eval(&stderr) {
-        Ok(())
-    } else {
-        Err(Error::other(format!(
-            "build failure did not explain the rejection: {stderr}"
-        )))
-    }
-}
-
-#[then("Roblox receives the client script at StarterPlayerScripts/game/main")]
-fn client_script_exists(state: &BuildState) -> Result<(), Error> {
-    let artifact = artifact_path(
-        state,
-        "StarterPlayer/StarterPlayerScripts/game/main.client.luau",
-    )?;
-    if predicate::path::exists().eval(&artifact) {
+    let artifact = output_root.join("StarterPlayer/StarterPlayerScripts/game/main.client.luau");
+    let exists = predicate::path::exists().eval(&artifact);
+    if exists {
         Ok(())
     } else {
         Err(Error::new(
             ErrorKind::NotFound,
-            format!("client script was not written at {}", artifact.display()),
+            format!(
+                "client script was not written: exists={exists}, path={}",
+                artifact.display()
+            ),
         ))
     }
 }
-
-#[scenario(path = "tests/features/cli_build.feature")]
-fn build_server_entrypoint(_state: BuildState) {}
-
-#[scenario(path = "tests/features/cli_build.feature")]
-fn reject_invalid_build_input(_state: BuildState) {}
-
-#[scenario(path = "tests/features/cli_build.feature")]
-fn build_client_module(_state: BuildState) {}

@@ -1,4 +1,4 @@
-//! Behaviour-driven round-trip coverage from the committed Rust fixture to Luau.
+//! Behavior scenarios for keeping Rust module behavior after translation to Luau.
 
 mod support;
 
@@ -7,26 +7,9 @@ use luau_rs::{
     decode_module, translate_module, DecodeOutcome, MainInvocation, TranslateOptions,
     TranslateOutcome,
 };
-use rstest::fixture;
-use rstest_bdd::Slot;
-use rstest_bdd_macros::{given, scenario, then, when, ScenarioState};
-use std::io::{Error, ErrorKind};
-use std::process::Output;
+use rstest::rstest;
+use std::io::Error;
 use support::official_luau_tool;
-use tempfile::TempDir;
-
-#[derive(Default, ScenarioState)]
-struct RoundTripState {
-    wasm_bytes: Slot<Vec<u8>>,
-    generated: Slot<String>,
-    result: Slot<Output>,
-    root: Slot<TempDir>,
-}
-
-#[fixture]
-fn state() -> RoundTripState {
-    RoundTripState::default()
-}
 
 fn fixture_wasm_bytes() -> Result<Vec<u8>, Error> {
     let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -43,102 +26,94 @@ fn generate_fixture_luau(wasm_bytes: &[u8]) -> Result<String, Error> {
     let decoded = match decode_module(wasm_bytes) {
         DecodeOutcome::Decoded(decoded) => decoded,
         DecodeOutcome::Rejected(rejection) => {
-            return Err(Error::other(format!("fixture was rejected: {rejection:?}")))
+            return Err(Error::other(format!(
+                "fixture was rejected: rejection={rejection:?}"
+            )))
         }
     };
     let options = TranslateOptions::with_main_invocation(MainInvocation::LeaveIdle);
     match translate_module(&decoded, options) {
         TranslateOutcome::Translated(artifact) => Ok(artifact.into_text()),
         TranslateOutcome::Rejected(rejection) => Err(Error::other(format!(
-            "fixture translation was rejected: {rejection:?}"
+            "fixture translation was rejected: rejection={rejection:?}"
         ))),
     }
 }
 
-fn required_generated(state: &RoundTripState) -> Result<String, Error> {
-    state.generated.get().ok_or_else(|| {
-        Error::new(
-            ErrorKind::NotFound,
-            "the fixture was not translated before its Luau was checked",
-        )
-    })
-}
+#[rstest]
+fn rust_exports_survive_translation_into_luau() -> Result<(), Error> {
+    // Given the compiled Rust hello module.
+    let wasm_bytes = fixture_wasm_bytes()?;
 
-#[given("the compiled Rust hello module")]
-fn committed_fixture(state: &RoundTripState) -> Result<(), Error> {
-    state.wasm_bytes.set(fixture_wasm_bytes()?);
-    Ok(())
-}
+    // When the module is translated to Luau.
+    let generated = generate_fixture_luau(&wasm_bytes)?;
 
-#[when("I translate it to Luau")]
-fn translate_fixture(state: &RoundTripState) -> Result<(), Error> {
-    let wasm_bytes = state.wasm_bytes.get().ok_or_else(|| {
-        Error::new(
-            ErrorKind::NotFound,
-            "the WebAssembly fixture was not prepared before translation",
-        )
-    })?;
-    state.generated.set(generate_fixture_luau(&wasm_bytes)?);
-    Ok(())
-}
-
-#[then("callers can use add, fib, and double_at")]
-fn generated_exports_are_present(state: &RoundTripState) -> Result<(), Error> {
-    let generated = required_generated(state)?;
+    // Then callers can use add, fib, and double_at, and the module owns linear memory.
     let has_exports =
         generated.contains("add") && generated.contains("fib") && generated.contains("double_at");
-    if has_exports {
-        Ok(())
-    } else {
-        Err(Error::other(format!(
-            "generated Luau did not expose all fixture functions: has_exports={has_exports}"
-        )))
+    if !has_exports {
+        return Err(Error::other(format!(
+            "translated module lost an export: has_exports={has_exports}"
+        )));
     }
-}
-
-#[then("the translated module owns linear memory")]
-fn generated_memory_is_present(state: &RoundTripState) -> Result<(), Error> {
-    let generated = required_generated(state)?;
     let has_memory = generated.contains("MEMORY");
     if has_memory {
         Ok(())
     } else {
         Err(Error::other(format!(
-            "generated Luau did not declare linear memory: has_memory={has_memory}"
+            "translated module lost linear memory: has_memory={has_memory}"
         )))
     }
 }
 
-#[then("the generated Luau matches the committed output snapshot")]
-fn generated_snapshot_matches(state: &RoundTripState) -> Result<(), Error> {
-    let generated = required_generated(state)?;
+#[rstest]
+fn translated_luau_stays_byte_for_byte_stable_for_review() -> Result<(), Error> {
+    // Given the compiled Rust hello module.
+    let wasm_bytes = fixture_wasm_bytes()?;
+
+    // When the module is translated to Luau.
+    let generated = generate_fixture_luau(&wasm_bytes)?;
+
+    // Then the generated Luau matches the committed output snapshot.
     insta::assert_snapshot!("fixture_generated_luau", generated);
     Ok(())
 }
 
-#[when("Luau analysis checks the translated module")]
-fn analyze_generated_luau(state: &RoundTripState) -> Result<(), Error> {
-    let generated = required_generated(state)?;
+#[rstest]
+fn translated_luau_is_accepted_by_official_analysis() -> Result<(), Error> {
+    // Given the compiled Rust hello module translated into Luau.
+    let generated = generate_fixture_luau(&fixture_wasm_bytes()?)?;
     let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
-    let root = tempfile::Builder::new()
+    let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-round-trip-bdd-analyze")
         .tempdir()?;
-    let source_path = root.path().join("fixture.luau");
-    fs_err::write(&source_path, generated)?;
+    let source_path = temp_dir.path().join("fixture.luau");
+    fs_err::write(&source_path, &generated)?;
+
+    // When official Luau analysis checks the translated module.
     let result = Command::new(analyzer).arg(&source_path).output()?;
-    state.result.set(result);
-    state.root.set(root);
-    Ok(())
+
+    // Then the generated module passes analysis without errors.
+    let success = result.status.success();
+    if success {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "translated Luau failed analysis: success={success}, stderr={}",
+            String::from_utf8_lossy(&result.stderr)
+        )))
+    }
 }
 
-#[when("I run the translated module with official Luau")]
-fn run_generated_luau(state: &RoundTripState) -> Result<(), Error> {
-    let generated = required_generated(state)?;
+#[rstest]
+fn translated_luau_keeps_its_exported_behavior() -> Result<(), Error> {
+    // Given the compiled Rust hello module translated into Luau.
+    let generated = generate_fixture_luau(&fixture_wasm_bytes()?)?;
     let luau = official_luau_tool(("LUAU_BIN", "luau"))?;
-    let root = tempfile::Builder::new()
+    let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-round-trip-bdd-run")
         .tempdir()?;
-    let source_path = root.path().join("driver.luau");
+    let source_path = temp_dir.path().join("driver.luau");
     let driver = format!(
         "local function make()\n{generated}\nend\n\
          local m = make()({{}})\n\
@@ -153,67 +128,18 @@ fn run_generated_luau(state: &RoundTripState) -> Result<(), Error> {
          assert(buffer.readi32(mem, 0) == 14, \"double_at mismatch\")\n"
     );
     fs_err::write(&source_path, &driver)?;
+
+    // When official Luau runs the translated module.
     let result = Command::new(luau).arg(&source_path).output()?;
-    state.result.set(result);
-    state.root.set(root);
-    Ok(())
-}
 
-fn command_success(state: &RoundTripState) -> Result<bool, Error> {
-    state
-        .result
-        .with_ref(|output| output.status.success())
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::NotFound,
-                "the official Luau command did not run before its result was checked",
-            )
-        })
-}
-
-fn command_failure(state: &RoundTripState) -> Result<Error, Error> {
-    let stderr = state
-        .result
-        .with_ref(|output| String::from_utf8_lossy(&output.stderr).into_owned())
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::NotFound,
-                "the official Luau result disappeared before its failure was reported",
-            )
-        })?;
-    Ok(Error::other(format!(
-        "official Luau command failed: stderr={stderr}"
-    )))
-}
-
-#[then("the generated module passes analysis without errors")]
-fn analyzer_accepts_generated_module(state: &RoundTripState) -> Result<(), Error> {
-    let success = command_success(state)?;
+    // Then add returns 42, fib returns 34, and memory doubles 7 to 14.
+    let success = result.status.success();
     if success {
         Ok(())
     } else {
-        Err(command_failure(state)?)
+        Err(Error::other(format!(
+            "translated behavior failed: success={success}, stderr={}",
+            String::from_utf8_lossy(&result.stderr)
+        )))
     }
 }
-
-#[then("add returns 42, fib returns 34, and memory doubles 7 to 14")]
-fn exported_results_are_correct(state: &RoundTripState) -> Result<(), Error> {
-    let success = command_success(state)?;
-    if success {
-        Ok(())
-    } else {
-        Err(command_failure(state)?)
-    }
-}
-
-#[scenario(path = "tests/features/round_trip.feature")]
-fn expose_generated_fixture_surface(_state: RoundTripState) {}
-
-#[scenario(path = "tests/features/round_trip.feature")]
-fn keep_generated_fixture_snapshot(_state: RoundTripState) {}
-
-#[scenario(path = "tests/features/round_trip.feature")]
-fn analyze_generated_fixture(_state: RoundTripState) {}
-
-#[scenario(path = "tests/features/round_trip.feature")]
-fn execute_generated_fixture(_state: RoundTripState) {}

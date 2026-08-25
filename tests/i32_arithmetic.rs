@@ -1,4 +1,4 @@
-//! Behaviour-driven proof that i32 arithmetic keeps WebAssembly wrapping semantics.
+//! Behavior scenario for WebAssembly i32 wrapping semantics in Luau.
 
 mod support;
 
@@ -6,27 +6,12 @@ use luau_rs::{
     decode_module, translate_module, DecodeOutcome, MainInvocation, TranslateOptions,
     TranslateOutcome,
 };
-use rstest::fixture;
-use rstest_bdd::Slot;
-use rstest_bdd_macros::{given, scenario, then, when, ScenarioState};
-use std::io::{Error, ErrorKind};
-use std::process::{Command, Output};
+use rstest::rstest;
+use std::io::Error;
+use std::process::Command;
 use support::official_luau_tool;
-use tempfile::TempDir;
 use walrus::ir::BinaryOp;
 use walrus::{FunctionBuilder, Module, ValType};
-
-#[derive(Default, ScenarioState)]
-struct ArithmeticState {
-    generated: Slot<String>,
-    result: Slot<Output>,
-    root: Slot<TempDir>,
-}
-
-#[fixture]
-fn state() -> ArithmeticState {
-    ArithmeticState::default()
-}
 
 fn arithmetic_fixture_wasm() -> Vec<u8> {
     let mut module = Module::default();
@@ -73,11 +58,12 @@ fn add_binary_export(module: &mut Module, name: &str, operation: BinaryOp) {
 }
 
 fn generate_arithmetic_luau() -> Result<String, Error> {
+    // Given a generated module containing overflowing i32 operations.
     let decoded = match decode_module(&arithmetic_fixture_wasm()) {
         DecodeOutcome::Decoded(decoded) => decoded,
         DecodeOutcome::Rejected(rejection) => {
             return Err(Error::other(format!(
-                "arithmetic fixture was rejected: {rejection:?}"
+                "arithmetic fixture was rejected: rejection={rejection:?}"
             )))
         }
     };
@@ -85,30 +71,20 @@ fn generate_arithmetic_luau() -> Result<String, Error> {
     match translate_module(&decoded, options) {
         TranslateOutcome::Translated(artifact) => Ok(artifact.into_text()),
         TranslateOutcome::Rejected(rejection) => Err(Error::other(format!(
-            "arithmetic translation was rejected: {rejection:?}"
+            "arithmetic translation was rejected: rejection={rejection:?}"
         ))),
     }
 }
 
-#[given("a module whose arithmetic operations overflow i32")]
-fn overflowing_arithmetic_module(state: &ArithmeticState) -> Result<(), Error> {
-    state.generated.set(generate_arithmetic_luau()?);
-    Ok(())
-}
-
-#[when("I evaluate it with official Luau")]
-fn run_arithmetic_with_luau(state: &ArithmeticState) -> Result<(), Error> {
-    let generated = state.generated.get().ok_or_else(|| {
-        Error::new(
-            ErrorKind::NotFound,
-            "the arithmetic module was not translated before it was run",
-        )
-    })?;
+#[rstest]
+fn overflowing_i32_arithmetic_keeps_webassembly_wraparound() -> Result<(), Error> {
+    // Given a module whose add, subtract, multiply, and chained operations overflow i32.
+    let generated = generate_arithmetic_luau()?;
     let luau_path = official_luau_tool(("LUAU_BIN", "luau"))?;
-    let root = tempfile::Builder::new()
+    let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-i32-arithmetic-bdd")
         .tempdir()?;
-    let source_path = root.path().join("driver.luau");
+    let source_path = temp_dir.path().join("driver.luau");
     let driver = format!(
         "local function make()\n{generated}\nend\n\
          local m = make()({{}})\n\
@@ -118,31 +94,18 @@ fn run_arithmetic_with_luau(state: &ArithmeticState) -> Result<(), Error> {
          assert(m.chain(2147483647, 1, 2) == 0, \"i32 chained overflow mismatch\")\n"
     );
     fs_err::write(&source_path, &driver)?;
-    let result = Command::new(luau_path).arg(&source_path).output()?;
-    state.result.set(result);
-    state.root.set(root);
-    Ok(())
-}
 
-#[then("Luau returns the WebAssembly-wrapped results")]
-fn wrapping_results_are_correct(state: &ArithmeticState) -> Result<(), Error> {
-    let status = state
-        .result
-        .with_ref(|output| output.status)
-        .ok_or_else(|| Error::new(ErrorKind::NotFound, "official Luau did not run"))?;
-    if status.success() {
+    // When official Luau evaluates the translated module.
+    let result = Command::new(luau_path).arg(&source_path).output()?;
+
+    // Then every wrapping result agrees with WebAssembly semantics.
+    let success = result.status.success();
+    if success {
         Ok(())
     } else {
-        let stderr = state
-            .result
-            .with_ref(|output| String::from_utf8_lossy(&output.stderr).into_owned())
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "official Luau result disappeared"))?;
         Err(Error::other(format!(
-            "official Luau rejected a wrapping result: success={}, stderr={stderr}",
-            status.success()
+            "official Luau reported a wrapping mismatch: success={success}, stderr={}",
+            String::from_utf8_lossy(&result.stderr)
         )))
     }
 }
-
-#[scenario(path = "tests/features/i32_arithmetic.feature")]
-fn wrap_overflowing_i32_arithmetic(_state: ArithmeticState) {}
