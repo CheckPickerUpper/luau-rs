@@ -29,7 +29,7 @@ integer handles (0 is null) that the runtime resolves to real Instances.
 
 ```bash
 # Try the Roblox binding layer with a mock environment
-cargo test --test roblox_bindings   # after python scripts/build_pinned_luau.py
+cargo nextest run --test roblox_bindings --profile release-check   # after python scripts/build_pinned_luau.py
 ```
 
 ## Try it
@@ -53,7 +53,7 @@ required oracles (pinned revision, `bit32`-era, no native bitwise ops):
 python scripts/build_pinned_luau.py     # one-time bootstrap
 cargo +stable fmt --check
 cargo +stable clippy --all-targets --all-features --locked -- -D warnings
-cargo +stable test --all-targets --all-features --locked
+cargo +stable nextest run --all-targets --all-features --locked --profile release-check
 ```
 
 The complete integration suite is written as Rust-native behavior scenarios
@@ -66,7 +66,7 @@ Scenario names follow `given_<context>_when_<action>_then_<outcome>` so the
 test list itself explains the contract:
 
 ```bash
-cargo test --all-targets
+cargo nextest run --all-targets --profile release-check
 ```
 
 The scenarios use the existing `tempfile`, `assert_cmd`, `predicates`, and
@@ -111,7 +111,7 @@ paths, and overlapping source/output roots are rejected before generation.
 
 ## Current scope
 
-Supported: the full core wasm instruction set — numeric ops (i32/i64/f32/f64),
+Supported: the currently translated core wasm subset — numeric ops (i32/i64/f32/f64),
 comparisons, conversions, locals, globals, memory load/store, **bulk memory
 (copy/fill/init + passive data segments)**, `call` / `call_indirect`,
 `block` / `loop` / `if` / `br` / `br_table`, `select`, `memory.grow`, data
@@ -121,9 +121,10 @@ The bundled `runtime/roblox.luau` provides a handle-based Roblox binding layer
 (get service, instance creation, number + Vector3 properties, print, destroy),
 tested against a mock Roblox environment.
 
-Rejected loudly (typed reasons): SIMD (`v128`), atomics, memory imports,
-exception tags, shared/64-bit memories, table/global exports, and
-passive/declarative element segments.
+Rejected loudly (typed reasons): SIMD (`v128`), atomics,
+exception-handling tags, shared or 64-bit memories, multiple memories,
+non-function imports, global/table/tag exports, and passive/declarative element
+segments.
 
 `i64` values are represented exactly as two unsigned 32-bit Luau number
 values. The pair representation is used across locals, globals, calls,
