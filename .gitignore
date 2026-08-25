@@ -23,3 +23,4 @@ CONTEXT.md
 
 # Fixture build output (rebuild via scripts/build_fixture.sh)
 /fixtures/rust-hello/target/
+/fixtures/rust-std/target/
