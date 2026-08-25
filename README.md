@@ -54,16 +54,17 @@ python scripts/build_pinned_luau.py     # one-time bootstrap
 cargo test
 ```
 
-The project-level acceptance contract is also written as a Gherkin feature and
-run by `rstest-bdd` through the normal Rust test runner:
+The complete integration suite is written as Gherkin features and run by
+`rstest-bdd` through the normal Rust test runner. Every scenario uses
+Given/When/Then steps; there are no standalone Rust test functions:
 
 ```bash
-cargo test --test project_cli_bdd
+cargo test --all-targets
 ```
 
-Feature files live under `tests/features/`; step definitions use the existing
-`tempfile`, `assert_cmd`, and `predicates` crates for project setup, CLI
-execution, and filesystem assertions.
+Feature files live under `tests/features/`. Step definitions use the existing
+`tempfile`, `assert_cmd`, `predicates`, and `insta` crates for project setup,
+CLI execution, assertions, and snapshots.
 
 ## Commands
 

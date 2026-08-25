@@ -1,135 +1,341 @@
-//! CLI contracts for manifest-backed project discovery, checking, and compilation.
+//! Behaviour-driven CLI coverage for manifest-backed project workflows.
 
 use predicates::prelude::*;
+use rstest::fixture;
+use rstest_bdd::Slot;
+use rstest_bdd_macros::{given, scenario, then, when, ScenarioState};
+use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
+use std::process::Output;
+use tempfile::TempDir;
+
+#[derive(Default, ScenarioState)]
+struct ProjectState {
+    root: Slot<TempDir>,
+    manifest: Slot<PathBuf>,
+    server_module: Slot<PathBuf>,
+    command: Slot<Output>,
+    previous_output: Slot<Vec<u8>>,
+}
+
+#[fixture]
+fn state() -> ProjectState {
+    ProjectState::default()
+}
 
 fn fixture_wasm_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/rust-hello/rust_hello.wasm")
 }
 
-fn write_project_manifest(path: &Path) -> std::result::Result<(), std::io::Error> {
-    let manifest = "[project]\nsource_root = \"wasm\"\noutput_root = \"build\"\n";
-    fs_err::write(path, manifest)
+fn write_project_manifest(path: &Path) -> Result<(), Error> {
+    fs_err::write(
+        path,
+        "[project]\nsource_root = \"wasm\"\noutput_root = \"build\"\n",
+    )
 }
 
-fn copy_fixture_module(
-    root: &Path,
-    relative_path: &str,
-) -> std::result::Result<PathBuf, std::io::Error> {
+fn copy_fixture_module(root: &Path, relative_path: &str) -> Result<PathBuf, Error> {
     let destination = root.join(relative_path);
     if let Some(parent_directory) = destination.parent() {
         fs_err::create_dir_all(parent_directory)?;
     }
-    let bytes_copied = fs_err::copy(fixture_wasm_path(), &destination)?;
-    assert!(bytes_copied > 0, "fixture copy produced no bytes");
+    fs_err::copy(fixture_wasm_path(), &destination)?;
     Ok(destination)
 }
 
-/// `check` discovers and compiles modules without creating the output root.
-#[test]
-fn check_validates_manifest_project_without_writing_output(
-) -> std::result::Result<(), std::io::Error> {
-    let temp_dir = tempfile::Builder::new()
-        .prefix("luau-rs-project-check")
+fn required_root(state: &ProjectState) -> Result<PathBuf, Error> {
+    state
+        .root
+        .with_ref(|root| root.path().to_path_buf())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                "the project root was not prepared before the project step",
+            )
+        })
+}
+
+fn required_manifest(state: &ProjectState) -> Result<PathBuf, Error> {
+    state.manifest.get().ok_or_else(|| {
+        Error::new(
+            ErrorKind::NotFound,
+            "the project manifest was not prepared before the project step",
+        )
+    })
+}
+
+fn required_server_module(state: &ProjectState) -> Result<PathBuf, Error> {
+    state.server_module.get().ok_or_else(|| {
+        Error::new(
+            ErrorKind::NotFound,
+            "the server module was not prepared before the project step",
+        )
+    })
+}
+
+fn command_succeeded(state: &ProjectState) -> Result<bool, Error> {
+    state
+        .command
+        .with_ref(|output| output.status.success())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                "the project command did not run before its result was checked",
+            )
+        })
+}
+
+fn command_stderr(state: &ProjectState) -> Result<String, Error> {
+    state
+        .command
+        .with_ref(|output| String::from_utf8_lossy(&output.stderr).into_owned())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                "the project command did not run before its error was checked",
+            )
+        })
+}
+
+#[given("a valid project with one server module")]
+fn valid_project_with_server_module(state: &ProjectState) -> Result<(), Error> {
+    let root = tempfile::Builder::new()
+        .prefix("luau-rs-project-bdd-server")
         .tempdir()?;
-    copy_fixture_module(temp_dir.path(), "wasm/server/entrypoint/main.wasm")?;
-    let manifest_path = temp_dir.path().join("luau-rs.toml");
-    write_project_manifest(&manifest_path)?;
-
-    assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
-        .args(["check", "--manifest-path"])
-        .arg(&manifest_path)
-        .assert()
-        .success();
-
-    assert!(!temp_dir.path().join("build").exists());
+    let server_module = copy_fixture_module(root.path(), "wasm/server/entrypoint/main.wasm")?;
+    let manifest = root.path().join("luau-rs.toml");
+    write_project_manifest(&manifest)?;
+    state.server_module.set(server_module);
+    state.manifest.set(manifest);
+    state.root.set(root);
     Ok(())
 }
 
-/// `compile` recursively discovers side and role directories and publishes their layout.
-#[test]
-fn compile_discovers_nested_modules_and_publishes_roblox_paths(
-) -> std::result::Result<(), std::io::Error> {
-    let temp_dir = tempfile::Builder::new()
-        .prefix("luau-rs-project-compile")
+#[given("a valid project with shared and server modules")]
+fn valid_project_with_nested_modules(state: &ProjectState) -> Result<(), Error> {
+    let root = tempfile::Builder::new()
+        .prefix("luau-rs-project-bdd-nested")
         .tempdir()?;
-    copy_fixture_module(temp_dir.path(), "wasm/shared/library/math/core.wasm")?;
-    copy_fixture_module(temp_dir.path(), "wasm/server/entrypoint/game/main.wasm")?;
-    let manifest_path = temp_dir.path().join("luau-rs.toml");
-    write_project_manifest(&manifest_path)?;
+    copy_fixture_module(root.path(), "wasm/shared/library/math/core.wasm")?;
+    let server_module = copy_fixture_module(root.path(), "wasm/server/entrypoint/game/main.wasm")?;
+    let manifest = root.path().join("luau-rs.toml");
+    write_project_manifest(&manifest)?;
+    state.server_module.set(server_module);
+    state.manifest.set(manifest);
+    state.root.set(root);
+    Ok(())
+}
 
-    assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
+#[given("a project manifest without an output root")]
+fn malformed_project(state: &ProjectState) -> Result<(), Error> {
+    let root = tempfile::Builder::new()
+        .prefix("luau-rs-project-bdd-invalid")
+        .tempdir()?;
+    let manifest = root.path().join("luau-rs.toml");
+    fs_err::write(&manifest, "[project]\nsource_root = \"wasm\"\n")?;
+    state.manifest.set(manifest);
+    state.root.set(root);
+    Ok(())
+}
+
+#[when("I check the manifest project")]
+fn check_manifest_project(state: &ProjectState) -> Result<(), Error> {
+    let manifest = required_manifest(state)?;
+    let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
+        .args(["check", "--manifest-path"])
+        .arg(manifest)
+        .output()?;
+    state.command.set(command);
+    Ok(())
+}
+
+#[when("I compile the manifest project")]
+fn compile_manifest_project(state: &ProjectState) -> Result<(), Error> {
+    let manifest = required_manifest(state)?;
+    let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
         .args(["compile", "--manifest-path"])
-        .arg(&manifest_path)
-        .assert()
-        .success();
+        .arg(manifest)
+        .output()?;
+    state.command.set(command);
+    Ok(())
+}
 
-    assert!(temp_dir
-        .path()
-        .join("build/ReplicatedStorage/math/core.luau")
-        .exists());
-    assert!(temp_dir
-        .path()
-        .join("build/ServerScriptService/game/main.server.luau")
-        .exists());
-
-    let stale_path = temp_dir.path().join("build/stale-managed-file.txt");
+#[when("I add a stale managed file and compile the manifest project again")]
+fn recompile_after_adding_stale_file(state: &ProjectState) -> Result<(), Error> {
+    let root = required_root(state)?;
+    let stale_path = root.join("build/stale-managed-file.txt");
     fs_err::write(&stale_path, "stale output")?;
-    assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
+    let manifest = required_manifest(state)?;
+    let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
         .args(["compile", "--manifest-path"])
-        .arg(&manifest_path)
-        .assert()
-        .success();
-    assert!(!stale_path.exists());
+        .arg(manifest)
+        .output()?;
+    state.command.set(command);
     Ok(())
 }
 
-/// A malformed manifest reports the responsible project field instead of guessing defaults.
-#[test]
-fn check_reports_missing_manifest_field() -> std::result::Result<(), std::io::Error> {
-    let temp_dir = tempfile::Builder::new()
-        .prefix("luau-rs-project-manifest-error")
-        .tempdir()?;
-    let manifest_path = temp_dir.path().join("luau-rs.toml");
-    fs_err::write(&manifest_path, "[project]\nsource_root = \"wasm\"\n")?;
-
-    assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
-        .args(["check", "--manifest-path"])
-        .arg(&manifest_path)
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("output_root"));
+#[when("I remember the published server output")]
+fn remember_server_output(state: &ProjectState) -> Result<(), Error> {
+    let root = required_root(state)?;
+    let output_path = root.join("build/ServerScriptService/main.server.luau");
+    state.previous_output.set(fs_err::read(output_path)?);
     Ok(())
 }
 
-/// A failed manifest build leaves the last successfully published tree intact.
-#[test]
-fn compile_failure_preserves_previous_output() -> std::result::Result<(), std::io::Error> {
-    let temp_dir = tempfile::Builder::new()
-        .prefix("luau-rs-project-preserve")
-        .tempdir()?;
-    let wasm_path = copy_fixture_module(temp_dir.path(), "wasm/server/entrypoint/main.wasm")?;
-    let manifest_path = temp_dir.path().join("luau-rs.toml");
-    write_project_manifest(&manifest_path)?;
-    let output_path = temp_dir
-        .path()
-        .join("build/ServerScriptService/main.server.luau");
-
-    assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
+#[when("I replace the server module with invalid bytes and compile the manifest project again")]
+fn recompile_after_corrupting_server_module(state: &ProjectState) -> Result<(), Error> {
+    let server_module = required_server_module(state)?;
+    fs_err::write(server_module, b"not a wasm module")?;
+    let manifest = required_manifest(state)?;
+    let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
         .args(["compile", "--manifest-path"])
-        .arg(&manifest_path)
-        .assert()
-        .success();
-    let previous_output = fs_err::read(&output_path)?;
-
-    fs_err::write(&wasm_path, b"not a wasm module")?;
-    assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
-        .args(["compile", "--manifest-path"])
-        .arg(&manifest_path)
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("rejected"));
-
-    assert_eq!(fs_err::read(&output_path)?, previous_output);
+        .arg(manifest)
+        .output()?;
+    state.command.set(command);
     Ok(())
 }
+
+#[then("checking succeeds")]
+fn checking_succeeds(state: &ProjectState) -> Result<(), Error> {
+    let succeeded = command_succeeded(state)?;
+    if succeeded {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "checking failed unexpectedly: command_succeeded={succeeded}, stderr={}",
+            command_stderr(state)?
+        )))
+    }
+}
+
+#[then("no build output is created")]
+fn no_build_output_is_created(state: &ProjectState) -> Result<(), Error> {
+    let root = required_root(state)?;
+    let output_exists = root.join("build").exists();
+    if output_exists {
+        Err(Error::other(format!(
+            "check created a build directory: output_exists={output_exists}"
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+#[then("the shared module is published under ReplicatedStorage")]
+fn shared_module_is_published(state: &ProjectState) -> Result<(), Error> {
+    let root = required_root(state)?;
+    let path = root.join("build/ReplicatedStorage/math/core.luau");
+    let exists = predicate::path::exists().eval(&path);
+    if exists {
+        Ok(())
+    } else {
+        Err(Error::new(
+            ErrorKind::NotFound,
+            format!(
+                "shared module was not published at {}: exists={exists}",
+                path.display()
+            ),
+        ))
+    }
+}
+
+#[then("the server entrypoint is published under ServerScriptService")]
+fn server_entrypoint_is_published(state: &ProjectState) -> Result<(), Error> {
+    let root = required_root(state)?;
+    let path = root.join("build/ServerScriptService/game/main.server.luau");
+    let exists = predicate::path::exists().eval(&path);
+    if exists {
+        Ok(())
+    } else {
+        Err(Error::new(
+            ErrorKind::NotFound,
+            format!(
+                "server entrypoint was not published at {}: exists={exists}",
+                path.display()
+            ),
+        ))
+    }
+}
+
+#[then("the stale managed file is removed")]
+fn stale_managed_file_is_removed(state: &ProjectState) -> Result<(), Error> {
+    let root = required_root(state)?;
+    let stale_path = root.join("build/stale-managed-file.txt");
+    let exists = stale_path.exists();
+    if exists {
+        Err(Error::other(format!(
+            "stale managed file survived compilation: exists={exists}"
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+#[then("checking fails because output_root is missing")]
+fn missing_output_root_is_reported(state: &ProjectState) -> Result<(), Error> {
+    let succeeded = command_succeeded(state)?;
+    if succeeded {
+        return Err(Error::other(format!(
+            "malformed manifest unexpectedly passed: command_succeeded={succeeded}"
+        )));
+    }
+    let stderr = command_stderr(state)?;
+    if predicate::str::contains("output_root").eval(&stderr) {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "manifest error omitted output_root: stderr={stderr}"
+        )))
+    }
+}
+
+#[then("compilation fails because the module was rejected")]
+fn corrupt_module_is_rejected(state: &ProjectState) -> Result<(), Error> {
+    let succeeded = command_succeeded(state)?;
+    if succeeded {
+        return Err(Error::other(format!(
+            "corrupt module unexpectedly compiled: command_succeeded={succeeded}"
+        )));
+    }
+    let stderr = command_stderr(state)?;
+    if predicate::str::contains("rejected").eval(&stderr) {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "corrupt module failure omitted rejection: stderr={stderr}"
+        )))
+    }
+}
+
+#[then("the remembered server output is unchanged")]
+fn previous_server_output_is_preserved(state: &ProjectState) -> Result<(), Error> {
+    let root = required_root(state)?;
+    let previous = state.previous_output.get().ok_or_else(|| {
+        Error::new(
+            ErrorKind::NotFound,
+            "the previous server output was not remembered before it was compared",
+        )
+    })?;
+    let current = fs_err::read(root.join("build/ServerScriptService/main.server.luau"))?;
+    if current == previous {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "failed compilation changed the published output: previous_bytes={}, current_bytes={}",
+            previous.len(),
+            current.len()
+        )))
+    }
+}
+
+#[scenario(path = "tests/features/cli_project.feature")]
+fn check_valid_project(_state: ProjectState) {}
+
+#[scenario(path = "tests/features/cli_project.feature")]
+fn compile_nested_project(_state: ProjectState) {}
+
+#[scenario(path = "tests/features/cli_project.feature")]
+fn report_missing_output_root(_state: ProjectState) {}
+
+#[scenario(path = "tests/features/cli_project.feature")]
+fn preserve_previous_project_output(_state: ProjectState) {}

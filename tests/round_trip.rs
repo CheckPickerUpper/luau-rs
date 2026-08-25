@@ -1,5 +1,4 @@
-//! End-to-end round trip: the committed Rust fixture (compiled to wasm32)
-//! decodes, translates, and passes the official Luau tools.
+//! Behaviour-driven round-trip coverage from the committed Rust fixture to Luau.
 
 mod support;
 
@@ -8,101 +7,138 @@ use luau_rs::{
     decode_module, translate_module, DecodeOutcome, MainInvocation, TranslateOptions,
     TranslateOutcome,
 };
+use rstest::fixture;
+use rstest_bdd::Slot;
+use rstest_bdd_macros::{given, scenario, then, when, ScenarioState};
+use std::io::{Error, ErrorKind};
+use std::process::Output;
 use support::official_luau_tool;
+use tempfile::TempDir;
 
-/// Reads the committed wasm fixture built from `fixtures/rust-hello`.
-fn fixture_wasm_bytes() -> Vec<u8> {
-    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures/rust-hello/rust_hello.wasm");
-    match fs_err::read(&fixture_path) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            assert!(
-                false,
-                "could not read fixture {}: {error}",
-                fixture_path.display()
-            );
-            Vec::new()
-        }
-    }
+#[derive(Default, ScenarioState)]
+struct RoundTripState {
+    wasm_bytes: Slot<Vec<u8>>,
+    generated: Slot<String>,
+    result: Slot<Output>,
+    root: Slot<TempDir>,
 }
 
-/// Decodes and translates the fixture, returning the generated Luau text.
-fn generate_fixture_luau() -> String {
-    let wasm_bytes = fixture_wasm_bytes();
-    let decoded = match decode_module(&wasm_bytes) {
+#[fixture]
+fn state() -> RoundTripState {
+    RoundTripState::default()
+}
+
+fn fixture_wasm_bytes() -> Result<Vec<u8>, Error> {
+    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/rust-hello/rust_hello.wasm");
+    fs_err::read(&fixture_path).map_err(|error| {
+        Error::new(
+            error.kind(),
+            format!("could not read fixture {}: {error}", fixture_path.display()),
+        )
+    })
+}
+
+fn generate_fixture_luau(wasm_bytes: &[u8]) -> Result<String, Error> {
+    let decoded = match decode_module(wasm_bytes) {
         DecodeOutcome::Decoded(decoded) => decoded,
         DecodeOutcome::Rejected(rejection) => {
-            assert!(false, "fixture rejected: {rejection:?}");
-            return String::new();
+            return Err(Error::other(format!("fixture was rejected: {rejection:?}")))
         }
     };
     let options = TranslateOptions::with_main_invocation(MainInvocation::LeaveIdle);
     match translate_module(&decoded, options) {
-        TranslateOutcome::Translated(artifact) => artifact.into_text(),
-        TranslateOutcome::Rejected(rejection) => {
-            assert!(false, "fixture translation rejected: {rejection:?}");
-            String::new()
-        }
+        TranslateOutcome::Translated(artifact) => Ok(artifact.into_text()),
+        TranslateOutcome::Rejected(rejection) => Err(Error::other(format!(
+            "fixture translation was rejected: {rejection:?}"
+        ))),
     }
 }
 
-/// The generated module must name the exported surface it declares.
-#[test]
-fn generated_luau_declares_expected_exports() {
-    let generated = generate_fixture_luau();
-    assert!(
-        generated.contains("add"),
-        "generated Luau lacks the add export"
-    );
-    assert!(
-        generated.contains("fib"),
-        "generated Luau lacks the fib export"
-    );
-    assert!(
-        generated.contains("double_at"),
-        "generated Luau lacks the double_at export"
-    );
-    assert!(generated.contains("MEMORY"), "generated Luau lacks memory");
+fn required_generated(state: &RoundTripState) -> Result<String, Error> {
+    state.generated.get().ok_or_else(|| {
+        Error::new(
+            ErrorKind::NotFound,
+            "the fixture was not translated before its Luau was checked",
+        )
+    })
 }
 
-/// The generated output must be byte-for-byte stable (guards against drift).
-#[test]
-fn generated_luau_matches_snapshot() {
-    let generated = generate_fixture_luau();
-    insta::assert_snapshot!("fixture_generated_luau", generated);
-}
-
-/// The official Luau tools must accept the generated module.
-#[test]
-fn official_luau_analyze_accepts_generated_fixture() -> std::result::Result<(), std::io::Error> {
-    let generated = generate_fixture_luau();
-    let luau_analyze_path = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
-
-    let temp_dir = tempfile::Builder::new()
-        .prefix("luau-rs-analyze")
-        .tempdir()?;
-    let source_path = temp_dir.path().join("fixture.luau");
-    fs_err::write(&source_path, &generated)?;
-
-    Command::new(luau_analyze_path)
-        .arg(&source_path)
-        .assert()
-        .success();
+#[given("the committed Rust hello WebAssembly module")]
+fn committed_fixture(state: &RoundTripState) -> Result<(), Error> {
+    state.wasm_bytes.set(fixture_wasm_bytes()?);
     Ok(())
 }
 
-/// The official Luau runtime must execute the generated exports correctly.
-#[test]
-fn official_luau_executes_fixture_with_expected_results() -> std::result::Result<(), std::io::Error>
-{
-    let generated = generate_fixture_luau();
-    let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
+#[when("I translate it to Luau")]
+fn translate_fixture(state: &RoundTripState) -> Result<(), Error> {
+    let wasm_bytes = state.wasm_bytes.get().ok_or_else(|| {
+        Error::new(
+            ErrorKind::NotFound,
+            "the WebAssembly fixture was not prepared before translation",
+        )
+    })?;
+    state.generated.set(generate_fixture_luau(&wasm_bytes)?);
+    Ok(())
+}
 
-    let temp_dir = tempfile::Builder::new()
-        .prefix("luau-rs-execute")
+#[then("the generated Luau exposes the add fib and double_at functions")]
+fn generated_exports_are_present(state: &RoundTripState) -> Result<(), Error> {
+    let generated = required_generated(state)?;
+    let has_exports =
+        generated.contains("add") && generated.contains("fib") && generated.contains("double_at");
+    if has_exports {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "generated Luau did not expose all fixture functions: has_exports={has_exports}"
+        )))
+    }
+}
+
+#[then("the generated Luau declares linear memory")]
+fn generated_memory_is_present(state: &RoundTripState) -> Result<(), Error> {
+    let generated = required_generated(state)?;
+    let has_memory = generated.contains("MEMORY");
+    if has_memory {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "generated Luau did not declare linear memory: has_memory={has_memory}"
+        )))
+    }
+}
+
+#[then("the generated Luau matches the committed snapshot")]
+fn generated_snapshot_matches(state: &RoundTripState) -> Result<(), Error> {
+    let generated = required_generated(state)?;
+    insta::assert_snapshot!("fixture_generated_luau", generated);
+    Ok(())
+}
+
+#[when("I ask official Luau analysis to validate it")]
+fn analyze_generated_luau(state: &RoundTripState) -> Result<(), Error> {
+    let generated = required_generated(state)?;
+    let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
+    let root = tempfile::Builder::new()
+        .prefix("luau-rs-round-trip-bdd-analyze")
         .tempdir()?;
-    let source_path = temp_dir.path().join("driver.luau");
+    let source_path = root.path().join("fixture.luau");
+    fs_err::write(&source_path, generated)?;
+    let result = Command::new(analyzer).arg(&source_path).output()?;
+    state.result.set(result);
+    state.root.set(root);
+    Ok(())
+}
+
+#[when("I run the generated module with official Luau")]
+fn run_generated_luau(state: &RoundTripState) -> Result<(), Error> {
+    let generated = required_generated(state)?;
+    let luau = official_luau_tool(("LUAU_BIN", "luau"))?;
+    let root = tempfile::Builder::new()
+        .prefix("luau-rs-round-trip-bdd-run")
+        .tempdir()?;
+    let source_path = root.path().join("driver.luau");
     let driver = format!(
         "local function make()\n{generated}\nend\n\
          local m = make()({{}})\n\
@@ -117,7 +153,67 @@ fn official_luau_executes_fixture_with_expected_results() -> std::result::Result
          assert(buffer.readi32(mem, 0) == 14, \"double_at mismatch\")\n"
     );
     fs_err::write(&source_path, &driver)?;
-
-    Command::new(luau_path).arg(&source_path).assert().success();
+    let result = Command::new(luau).arg(&source_path).output()?;
+    state.result.set(result);
+    state.root.set(root);
     Ok(())
 }
+
+fn command_success(state: &RoundTripState) -> Result<bool, Error> {
+    state
+        .result
+        .with_ref(|output| output.status.success())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                "the official Luau command did not run before its result was checked",
+            )
+        })
+}
+
+fn command_failure(state: &RoundTripState) -> Result<Error, Error> {
+    let stderr = state
+        .result
+        .with_ref(|output| String::from_utf8_lossy(&output.stderr).into_owned())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                "the official Luau result disappeared before its failure was reported",
+            )
+        })?;
+    Ok(Error::other(format!(
+        "official Luau command failed: stderr={stderr}"
+    )))
+}
+
+#[then("the analyzer accepts the generated module")]
+fn analyzer_accepts_generated_module(state: &RoundTripState) -> Result<(), Error> {
+    let success = command_success(state)?;
+    if success {
+        Ok(())
+    } else {
+        Err(command_failure(state)?)
+    }
+}
+
+#[then("official Luau reports the expected exported results")]
+fn exported_results_are_correct(state: &RoundTripState) -> Result<(), Error> {
+    let success = command_success(state)?;
+    if success {
+        Ok(())
+    } else {
+        Err(command_failure(state)?)
+    }
+}
+
+#[scenario(path = "tests/features/round_trip.feature")]
+fn expose_generated_fixture_surface(_state: RoundTripState) {}
+
+#[scenario(path = "tests/features/round_trip.feature")]
+fn keep_generated_fixture_snapshot(_state: RoundTripState) {}
+
+#[scenario(path = "tests/features/round_trip.feature")]
+fn analyze_generated_fixture(_state: RoundTripState) {}
+
+#[scenario(path = "tests/features/round_trip.feature")]
+fn execute_generated_fixture(_state: RoundTripState) {}
