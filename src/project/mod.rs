@@ -1,14 +1,20 @@
 //! Compiling one or more wasm modules into a strict Luau Roblox project.
 
 mod discovery;
-mod layout;
+mod execution_side;
 mod manifest;
 mod problem;
+mod project_module_identity;
+mod project_module_role;
+mod roblox_service;
 
 pub use discovery::{discover_project_request, ProjectDiscoveryProblem};
-pub use layout::{ModuleExecutionSide, ProjectModuleIdentity, ProjectModuleRole};
+pub use execution_side::ModuleExecutionSide;
 pub use manifest::{ProjectManifest, ProjectManifestProblem};
 pub use problem::{ProjectCompilationProblem, ProjectCompilationRejection};
+pub use project_module_identity::ProjectModuleIdentity;
+pub use project_module_role::ProjectModuleRole;
+pub use roblox_service::RobloxService;
 
 use crate::translate::{GeneratedLuauText, MainInvocation, TranslateOptions, TranslateOutcome};
 use crate::wasm::{decode_module, DecodeOutcome};
@@ -33,6 +39,12 @@ pub struct ProjectModuleSource {
     module_identity: ProjectModuleIdentity,
     module_role: ProjectModuleRole,
     wasm_bytes: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ProjectSourceAsset {
+    relative_path: PathBuf,
+    bytes: Vec<u8>,
 }
 
 /// Keeps caller-owned wasm inputs immutable after the project compiler takes ownership.
@@ -73,6 +85,7 @@ impl ProjectModuleSource {
 #[derive(Debug)]
 pub struct ProjectCompilationRequest {
     source_modules: Vec<ProjectModuleSource>,
+    source_assets: Vec<ProjectSourceAsset>,
 }
 
 /// Preserves the caller's complete source set so ordering cannot change the emitted layout.
@@ -81,13 +94,30 @@ impl ProjectCompilationRequest {
     /// entrypoints reject the project before any artifact is accepted.
     #[must_use]
     pub const fn from_source_modules(source_modules: Vec<ProjectModuleSource>) -> Self {
-        Self { source_modules }
+        Self {
+            source_modules,
+            source_assets: Vec::new(),
+        }
+    }
+
+    pub(crate) const fn from_discovered(
+        source_modules: Vec<ProjectModuleSource>,
+        source_assets: Vec<ProjectSourceAsset>,
+    ) -> Self {
+        Self {
+            source_modules,
+            source_assets,
+        }
     }
 
     /// @why Lets the compiler consume the source set after validation.
     #[must_use]
     pub fn into_source_modules(self) -> Vec<ProjectModuleSource> {
         self.source_modules
+    }
+
+    pub(crate) fn into_parts(self) -> (Vec<ProjectModuleSource>, Vec<ProjectSourceAsset>) {
+        (self.source_modules, self.source_assets)
     }
 }
 
@@ -139,6 +169,7 @@ impl GeneratedProjectModule {
 #[derive(Debug)]
 pub struct CompiledProject {
     generated_modules: Vec<GeneratedProjectModule>,
+    source_assets: Vec<ProjectSourceAsset>,
 }
 
 impl CompiledProject {
@@ -168,7 +199,11 @@ impl CompiledProject {
             Ok(()) => {}
             Err(publish_error) => return Err(publish_error),
         }
-        let mut written_paths = Vec::with_capacity(self.generated_modules.len());
+        let mut written_paths =
+            Vec::with_capacity(self.generated_modules.len() + self.source_assets.len());
+        for source_asset in &self.source_assets {
+            written_paths.push(source_asset_output_path(project_root, source_asset)?);
+        }
         for generated_module in &self.generated_modules {
             written_paths.push(generated_output_path(project_root, generated_module)?);
         }
@@ -176,6 +211,13 @@ impl CompiledProject {
     }
 
     fn write_to_staging_directory(&self, staging_directory: &Path) -> Result<(), std::io::Error> {
+        for source_asset in &self.source_assets {
+            let output_path = source_asset_output_path(staging_directory, source_asset)?;
+            if let Some(parent_directory) = output_path.parent() {
+                fs_err::create_dir_all(parent_directory)?;
+            }
+            fs_err::write(output_path, &source_asset.bytes)?;
+        }
         for generated_module in &self.generated_modules {
             let output_path = generated_output_path(staging_directory, generated_module)?;
             if let Some(parent_directory) = output_path.parent() {
@@ -201,6 +243,31 @@ impl CompiledProject {
         }
         Ok(())
     }
+}
+
+fn source_asset_output_path(
+    project_root: &Path,
+    source_asset: &ProjectSourceAsset,
+) -> Result<PathBuf, std::io::Error> {
+    let relative_path = source_asset.relative_path.as_path();
+    for component in relative_path.components() {
+        match component {
+            Component::Normal(_) => {}
+            Component::CurDir
+            | Component::ParentDir
+            | Component::RootDir
+            | Component::Prefix(_) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!(
+                        "source asset path is not relative and normalized: {}",
+                        relative_path.display()
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(project_root.join(relative_path))
 }
 
 const MAX_STAGING_DIRECTORY_ATTEMPTS: usize = 16;
@@ -366,11 +433,13 @@ fn output_sibling_path(project_root: &Path, purpose: &str, attempt: usize) -> Pa
 /// failure instead of accepting a partial project.
 #[must_use]
 pub fn compile_project(request: ProjectCompilationRequest) -> ProjectCompilationOutcome {
-    let mut source_modules = request.into_source_modules();
+    let (mut source_modules, mut source_assets) = request.into_parts();
     source_modules.sort_by(|left, right| left.module_identity().cmp(right.module_identity()));
+    source_assets.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
 
     let mut previous_identity: Option<ProjectModuleIdentity> = None;
     let mut has_entrypoint = false;
+    let mut output_paths = std::collections::BTreeSet::new();
     for source_module in &source_modules {
         let module_identity = source_module.module_identity();
         match &previous_identity {
@@ -386,17 +455,36 @@ pub fn compile_project(request: ProjectCompilationRequest) -> ProjectCompilation
             ProjectModuleRole::Entrypoint => has_entrypoint = true,
             ProjectModuleRole::Library => {}
         }
-        if source_module.module_role() == ProjectModuleRole::Entrypoint
-            && source_module
-                .module_identity()
-                .output_path_text(source_module.module_role())
-                .is_none()
-        {
+        let Some(output_path_text) = module_identity.output_path_text(source_module.module_role())
+        else {
+            let problem = match module_identity {
+                ProjectModuleIdentity::RobloxService { .. } => {
+                    ProjectCompilationProblem::IllegalServicePlacement {
+                        identity: module_identity.clone(),
+                        role: source_module.module_role(),
+                    }
+                }
+                _ => ProjectCompilationProblem::SharedEntrypoint(module_identity.clone()),
+            };
+            return ProjectCompilationOutcome::Rejected(problem.into());
+        };
+        if !output_paths.insert(output_path_text) {
             return ProjectCompilationOutcome::Rejected(
-                ProjectCompilationProblem::SharedEntrypoint(module_identity.clone()).into(),
+                ProjectCompilationProblem::DuplicateOutputPath(
+                    module_identity.module_path().to_owned(),
+                )
+                .into(),
             );
         }
         previous_identity = Some(module_identity.clone());
+    }
+    for source_asset in &source_assets {
+        let asset_path = source_asset.relative_path.display().to_string();
+        if !output_paths.insert(asset_path.clone()) {
+            return ProjectCompilationOutcome::Rejected(
+                ProjectCompilationProblem::SourceOutputOverlap(asset_path).into(),
+            );
+        }
     }
     if !has_entrypoint {
         return ProjectCompilationOutcome::Rejected(
@@ -428,7 +516,10 @@ pub fn compile_project(request: ProjectCompilationRequest) -> ProjectCompilation
         });
     }
 
-    ProjectCompilationOutcome::Compiled(CompiledProject { generated_modules })
+    ProjectCompilationOutcome::Compiled(CompiledProject {
+        generated_modules,
+        source_assets,
+    })
 }
 
 fn translate_wasm_module(

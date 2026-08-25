@@ -31,7 +31,7 @@ fn given_valid_project_when_checked_then_workspace_stays_unchanged() -> Result<(
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-check")
         .tempdir()?;
-    copy_fixture_module(temp_dir.path(), "wasm/server/entrypoint/main.wasm")?;
+    copy_fixture_module(temp_dir.path(), "wasm/ServerScriptService/main.wasm")?;
     let manifest = temp_dir.path().join("luau-rs.toml");
     write_project_manifest(&manifest)?;
 
@@ -66,8 +66,8 @@ fn given_nested_project_when_compiled_twice_then_modules_map_and_stale_file_disa
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-layout")
         .tempdir()?;
-    copy_fixture_module(temp_dir.path(), "wasm/shared/library/math/core.wasm")?;
-    copy_fixture_module(temp_dir.path(), "wasm/server/entrypoint/game/main.wasm")?;
+    copy_fixture_module(temp_dir.path(), "wasm/ReplicatedStorage/math/core.wasm")?;
+    copy_fixture_module(temp_dir.path(), "wasm/ServerScriptService/game/main.wasm")?;
     let manifest = temp_dir.path().join("luau-rs.toml");
     write_project_manifest(&manifest)?;
 
@@ -175,7 +175,7 @@ fn given_good_project_when_recompiled_with_corrupt_module_then_last_output_survi
     let temp_dir = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-preserve")
         .tempdir()?;
-    let wasm_path = copy_fixture_module(temp_dir.path(), "wasm/server/entrypoint/main.wasm")?;
+    let wasm_path = copy_fixture_module(temp_dir.path(), "wasm/ServerScriptService/main.wasm")?;
     let manifest = temp_dir.path().join("luau-rs.toml");
     write_project_manifest(&manifest)?;
     let output_path = temp_dir
