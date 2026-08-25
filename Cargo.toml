@@ -24,6 +24,7 @@ insta = "1.48.0"
 predicates = "3.1.4"
 rstest = "0.26.1"
 tempfile = "3.27.0"
+wast = { version = "258.0.0", default-features = false, features = ["wasm-module"] }
 
 [lints.rust]
 unsafe_code = "forbid"
