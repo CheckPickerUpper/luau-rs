@@ -47,17 +47,6 @@ fn generate_fixture_luau() -> String {
     }
 }
 
-/// Creates a temporary directory for generated-file tests.
-fn temporary_directory(prefix: &str) -> tempfile::TempDir {
-    match tempfile::Builder::new().prefix(prefix).tempdir() {
-        Ok(directory) => directory,
-        Err(error) => {
-            assert!(false, "could not create temporary directory: {error}");
-            std::process::exit(1)
-        }
-    }
-}
-
 /// The generated module must name the exported surface it declares.
 #[test]
 fn generated_luau_declares_expected_exports() {
@@ -86,33 +75,33 @@ fn generated_luau_matches_snapshot() {
 
 /// The official Luau tools must accept the generated module.
 #[test]
-fn official_luau_analyze_accepts_generated_fixture() {
+fn official_luau_analyze_accepts_generated_fixture() -> std::result::Result<(), std::io::Error> {
     let generated = generate_fixture_luau();
     let luau_analyze_path = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
 
-    let temp_dir = temporary_directory("luau-rs-analyze");
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-analyze")
+        .tempdir()?;
     let source_path = temp_dir.path().join("fixture.luau");
-    match fs_err::write(&source_path, &generated) {
-        Ok(()) => {}
-        Err(error) => {
-            assert!(false, "could not write fixture: {error}");
-            return;
-        }
-    }
+    fs_err::write(&source_path, &generated)?;
 
     Command::new(luau_analyze_path)
         .arg(&source_path)
         .assert()
         .success();
+    Ok(())
 }
 
 /// The official Luau runtime must execute the generated exports correctly.
 #[test]
-fn official_luau_executes_fixture_with_expected_results() {
+fn official_luau_executes_fixture_with_expected_results() -> std::result::Result<(), std::io::Error>
+{
     let generated = generate_fixture_luau();
     let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
 
-    let temp_dir = temporary_directory("luau-rs-execute");
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-execute")
+        .tempdir()?;
     let source_path = temp_dir.path().join("driver.luau");
     let driver = format!(
         "local function make()\n{generated}\nend\n\
@@ -127,13 +116,8 @@ fn official_luau_executes_fixture_with_expected_results() {
          m.double_at(0)\n\
          assert(buffer.readi32(mem, 0) == 14, \"double_at mismatch\")\n"
     );
-    match fs_err::write(&source_path, &driver) {
-        Ok(()) => {}
-        Err(error) => {
-            assert!(false, "could not write driver: {error}");
-            return;
-        }
-    }
+    fs_err::write(&source_path, &driver)?;
 
     Command::new(luau_path).arg(&source_path).assert().success();
+    Ok(())
 }

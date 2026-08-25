@@ -76,26 +76,14 @@ fn generate_arithmetic_luau() -> String {
     }
 }
 
-/// Creates a temporary directory for the official-runtime fixture.
-fn temporary_directory() -> tempfile::TempDir {
-    match tempfile::Builder::new()
-        .prefix("luau-rs-i32-arithmetic")
-        .tempdir()
-    {
-        Ok(directory) => directory,
-        Err(error) => {
-            assert!(false, "could not create temporary directory: {error}");
-            std::process::exit(1)
-        }
-    }
-}
-
 /// Official Luau must observe WebAssembly's exact i32 wraparound behavior.
 #[test]
-fn official_luau_wraps_i32_arithmetic() {
+fn official_luau_wraps_i32_arithmetic() -> std::result::Result<(), std::io::Error> {
     let generated = generate_arithmetic_luau();
     let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
-    let temp_dir = temporary_directory();
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-i32-arithmetic")
+        .tempdir()?;
     let source_path = temp_dir.path().join("driver.luau");
     let driver = format!(
         "local function make()\n{generated}\nend\n\
@@ -105,13 +93,8 @@ fn official_luau_wraps_i32_arithmetic() {
          assert(m.mul(1073741824, 4) == 0, \"i32 mul overflow mismatch\")\n\
          assert(m.chain(2147483647, 1, 2) == 0, \"i32 chained overflow mismatch\")\n"
     );
-    match fs_err::write(&source_path, &driver) {
-        Ok(()) => {}
-        Err(error) => {
-            assert!(false, "could not write driver: {error}");
-            return;
-        }
-    }
+    fs_err::write(&source_path, &driver)?;
 
     Command::new(luau_path).arg(&source_path).assert().success();
+    Ok(())
 }

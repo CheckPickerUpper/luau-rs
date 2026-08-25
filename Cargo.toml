@@ -22,6 +22,9 @@ walrus = "0.26.5"
 assert_cmd = "2.2.2"
 insta = "1.48.0"
 predicates = "3.1.4"
+rstest = "0.26.1"
+rstest-bdd = "0.6.0-beta3"
+rstest-bdd-macros = { version = "0.6.0-beta3", features = ["strict-compile-time-validation"] }
 tempfile = "3.27.0"
 
 [lints.rust]

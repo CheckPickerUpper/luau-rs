@@ -6,17 +6,6 @@ mod support;
 use assert_cmd::Command;
 use support::official_luau_tool;
 
-/// Creates a temporary directory for generated-file tests.
-fn temporary_directory(prefix: &str) -> tempfile::TempDir {
-    match tempfile::Builder::new().prefix(prefix).tempdir() {
-        Ok(directory) => directory,
-        Err(error) => {
-            assert!(false, "could not create temporary directory: {error}");
-            std::process::exit(1)
-        }
-    }
-}
-
 /// Reads a text file relative to the crate root.
 fn read_repo_text(relative_path: &str) -> String {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative_path);
@@ -133,46 +122,40 @@ fn driver_source(generated: &str, runtime: &str) -> String {
 
 /// The binding driver must pass the official analyzer.
 #[test]
-fn roblox_binding_driver_passes_luau_analyze() {
+fn roblox_binding_driver_passes_luau_analyze() -> std::result::Result<(), std::io::Error> {
     let generated = generated_fixture_luau();
     let runtime = read_repo_text("runtime/roblox.luau");
     let driver = driver_source(&generated, &runtime);
     let luau_analyze_path = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"));
 
-    let temp_dir = temporary_directory("luau-rs-bindings-analyze");
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-bindings-analyze")
+        .tempdir()?;
     let source_path = temp_dir.path().join("driver.luau");
-    match fs_err::write(&source_path, &driver) {
-        Ok(()) => {}
-        Err(error) => {
-            assert!(false, "could not write driver: {error}");
-            return;
-        }
-    }
+    fs_err::write(&source_path, &driver)?;
 
     Command::new(luau_analyze_path)
         .arg(&source_path)
         .assert()
         .success();
+    Ok(())
 }
 
 /// The binding driver must execute: Rust `make_part` creates a Part through the
 /// mock environment exactly as the assertions describe.
 #[test]
-fn roblox_binding_driver_executes_correctly() {
+fn roblox_binding_driver_executes_correctly() -> std::result::Result<(), std::io::Error> {
     let generated = generated_fixture_luau();
     let runtime = read_repo_text("runtime/roblox.luau");
     let driver = driver_source(&generated, &runtime);
     let luau_path = official_luau_tool(("LUAU_BIN", "luau"));
 
-    let temp_dir = temporary_directory("luau-rs-bindings-execute");
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-bindings-execute")
+        .tempdir()?;
     let source_path = temp_dir.path().join("driver.luau");
-    match fs_err::write(&source_path, &driver) {
-        Ok(()) => {}
-        Err(error) => {
-            assert!(false, "could not write driver: {error}");
-            return;
-        }
-    }
+    fs_err::write(&source_path, &driver)?;
 
     Command::new(luau_path).arg(&source_path).assert().success();
+    Ok(())
 }
