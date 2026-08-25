@@ -68,7 +68,7 @@ fn command_stderr(state: &BuildState) -> Result<String, Error> {
         })
 }
 
-#[given("the committed Rust hello WebAssembly module")]
+#[given("a valid Rust module compiled to WebAssembly")]
 fn committed_module(state: &BuildState) -> Result<(), Error> {
     let root = tempfile::Builder::new()
         .prefix("luau-rs-cli-bdd")
@@ -79,7 +79,7 @@ fn committed_module(state: &BuildState) -> Result<(), Error> {
     Ok(())
 }
 
-#[given("a file containing invalid WebAssembly bytes")]
+#[given("a file that claims to be WebAssembly but contains invalid bytes")]
 fn invalid_module(state: &BuildState) -> Result<(), Error> {
     let root = tempfile::Builder::new()
         .prefix("luau-rs-cli-bdd-invalid")
@@ -140,7 +140,7 @@ fn artifact_path(state: &BuildState, relative_path: &str) -> Result<PathBuf, Err
         })
 }
 
-#[then("the server script is written under ServerScriptService")]
+#[then("Roblox receives a server script under ServerScriptService")]
 fn server_script_exists(state: &BuildState) -> Result<(), Error> {
     let artifact = artifact_path(state, "ServerScriptService/main.server.luau")?;
     if predicate::path::exists().eval(&artifact) {
@@ -153,7 +153,7 @@ fn server_script_exists(state: &BuildState) -> Result<(), Error> {
     }
 }
 
-#[then("the server script uses strict Luau")]
+#[then("the server script is strict Luau")]
 fn server_script_is_strict(state: &BuildState) -> Result<(), Error> {
     let artifact = artifact_path(state, "ServerScriptService/main.server.luau")?;
     let text = fs_err::read_to_string(&artifact)?;
@@ -167,7 +167,7 @@ fn server_script_is_strict(state: &BuildState) -> Result<(), Error> {
     }
 }
 
-#[then("the server script exposes an instantiate factory")]
+#[then("callers can instantiate the generated module")]
 fn server_script_exposes_factory(state: &BuildState) -> Result<(), Error> {
     let artifact = artifact_path(state, "ServerScriptService/main.server.luau")?;
     let text = fs_err::read_to_string(&artifact)?;
@@ -181,7 +181,7 @@ fn server_script_exposes_factory(state: &BuildState) -> Result<(), Error> {
     }
 }
 
-#[then("the build fails because the input was rejected")]
+#[then("the build explains that the module was rejected")]
 fn invalid_input_is_rejected(state: &BuildState) -> Result<(), Error> {
     let succeeded = command_succeeded(state)?;
     if succeeded {
@@ -199,7 +199,7 @@ fn invalid_input_is_rejected(state: &BuildState) -> Result<(), Error> {
     }
 }
 
-#[then("the client script is written under StarterPlayerScripts")]
+#[then("Roblox receives the client script at StarterPlayerScripts/game/main")]
 fn client_script_exists(state: &BuildState) -> Result<(), Error> {
     let artifact = artifact_path(
         state,

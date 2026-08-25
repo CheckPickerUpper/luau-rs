@@ -27,12 +27,12 @@ fn required_outcome(state: &DecodeState) -> Result<bool, Error> {
     })
 }
 
-#[given("bytes that are not a WebAssembly module")]
+#[given("input bytes that are not a WebAssembly module")]
 fn malformed_bytes(state: &DecodeState) {
     state.wasm_bytes.set(b"not wasm at all, sorry".to_vec());
 }
 
-#[given("a WebAssembly module that imports memory")]
+#[given("a WebAssembly module that asks the host to provide memory")]
 fn imported_memory(state: &DecodeState) {
     let mut module = Module::default();
     let memory = module.memories.add_local(false, false, 1, None, None);
@@ -45,7 +45,7 @@ fn empty_module(state: &DecodeState) {
     state.wasm_bytes.set(Module::default().emit_wasm());
 }
 
-#[when("I decode the WebAssembly bytes")]
+#[when("I ask the compiler to read the WebAssembly bytes")]
 fn decode_bytes(state: &DecodeState) -> Result<(), Error> {
     let outcome = state
         .wasm_bytes
@@ -60,7 +60,7 @@ fn decode_bytes(state: &DecodeState) -> Result<(), Error> {
     Ok(())
 }
 
-#[then("decoding reports a malformed module")]
+#[then("it identifies a malformed module")]
 fn malformed_module_is_reported(state: &DecodeState) -> Result<(), Error> {
     let _outcome_exists = required_outcome(state)?;
     let malformed = state
@@ -82,7 +82,7 @@ fn malformed_module_is_reported(state: &DecodeState) -> Result<(), Error> {
     }
 }
 
-#[then("decoding reports an unsupported memory import")]
+#[then("it explains that imported memory is unsupported")]
 fn memory_import_is_reported(state: &DecodeState) -> Result<(), Error> {
     let _outcome_exists = required_outcome(state)?;
     let unsupported_memory = state
@@ -107,7 +107,7 @@ fn memory_import_is_reported(state: &DecodeState) -> Result<(), Error> {
     }
 }
 
-#[then("decoding returns no functions and no exports")]
+#[then("it returns no functions and no exports")]
 fn empty_surface_is_reported(state: &DecodeState) -> Result<(), Error> {
     let _outcome_exists = required_outcome(state)?;
     let empty_surface = state

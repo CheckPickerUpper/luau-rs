@@ -1,18 +1,18 @@
-Feature: Building WebAssembly modules for Roblox
+Feature: Delivering Rust modules into Roblox
 
-  Scenario: A server entrypoint is written from a valid module
-    Given the committed Rust hello WebAssembly module
+  Scenario: A server module becomes a strict Roblox script
+    Given a valid Rust module compiled to WebAssembly
     When I build it as a server entrypoint
-    Then the server script is written under ServerScriptService
-    And the server script uses strict Luau
-    And the server script exposes an instantiate factory
+    Then Roblox receives a server script under ServerScriptService
+    And the server script is strict Luau
+    And callers can instantiate the generated module
 
-  Scenario: A non-WebAssembly file is rejected
-    Given a file containing invalid WebAssembly bytes
+  Scenario: A corrupt input does not produce a Roblox script
+    Given a file that claims to be WebAssembly but contains invalid bytes
     When I build it as a server entrypoint
-    Then the build fails because the input was rejected
+    Then the build explains that the module was rejected
 
-  Scenario: A client module uses its Roblox client path
-    Given the committed Rust hello WebAssembly module
+  Scenario: A client module lands in its Roblox client container
+    Given a valid Rust module compiled to WebAssembly
     When I build it as a client module at "game/main"
-    Then the client script is written under StarterPlayerScripts
+    Then Roblox receives the client script at StarterPlayerScripts/game/main

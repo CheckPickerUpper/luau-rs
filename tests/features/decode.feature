@@ -1,16 +1,16 @@
-Feature: Decoding WebAssembly modules
+Feature: Deciding which WebAssembly modules can become Luau
 
-  Scenario: Malformed bytes are rejected
-    Given bytes that are not a WebAssembly module
-    When I decode the WebAssembly bytes
-    Then decoding reports a malformed module
+  Scenario: Random bytes never become a Luau module
+    Given input bytes that are not a WebAssembly module
+    When I ask the compiler to read the WebAssembly bytes
+    Then it identifies a malformed module
 
-  Scenario: Imported memory is rejected
-    Given a WebAssembly module that imports memory
-    When I decode the WebAssembly bytes
-    Then decoding reports an unsupported memory import
+  Scenario: A module asking the host for memory is refused
+    Given a WebAssembly module that asks the host to provide memory
+    When I ask the compiler to read the WebAssembly bytes
+    Then it explains that imported memory is unsupported
 
-  Scenario: An empty module decodes to an empty surface
+  Scenario: A module with no code has a valid empty public surface
     Given an empty WebAssembly module
-    When I decode the WebAssembly bytes
-    Then decoding returns no functions and no exports
+    When I ask the compiler to read the WebAssembly bytes
+    Then it returns no functions and no exports

@@ -64,7 +64,7 @@ fn required_generated(state: &RoundTripState) -> Result<String, Error> {
     })
 }
 
-#[given("the committed Rust hello WebAssembly module")]
+#[given("the compiled Rust hello module")]
 fn committed_fixture(state: &RoundTripState) -> Result<(), Error> {
     state.wasm_bytes.set(fixture_wasm_bytes()?);
     Ok(())
@@ -82,7 +82,7 @@ fn translate_fixture(state: &RoundTripState) -> Result<(), Error> {
     Ok(())
 }
 
-#[then("the generated Luau exposes the add fib and double_at functions")]
+#[then("callers can use add, fib, and double_at")]
 fn generated_exports_are_present(state: &RoundTripState) -> Result<(), Error> {
     let generated = required_generated(state)?;
     let has_exports =
@@ -96,7 +96,7 @@ fn generated_exports_are_present(state: &RoundTripState) -> Result<(), Error> {
     }
 }
 
-#[then("the generated Luau declares linear memory")]
+#[then("the translated module owns linear memory")]
 fn generated_memory_is_present(state: &RoundTripState) -> Result<(), Error> {
     let generated = required_generated(state)?;
     let has_memory = generated.contains("MEMORY");
@@ -109,14 +109,14 @@ fn generated_memory_is_present(state: &RoundTripState) -> Result<(), Error> {
     }
 }
 
-#[then("the generated Luau matches the committed snapshot")]
+#[then("the generated Luau matches the committed output snapshot")]
 fn generated_snapshot_matches(state: &RoundTripState) -> Result<(), Error> {
     let generated = required_generated(state)?;
     insta::assert_snapshot!("fixture_generated_luau", generated);
     Ok(())
 }
 
-#[when("I ask official Luau analysis to validate it")]
+#[when("Luau analysis checks the translated module")]
 fn analyze_generated_luau(state: &RoundTripState) -> Result<(), Error> {
     let generated = required_generated(state)?;
     let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
@@ -131,7 +131,7 @@ fn analyze_generated_luau(state: &RoundTripState) -> Result<(), Error> {
     Ok(())
 }
 
-#[when("I run the generated module with official Luau")]
+#[when("I run the translated module with official Luau")]
 fn run_generated_luau(state: &RoundTripState) -> Result<(), Error> {
     let generated = required_generated(state)?;
     let luau = official_luau_tool(("LUAU_BIN", "luau"))?;
@@ -186,7 +186,7 @@ fn command_failure(state: &RoundTripState) -> Result<Error, Error> {
     )))
 }
 
-#[then("the analyzer accepts the generated module")]
+#[then("the generated module passes analysis without errors")]
 fn analyzer_accepts_generated_module(state: &RoundTripState) -> Result<(), Error> {
     let success = command_success(state)?;
     if success {
@@ -196,7 +196,7 @@ fn analyzer_accepts_generated_module(state: &RoundTripState) -> Result<(), Error
     }
 }
 
-#[then("official Luau reports the expected exported results")]
+#[then("add returns 42, fib returns 34, and memory doubles 7 to 14")]
 fn exported_results_are_correct(state: &RoundTripState) -> Result<(), Error> {
     let success = command_success(state)?;
     if success {

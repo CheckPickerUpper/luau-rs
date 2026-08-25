@@ -1,28 +1,28 @@
-Feature: Managing manifest-backed projects
+Feature: Publishing a complete Roblox project
 
-  Scenario: Checking a valid project does not create output
-    Given a valid project with one server module
-    When I check the manifest project
-    Then checking succeeds
-    And no build output is created
+  Scenario: Checking a project validates it without changing the workspace
+    Given a project with a valid server module
+    When I check the project manifest
+    Then project validation succeeds
+    And no Roblox output is created
 
-  Scenario: Compiling nested modules publishes Roblox paths and removes stale files
-    Given a valid project with shared and server modules
-    When I compile the manifest project
-    And I add a stale managed file and compile the manifest project again
-    Then the shared module is published under ReplicatedStorage
-    And the server entrypoint is published under ServerScriptService
-    And the stale managed file is removed
+  Scenario: A project tree maps modules to Roblox containers
+    Given a project with a shared library and a server entrypoint
+    When I compile the project
+    And I compile it again after adding a file under the managed output
+    Then the shared library appears in ReplicatedStorage
+    And the server entrypoint appears in ServerScriptService
+    And the stale managed file disappears
 
-  Scenario: A missing output root is reported
-    Given a project manifest without an output root
-    When I check the manifest project
-    Then checking fails because output_root is missing
+  Scenario: A manifest that omits the output location is explained
+    Given a project manifest that omits where generated files should go
+    When I check the project manifest
+    Then validation names the missing output location
 
-  Scenario: A failed recompilation preserves the last good output
-    Given a valid project with one server module
-    When I compile the manifest project
+  Scenario: A broken update leaves the last good Roblox output intact
+    Given a project with a valid server module
+    When I compile the project
     And I remember the published server output
-    And I replace the server module with invalid bytes and compile the manifest project again
-    Then compilation fails because the module was rejected
-    And the remembered server output is unchanged
+    And I replace the module with bytes that are not WebAssembly and compile again
+    Then compilation explains that the module was rejected
+    And the last good server output is unchanged

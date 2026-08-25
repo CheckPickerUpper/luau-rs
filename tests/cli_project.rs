@@ -97,7 +97,7 @@ fn command_stderr(state: &ProjectState) -> Result<String, Error> {
         })
 }
 
-#[given("a valid project with one server module")]
+#[given("a project with a valid server module")]
 fn valid_project_with_server_module(state: &ProjectState) -> Result<(), Error> {
     let root = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-server")
@@ -111,7 +111,7 @@ fn valid_project_with_server_module(state: &ProjectState) -> Result<(), Error> {
     Ok(())
 }
 
-#[given("a valid project with shared and server modules")]
+#[given("a project with a shared library and a server entrypoint")]
 fn valid_project_with_nested_modules(state: &ProjectState) -> Result<(), Error> {
     let root = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-nested")
@@ -126,7 +126,7 @@ fn valid_project_with_nested_modules(state: &ProjectState) -> Result<(), Error> 
     Ok(())
 }
 
-#[given("a project manifest without an output root")]
+#[given("a project manifest that omits where generated files should go")]
 fn malformed_project(state: &ProjectState) -> Result<(), Error> {
     let root = tempfile::Builder::new()
         .prefix("luau-rs-project-bdd-invalid")
@@ -138,7 +138,7 @@ fn malformed_project(state: &ProjectState) -> Result<(), Error> {
     Ok(())
 }
 
-#[when("I check the manifest project")]
+#[when("I check the project manifest")]
 fn check_manifest_project(state: &ProjectState) -> Result<(), Error> {
     let manifest = required_manifest(state)?;
     let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
@@ -149,7 +149,7 @@ fn check_manifest_project(state: &ProjectState) -> Result<(), Error> {
     Ok(())
 }
 
-#[when("I compile the manifest project")]
+#[when("I compile the project")]
 fn compile_manifest_project(state: &ProjectState) -> Result<(), Error> {
     let manifest = required_manifest(state)?;
     let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
@@ -160,7 +160,7 @@ fn compile_manifest_project(state: &ProjectState) -> Result<(), Error> {
     Ok(())
 }
 
-#[when("I add a stale managed file and compile the manifest project again")]
+#[when("I compile it again after adding a file under the managed output")]
 fn recompile_after_adding_stale_file(state: &ProjectState) -> Result<(), Error> {
     let root = required_root(state)?;
     let stale_path = root.join("build/stale-managed-file.txt");
@@ -182,7 +182,7 @@ fn remember_server_output(state: &ProjectState) -> Result<(), Error> {
     Ok(())
 }
 
-#[when("I replace the server module with invalid bytes and compile the manifest project again")]
+#[when("I replace the module with bytes that are not WebAssembly and compile again")]
 fn recompile_after_corrupting_server_module(state: &ProjectState) -> Result<(), Error> {
     let server_module = required_server_module(state)?;
     fs_err::write(server_module, b"not a wasm module")?;
@@ -195,7 +195,7 @@ fn recompile_after_corrupting_server_module(state: &ProjectState) -> Result<(), 
     Ok(())
 }
 
-#[then("checking succeeds")]
+#[then("project validation succeeds")]
 fn checking_succeeds(state: &ProjectState) -> Result<(), Error> {
     let succeeded = command_succeeded(state)?;
     if succeeded {
@@ -208,7 +208,7 @@ fn checking_succeeds(state: &ProjectState) -> Result<(), Error> {
     }
 }
 
-#[then("no build output is created")]
+#[then("no Roblox output is created")]
 fn no_build_output_is_created(state: &ProjectState) -> Result<(), Error> {
     let root = required_root(state)?;
     let output_exists = root.join("build").exists();
@@ -221,7 +221,7 @@ fn no_build_output_is_created(state: &ProjectState) -> Result<(), Error> {
     }
 }
 
-#[then("the shared module is published under ReplicatedStorage")]
+#[then("the shared library appears in ReplicatedStorage")]
 fn shared_module_is_published(state: &ProjectState) -> Result<(), Error> {
     let root = required_root(state)?;
     let path = root.join("build/ReplicatedStorage/math/core.luau");
@@ -239,7 +239,7 @@ fn shared_module_is_published(state: &ProjectState) -> Result<(), Error> {
     }
 }
 
-#[then("the server entrypoint is published under ServerScriptService")]
+#[then("the server entrypoint appears in ServerScriptService")]
 fn server_entrypoint_is_published(state: &ProjectState) -> Result<(), Error> {
     let root = required_root(state)?;
     let path = root.join("build/ServerScriptService/game/main.server.luau");
@@ -257,7 +257,7 @@ fn server_entrypoint_is_published(state: &ProjectState) -> Result<(), Error> {
     }
 }
 
-#[then("the stale managed file is removed")]
+#[then("the stale managed file disappears")]
 fn stale_managed_file_is_removed(state: &ProjectState) -> Result<(), Error> {
     let root = required_root(state)?;
     let stale_path = root.join("build/stale-managed-file.txt");
@@ -271,7 +271,7 @@ fn stale_managed_file_is_removed(state: &ProjectState) -> Result<(), Error> {
     }
 }
 
-#[then("checking fails because output_root is missing")]
+#[then("validation names the missing output location")]
 fn missing_output_root_is_reported(state: &ProjectState) -> Result<(), Error> {
     let succeeded = command_succeeded(state)?;
     if succeeded {
@@ -289,7 +289,7 @@ fn missing_output_root_is_reported(state: &ProjectState) -> Result<(), Error> {
     }
 }
 
-#[then("compilation fails because the module was rejected")]
+#[then("compilation explains that the module was rejected")]
 fn corrupt_module_is_rejected(state: &ProjectState) -> Result<(), Error> {
     let succeeded = command_succeeded(state)?;
     if succeeded {
@@ -307,7 +307,7 @@ fn corrupt_module_is_rejected(state: &ProjectState) -> Result<(), Error> {
     }
 }
 
-#[then("the remembered server output is unchanged")]
+#[then("the last good server output is unchanged")]
 fn previous_server_output_is_preserved(state: &ProjectState) -> Result<(), Error> {
     let root = required_root(state)?;
     let previous = state.previous_output.get().ok_or_else(|| {

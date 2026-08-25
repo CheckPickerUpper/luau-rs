@@ -144,14 +144,14 @@ fn required_source(state: &RobloxState) -> Result<(String, String), Error> {
     Ok((generated, runtime))
 }
 
-#[given("the translated fixture and Roblox runtime")]
+#[given("a generated Rust module with its Roblox runtime and a test world")]
 fn translated_fixture_and_runtime(state: &RobloxState) -> Result<(), Error> {
     state.generated.set(generated_fixture_luau()?);
     state.runtime.set(read_repo_text("runtime/roblox.luau")?);
     Ok(())
 }
 
-#[when("I ask official Luau analysis to validate the binding driver")]
+#[when("Luau analysis checks the module and runtime together")]
 fn analyze_binding_driver(state: &RobloxState) -> Result<(), Error> {
     let (generated, runtime) = required_source(state)?;
     let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
@@ -166,7 +166,7 @@ fn analyze_binding_driver(state: &RobloxState) -> Result<(), Error> {
     Ok(())
 }
 
-#[when("I run the binding driver with official Luau")]
+#[when("the module creates a Part at position (1, 2, 3) and handles click 21")]
 fn run_binding_driver(state: &RobloxState) -> Result<(), Error> {
     let (generated, runtime) = required_source(state)?;
     let luau = official_luau_tool(("LUAU_BIN", "luau"))?;
@@ -181,7 +181,7 @@ fn run_binding_driver(state: &RobloxState) -> Result<(), Error> {
     Ok(())
 }
 
-#[then("the analyzer accepts the binding driver")]
+#[then("the combined program passes analysis without errors")]
 fn analyzer_accepts_binding_driver(state: &RobloxState) -> Result<(), Error> {
     let success = state
         .result
@@ -200,7 +200,7 @@ fn analyzer_accepts_binding_driver(state: &RobloxState) -> Result<(), Error> {
     }
 }
 
-#[then("the binding driver completes successfully")]
+#[then("the Roblox test world contains an anchored Part of size (1, 2, 3), and the module reports click 42 with add 42 and fib 34")]
 fn binding_driver_completes(state: &RobloxState) -> Result<(), Error> {
     let success = state
         .result

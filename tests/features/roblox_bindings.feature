@@ -1,11 +1,11 @@
-Feature: Integrating generated modules with Roblox bindings
+Feature: Letting generated Rust modules use Roblox objects
 
-  Scenario: The binding driver passes Luau analysis
-    Given the translated fixture and Roblox runtime
-    When I ask official Luau analysis to validate the binding driver
-    Then the analyzer accepts the binding driver
+  Scenario: Generated code is valid Roblox Luau
+    Given a generated Rust module with its Roblox runtime and a test world
+    When Luau analysis checks the module and runtime together
+    Then the combined program passes analysis without errors
 
-  Scenario: The binding driver runs against the Roblox mock
-    Given the translated fixture and Roblox runtime
-    When I run the binding driver with official Luau
-    Then the binding driver completes successfully
+  Scenario: A Rust module creates a Part and handles a click
+    Given a generated Rust module with its Roblox runtime and a test world
+    When the module creates a Part at position (1, 2, 3) and handles click 21
+    Then the Roblox test world contains an anchored Part of size (1, 2, 3), and the module reports click 42 with add 42 and fib 34

@@ -90,13 +90,13 @@ fn generate_arithmetic_luau() -> Result<String, Error> {
     }
 }
 
-#[given("a module with overflowing i32 arithmetic exports")]
+#[given("a module whose arithmetic operations overflow i32")]
 fn overflowing_arithmetic_module(state: &ArithmeticState) -> Result<(), Error> {
     state.generated.set(generate_arithmetic_luau()?);
     Ok(())
 }
 
-#[when("I run the translated arithmetic module with official Luau")]
+#[when("I evaluate it with official Luau")]
 fn run_arithmetic_with_luau(state: &ArithmeticState) -> Result<(), Error> {
     let generated = state.generated.get().ok_or_else(|| {
         Error::new(
@@ -124,7 +124,7 @@ fn run_arithmetic_with_luau(state: &ArithmeticState) -> Result<(), Error> {
     Ok(())
 }
 
-#[then("official Luau reports every wrapping result as correct")]
+#[then("Luau returns the WebAssembly-wrapped results")]
 fn wrapping_results_are_correct(state: &ArithmeticState) -> Result<(), Error> {
     let status = state
         .result

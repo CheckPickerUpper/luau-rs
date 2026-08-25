@@ -1,6 +1,6 @@
-Feature: Preserving WebAssembly integer arithmetic
+Feature: Matching WebAssembly integer behavior in Luau
 
-  Scenario: Overflowing i32 operations wrap like WebAssembly
-    Given a module with overflowing i32 arithmetic exports
-    When I run the translated arithmetic module with official Luau
-    Then official Luau reports every wrapping result as correct
+  Scenario: Overflowing arithmetic keeps i32 wraparound
+    Given a module whose arithmetic operations overflow i32
+    When I evaluate it with official Luau
+    Then Luau returns the WebAssembly-wrapped results
