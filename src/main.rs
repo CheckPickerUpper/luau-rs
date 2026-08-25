@@ -2,10 +2,12 @@
 
 use clap::{Parser, Subcommand};
 use luau_rs::{
-    compile_project, ProjectCompilationOutcome, ProjectCompilationRequest, ProjectModuleIdentity,
-    ProjectModuleRole, ProjectModuleSource,
+    compile_project, discover_project_request, ProjectCompilationOutcome,
+    ProjectCompilationProblem, ProjectCompilationRequest, ProjectDiscoveryProblem, ProjectManifest,
+    ProjectManifestProblem, ProjectModuleIdentity, ProjectModuleRole, ProjectModuleSource,
 };
 use std::path::PathBuf;
+use thiserror::Error;
 
 /// Compiles wasm modules (built from Rust) into strict Luau for Roblox.
 #[derive(Parser, Debug)]
@@ -37,6 +39,18 @@ enum Command {
         /// Module path within the chosen service, for example `game/main`.
         #[arg(long, default_value = "main")]
         module_path: String,
+    },
+    /// Validate a manifest-backed project without writing generated output.
+    Check {
+        /// Path to the project manifest; defaults to `luau-rs.toml`.
+        #[arg(long, default_value = "luau-rs.toml")]
+        manifest_path: PathBuf,
+    },
+    /// Compile a manifest-backed project and publish its output atomically.
+    Compile {
+        /// Path to the project manifest; defaults to `luau-rs.toml`.
+        #[arg(long, default_value = "luau-rs.toml")]
+        manifest_path: PathBuf,
     },
 }
 
@@ -130,6 +144,94 @@ fn main() {
                     );
                     std::process::exit(1);
                 }
+            }
+        }
+        Command::Check { manifest_path } => {
+            match run_manifest_command(&manifest_path, ManifestCommandAction::Check) {
+                Ok(()) => tracing::info!(path = %manifest_path.display(), "project check passed"),
+                Err(error) => {
+                    tracing::error!(error = %error, "project check failed");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Command::Compile { manifest_path } => {
+            match run_manifest_command(&manifest_path, ManifestCommandAction::Compile) {
+                Ok(()) => tracing::info!(path = %manifest_path.display(), "project compile passed"),
+                Err(error) => {
+                    tracing::error!(error = %error, "project compile failed");
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ManifestCommandAction {
+    Check,
+    Compile,
+}
+
+#[derive(Debug, Error)]
+enum ManifestCommandProblem {
+    #[error("manifest failed: {0}")]
+    Manifest(#[source] ProjectManifestProblem),
+    #[error("project discovery failed: {0}")]
+    Discovery(#[source] ProjectDiscoveryProblem),
+    #[error("project compilation rejected: {0}")]
+    Compilation(#[source] ProjectCompilationProblem),
+    #[error("could not publish project output {path}: {source}")]
+    Write {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+fn run_manifest_command(
+    manifest_path: &std::path::Path,
+    action: ManifestCommandAction,
+) -> Result<(), ManifestCommandProblem> {
+    let manifest = match ProjectManifest::load_from_path(manifest_path) {
+        Ok(manifest) => manifest,
+        Err(error) => return Err(ManifestCommandProblem::Manifest(error)),
+    };
+    let request = match discover_project_request(&manifest) {
+        Ok(request) => request,
+        Err(error) => return Err(ManifestCommandProblem::Discovery(error)),
+    };
+    let compiled_project = match compile_project(request) {
+        ProjectCompilationOutcome::Compiled(compiled_project) => compiled_project,
+        ProjectCompilationOutcome::Rejected(rejection) => {
+            return Err(ManifestCommandProblem::Compilation(
+                rejection.problem().clone(),
+            ));
+        }
+    };
+    match action {
+        ManifestCommandAction::Check => {
+            tracing::debug!(
+                module_count = compiled_project.generated_modules().len(),
+                "validated project modules"
+            );
+            Ok(())
+        }
+        ManifestCommandAction::Compile => {
+            match compiled_project.write_to_directory(manifest.output_root()) {
+                Ok(written_paths) => {
+                    for written_path in written_paths {
+                        tracing::info!(
+                            path = %written_path.display(),
+                            "published generated Luau"
+                        );
+                    }
+                    Ok(())
+                }
+                Err(source) => Err(ManifestCommandProblem::Write {
+                    path: manifest.output_root().to_path_buf(),
+                    source,
+                }),
             }
         }
     }

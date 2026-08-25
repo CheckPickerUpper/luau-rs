@@ -1,14 +1,22 @@
 //! Compiling one or more wasm modules into a strict Luau Roblox project.
 
+mod discovery;
 mod layout;
+mod manifest;
 mod problem;
 
+pub use discovery::{discover_project_request, ProjectDiscoveryProblem};
 pub use layout::{ModuleExecutionSide, ProjectModuleIdentity, ProjectModuleRole};
+pub use manifest::{ProjectManifest, ProjectManifestProblem};
 pub use problem::{ProjectCompilationProblem, ProjectCompilationRejection};
 
 use crate::translate::{GeneratedLuauText, MainInvocation, TranslateOptions, TranslateOutcome};
 use crate::wasm::{decode_module, DecodeOutcome};
-use std::path::{Path, PathBuf};
+use atomic_write_file::AtomicWriteFile;
+use std::ffi::OsStr;
+use std::io::Write;
+use std::path::{Component, Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The outcome of compiling one project.
 #[derive(Debug)]
@@ -144,19 +152,210 @@ impl CompiledProject {
     ///
     /// # Errors
     ///
-    /// Returns the first I/O error encountered while writing an artifact.
+    /// Returns the first I/O error encountered while staging or publishing an
+    /// artifact. The previous output directory remains in place until the
+    /// complete staged tree is ready to replace it.
     pub fn write_to_directory(&self, project_root: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
-        let mut written_paths = Vec::new();
-        for generated_module in &self.generated_modules {
-            let output_path = project_root.join(generated_module.output_path().path_text());
-            if let Some(parent_directory) = output_path.parent() {
-                fs_err::create_dir_all(parent_directory)?;
+        let staging_directory = create_staging_directory(project_root)?;
+        match self.write_to_staging_directory(&staging_directory) {
+            Ok(()) => {}
+            Err(write_error) => {
+                remove_staging_directory(&staging_directory);
+                return Err(write_error);
             }
-            fs_err::write(&output_path, generated_module.artifact().as_text())?;
-            written_paths.push(output_path);
+        }
+        match publish_staging_directory(&staging_directory, project_root) {
+            Ok(()) => {}
+            Err(publish_error) => return Err(publish_error),
+        }
+        let mut written_paths = Vec::with_capacity(self.generated_modules.len());
+        for generated_module in &self.generated_modules {
+            written_paths.push(generated_output_path(project_root, generated_module)?);
         }
         Ok(written_paths)
     }
+
+    fn write_to_staging_directory(&self, staging_directory: &Path) -> Result<(), std::io::Error> {
+        for generated_module in &self.generated_modules {
+            let output_path = generated_output_path(staging_directory, generated_module)?;
+            if let Some(parent_directory) = output_path.parent() {
+                fs_err::create_dir_all(parent_directory)?;
+            }
+            let mut atomic_file = AtomicWriteFile::open(&output_path)?;
+            match atomic_file.write_all(generated_module.artifact().as_text().as_bytes()) {
+                Ok(()) => {}
+                Err(write_error) => {
+                    return match atomic_file.discard() {
+                        Ok(()) => Err(write_error),
+                        Err(discard_error) => Err(std::io::Error::new(
+                            write_error.kind(),
+                            format!(
+                                "could not write {}: {write_error}; could not discard staged file: {discard_error}",
+                                output_path.display()
+                            ),
+                        )),
+                    };
+                }
+            }
+            atomic_file.commit()?;
+        }
+        Ok(())
+    }
+}
+
+const MAX_STAGING_DIRECTORY_ATTEMPTS: usize = 16;
+const INITIAL_STAGING_DIRECTORY_ATTEMPT: usize = 0;
+const FALLBACK_TIMESTAMP_NANOS: u128 = 0;
+
+fn create_staging_directory(project_root: &Path) -> Result<PathBuf, std::io::Error> {
+    if let Some(parent_directory) = project_root.parent() {
+        if !parent_directory.as_os_str().is_empty() {
+            fs_err::create_dir_all(parent_directory)?;
+        }
+    }
+    let mut attempt = INITIAL_STAGING_DIRECTORY_ATTEMPT;
+    loop {
+        let staging_directory = output_sibling_path(project_root, "staging", attempt);
+        match fs_err::create_dir(&staging_directory) {
+            Ok(()) => return Ok(staging_directory),
+            Err(error) => match error.kind() {
+                std::io::ErrorKind::AlreadyExists => {
+                    attempt += 1;
+                    if attempt >= MAX_STAGING_DIRECTORY_ATTEMPTS {
+                        return Err(std::io::Error::new(
+                            error.kind(),
+                            format!(
+                                "could not create a unique staging directory after {attempt} attempts: {error}"
+                            ),
+                        ));
+                    }
+                }
+                _ => return Err(error),
+            },
+        }
+    }
+}
+
+fn generated_output_path(
+    project_root: &Path,
+    generated_module: &GeneratedProjectModule,
+) -> Result<PathBuf, std::io::Error> {
+    let relative_path = Path::new(generated_module.output_path().path_text());
+    for component in relative_path.components() {
+        match component {
+            Component::Normal(_) => {}
+            Component::CurDir
+            | Component::ParentDir
+            | Component::RootDir
+            | Component::Prefix(_) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!(
+                        "generated output path is not relative and normalized: {}",
+                        relative_path.display()
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(project_root.join(relative_path))
+}
+
+fn publish_staging_directory(
+    staging_directory: &Path,
+    project_root: &Path,
+) -> Result<(), std::io::Error> {
+    match fs_err::symlink_metadata(project_root) {
+        Ok(metadata) if metadata.is_dir() => {
+            let backup_directory =
+                output_sibling_path(project_root, "backup", INITIAL_STAGING_DIRECTORY_ATTEMPT);
+            match fs_err::rename(project_root, &backup_directory) {
+                Ok(()) => {}
+                Err(error) => {
+                    remove_staging_directory(staging_directory);
+                    return Err(error);
+                }
+            }
+            match fs_err::rename(staging_directory, project_root) {
+                Ok(()) => {
+                    remove_staging_directory(&backup_directory);
+                    Ok(())
+                }
+                Err(publish_error) => match fs_err::rename(&backup_directory, project_root) {
+                    Ok(()) => {
+                        remove_staging_directory(staging_directory);
+                        Err(publish_error)
+                    }
+                    Err(restore_error) => Err(std::io::Error::other(
+                        format!(
+                            "could not publish {}: {publish_error}; could not restore previous output {}: {restore_error}",
+                            project_root.display(),
+                            project_root.display()
+                        ),
+                    )),
+                },
+            }
+        }
+        Ok(_) => {
+            remove_staging_directory(staging_directory);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                format!(
+                    "project output {} is not a directory",
+                    project_root.display()
+                ),
+            ))
+        }
+        Err(error) => {
+            if matches!(error.kind(), std::io::ErrorKind::NotFound) {
+                match fs_err::rename(staging_directory, project_root) {
+                    Ok(()) => Ok(()),
+                    Err(rename_error) => {
+                        remove_staging_directory(staging_directory);
+                        Err(std::io::Error::new(
+                            rename_error.kind(),
+                            format!(
+                                "could not publish staged output {}: {rename_error}",
+                                project_root.display()
+                            ),
+                        ))
+                    }
+                }
+            } else {
+                remove_staging_directory(staging_directory);
+                Err(error)
+            }
+        }
+    }
+}
+
+fn remove_staging_directory(directory: &Path) {
+    match fs_err::remove_dir_all(directory) {
+        Ok(()) => {}
+        Err(error) => tracing::warn!(
+            path = %directory.display(),
+            error = %error,
+            "could not remove temporary project directory"
+        ),
+    }
+}
+
+fn output_sibling_path(project_root: &Path, purpose: &str, attempt: usize) -> PathBuf {
+    let parent_directory = match project_root.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        Some(_) | None => Path::new("."),
+    };
+    let project_name = match project_root.file_name().and_then(OsStr::to_str) {
+        Some(project_name) if !project_name.is_empty() => project_name,
+        Some(_) | None => "output",
+    };
+    let timestamp_nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(FALLBACK_TIMESTAMP_NANOS, |duration| duration.as_nanos());
+    parent_directory.join(format!(
+        ".{project_name}.luau-rs-{purpose}-{}-{timestamp_nanos}-{attempt}",
+        std::process::id()
+    ))
 }
 
 /// Compiles a complete project after validating every module before any output is accepted.

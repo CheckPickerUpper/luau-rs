@@ -12,6 +12,10 @@ module.wasm ──luau-rs decode──▶ DecodedModule (validated subset)
 DecodedModule ──luau-rs translate──▶ strict Luau module (instantiate factory)
 ```
 
+For a multi-module project, `luau-rs` reads `luau-rs.toml`, discovers wasm
+inputs recursively, validates the complete project in memory, and publishes a
+fresh Roblox layout only after every module succeeds.
+
 Because the frontend is wasm, you get **100% real Rust semantics** (borrow
 checker, std library, crates.io) from `rustc` for free — the compiler only
 translates a stable, well-defined instruction set into Luau. The Luau backend
@@ -54,7 +58,32 @@ cargo test
 
 ```text
 cargo run -- build <module.wasm> --out <dir> [--entrypoint] [--side server|client] [--module-path <path>]
+luau-rs check --manifest-path <path>
+luau-rs compile --manifest-path <path>
 ```
+
+The manifest defaults to `luau-rs.toml` when `--manifest-path` is omitted. Its
+paths are relative to the manifest file:
+
+```toml
+[project]
+source_root = "wasm"
+output_root = "build"
+```
+
+Under `source_root`, modules use this convention:
+
+```text
+<source_root>/<server|client|shared>/<entrypoint|library>/<module-path>.wasm
+```
+
+For example, `wasm/server/entrypoint/game/main.wasm` becomes
+`ServerScriptService/game/main.server.luau`, while
+`wasm/shared/library/math/core.wasm` becomes
+`ReplicatedStorage/math/core.luau`. `check` performs discovery, decoding, and
+translation without writing output. `compile` stages every generated file and
+atomically replaces the previous `output_root` only after the complete tree is
+ready.
 
 ## Current scope
 
