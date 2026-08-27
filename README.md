@@ -4,6 +4,9 @@
 it to wasm32, and luau-rs emits strict `--!strict` Luau that runs inside Roblox
 Studio.
 
+The repository uses the Rust nightly toolchain, configured in
+`rust-toolchain.toml`.
+
 ## How it works
 
 ```text

@@ -6,13 +6,17 @@
 //! can break out of any enclosing construct with correct Luau semantics.
 
 use crate::wasm::{DecodedFunction, WasmDecodeProblemReason, WasmValueType};
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use walrus::ir::{ExtendedLoad, Instr, InstrSeqId, LoadKind, MemArg, StoreKind, Value};
 use walrus::{LocalFunction, LocalId, Module};
 
 use super::ops::{binop_expression, luau_constant, unop_expression};
 use super::problem::TranslationProblemReason;
 use super::writer::{TextWriter, LUAU_INDEX_OFFSET, SP_NAME, STACK_NAME, WASM_PAGE_SIZE_BYTES};
+
+const SCALAR_STACK_SLOT_COUNT: usize = 1;
+const I64_STACK_SLOT_COUNT: usize = 2;
+const I64_HALF_BYTE_COUNT: u64 = 4;
 
 /// A stable identifier for one structured construct within a function.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -29,6 +33,7 @@ struct ValueParts {
     high: String,
 }
 
+/// Provides the private constructor used when a value occupies one slot.
 impl ValueParts {
     const fn scalar(value: String) -> Self {
         Self {
@@ -63,6 +68,22 @@ enum BranchAction {
     Return,
     /// Set flags for the crossed constructs, then break the innermost loop.
     Cascade { set_flags: Vec<String> },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OperandWidth {
+    Scalar,
+    I64,
+}
+
+/// Converts one logical operand width into its generated Luau slot count.
+impl OperandWidth {
+    const fn stack_slot_count(self) -> usize {
+        match self {
+            Self::Scalar => SCALAR_STACK_SLOT_COUNT,
+            Self::I64 => I64_STACK_SLOT_COUNT,
+        }
+    }
 }
 
 /// Every input needed to emit one defined function body.
@@ -113,8 +134,8 @@ pub fn emit_function_body(
 /// Returns the (parameter names, return annotation) pair for a generated function.
 #[must_use]
 pub fn function_signature(function: &DecodedFunction) -> (Vec<String>, String) {
-    let parameters = expanded_parameters(function.params());
-    let return_types = expanded_types(function.results())
+    let parameters = FunctionEmitter::expanded_parameters(function.params());
+    let return_types = FunctionEmitter::expanded_types(function.results())
         .into_iter()
         .map(WasmValueType::luau_type_name)
         .collect::<Vec<_>>();
@@ -126,96 +147,6 @@ pub fn function_signature(function: &DecodedFunction) -> (Vec<String>, String) {
     (parameters, return_annotation)
 }
 
-fn expanded_parameters(types: &[WasmValueType]) -> Vec<String> {
-    let mut parameters = Vec::new();
-    for (index, value_type) in types.iter().enumerate() {
-        if *value_type == WasmValueType::I64 {
-            parameters.push(format!("p{index}_lo: number"));
-            parameters.push(format!("p{index}_hi: number"));
-        } else {
-            parameters.push(format!("p{index}: {}", value_type.luau_type_name()));
-        }
-    }
-    parameters
-}
-
-fn expanded_types(types: &[WasmValueType]) -> Vec<WasmValueType> {
-    types
-        .iter()
-        .flat_map(|value_type| {
-            if *value_type == WasmValueType::I64 {
-                vec![WasmValueType::I32, WasmValueType::I32]
-            } else {
-                vec![*value_type]
-            }
-        })
-        .collect()
-}
-
-fn wasm_types(types: &[walrus::ValType]) -> Result<Vec<WasmValueType>, TranslationProblemReason> {
-    types
-        .iter()
-        .copied()
-        .map(|value_type| {
-            WasmValueType::try_from(value_type)
-                .map_err(|reason| TranslationProblemReason::Internal(reason.to_string()))
-        })
-        .collect()
-}
-
-const fn zero_initializer(value_type: WasmValueType) -> &'static str {
-    match value_type {
-        WasmValueType::I32 | WasmValueType::I64 | WasmValueType::F32 | WasmValueType::F64 => "0",
-        WasmValueType::ExternRef | WasmValueType::FuncRef => "nil",
-    }
-}
-
-/// Collects every local of a function in deterministic order: parameters
-/// first (in wasm order), then declared locals sorted by arena id.
-///
-/// Walrus stores declared locals in a module-wide arena rather than on the
-/// function, so the translator derives the per-function set by walking the
-/// body for referenced `local.get`/`local.set`/`local.tee` ids.
-fn collect_local_order(input: &FunctionBodyInput<'_>) -> Vec<LocalId> {
-    let mut referenced = Vec::new();
-    collect_referenced_locals(input, input.entry_sequence, &mut referenced);
-    let mut local_order = input.local_function.args.clone();
-    let mut declared = referenced
-        .into_iter()
-        .filter(|local| !input.local_function.args.contains(local))
-        .collect::<Vec<_>>();
-    declared.sort_unstable();
-    declared.dedup();
-    local_order.extend(declared);
-    local_order
-}
-
-fn collect_referenced_locals(
-    input: &FunctionBodyInput<'_>,
-    sequence_id: InstrSeqId,
-    referenced: &mut Vec<LocalId>,
-) {
-    let sequence = input.local_function.block(sequence_id);
-    for (instruction, _) in &sequence.instrs {
-        match instruction {
-            Instr::LocalGet(local_get) => referenced.push(local_get.local),
-            Instr::LocalSet(local_set) => referenced.push(local_set.local),
-            Instr::LocalTee(local_tee) => referenced.push(local_tee.local),
-            Instr::Block(block) => {
-                collect_referenced_locals(input, block.seq, referenced);
-            }
-            Instr::Loop(loop_) => {
-                collect_referenced_locals(input, loop_.seq, referenced);
-            }
-            Instr::IfElse(if_else) => {
-                collect_referenced_locals(input, if_else.consequent, referenced);
-                collect_referenced_locals(input, if_else.alternative, referenced);
-            }
-            _ => {}
-        }
-    }
-}
-
 /// Translates one function body into Luau statements inside a `TextWriter`.
 struct FunctionEmitter<'a> {
     input: &'a FunctionBodyInput<'a>,
@@ -224,6 +155,7 @@ struct FunctionEmitter<'a> {
     next_construct_id: ConstructId,
     next_temp_id: TempId,
     contexts: Vec<ConstructContext>,
+    operand_stack: VecDeque<OperandWidth>,
     /// Whether the most recent statement terminates the block (a `return` or
     /// unconditional branch). Dead statements are skipped because the pinned
     /// Luau enforces Lua 5.1's rule that `return` is the last statement of a
@@ -236,11 +168,101 @@ impl<'a> FunctionEmitter<'a> {
         Self {
             input,
             writer,
-            local_positions: collect_local_order(input),
+            local_positions: Self::collect_local_order(input),
             next_construct_id: ConstructId(0),
             next_temp_id: TempId(0),
             contexts: Vec::new(),
+            operand_stack: VecDeque::new(),
             unreachable: false,
+        }
+    }
+
+    fn expanded_parameters(types: &[WasmValueType]) -> Vec<String> {
+        let mut parameters = Vec::new();
+        for (index, value_type) in types.iter().enumerate() {
+            if *value_type == WasmValueType::I64 {
+                parameters.push(format!("p{index}_lo: number"));
+                parameters.push(format!("p{index}_hi: number"));
+            } else {
+                parameters.push(format!("p{index}: {}", value_type.luau_type_name()));
+            }
+        }
+        parameters
+    }
+
+    fn expanded_types(types: &[WasmValueType]) -> Vec<WasmValueType> {
+        types
+            .iter()
+            .flat_map(|value_type| {
+                if *value_type == WasmValueType::I64 {
+                    vec![WasmValueType::I32; I64_STACK_SLOT_COUNT]
+                } else {
+                    vec![*value_type]
+                }
+            })
+            .collect()
+    }
+
+    fn wasm_types(
+        types: &[walrus::ValType],
+    ) -> Result<Vec<WasmValueType>, TranslationProblemReason> {
+        types
+            .iter()
+            .copied()
+            .map(|value_type| {
+                WasmValueType::try_from(value_type)
+                    .map_err(|reason| TranslationProblemReason::Internal(reason.to_string()))
+            })
+            .collect()
+    }
+
+    const fn zero_initializer(value_type: WasmValueType) -> &'static str {
+        match value_type {
+            WasmValueType::I32 | WasmValueType::I64 | WasmValueType::F32 | WasmValueType::F64 => {
+                "0"
+            }
+            WasmValueType::ExternRef | WasmValueType::FuncRef => "nil",
+        }
+    }
+
+    /// Collects locals in wasm parameter order followed by referenced locals.
+    fn collect_local_order(input: &FunctionBodyInput<'_>) -> Vec<LocalId> {
+        let mut referenced = Vec::new();
+        Self::collect_referenced_locals(input, input.entry_sequence, &mut referenced);
+        let mut local_order = input.local_function.args.clone();
+        let mut declared = referenced
+            .into_iter()
+            .filter(|local| !input.local_function.args.contains(local))
+            .collect::<Vec<_>>();
+        declared.sort_unstable();
+        declared.dedup();
+        local_order.extend(declared);
+        local_order
+    }
+
+    fn collect_referenced_locals(
+        input: &FunctionBodyInput<'_>,
+        sequence_id: InstrSeqId,
+        referenced: &mut Vec<LocalId>,
+    ) {
+        let sequence = input.local_function.block(sequence_id);
+        for (instruction, _) in &sequence.instrs {
+            match instruction {
+                Instr::LocalGet(local_get) => referenced.push(local_get.local),
+                Instr::LocalSet(local_set) => referenced.push(local_set.local),
+                Instr::LocalTee(local_tee) => referenced.push(local_tee.local),
+                Instr::Block(block) => {
+                    Self::collect_referenced_locals(input, block.seq, referenced);
+                }
+                Instr::Loop(loop_) => {
+                    Self::collect_referenced_locals(input, loop_.seq, referenced);
+                }
+                Instr::IfElse(if_else) => {
+                    Self::collect_referenced_locals(input, if_else.consequent, referenced);
+                    Self::collect_referenced_locals(input, if_else.alternative, referenced);
+                }
+                _ => {}
+            }
         }
     }
 
@@ -260,7 +282,7 @@ impl<'a> FunctionEmitter<'a> {
                 self.writer.line(&format!(
                     "local {local_name}: {} = {}",
                     local_type.luau_type_name(),
-                    zero_initializer(local_type)
+                    Self::zero_initializer(local_type)
                 ));
             }
         }
@@ -304,8 +326,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             Instr::LocalSet(local_set) => {
                 let parts = self.local_parts(local_set.local)?;
-                self.emit_pop_into_parts(&parts);
-                Ok(())
+                self.emit_pop_into_parts(&parts)
             }
             Instr::LocalTee(local_tee) => {
                 let parts = self.local_parts(local_tee.local)?;
@@ -319,22 +340,15 @@ impl<'a> FunctionEmitter<'a> {
             }
             Instr::GlobalSet(global_set) => {
                 let parts = self.global_parts(global_set.global)?;
-                self.emit_pop_into_parts(&parts);
-                Ok(())
+                self.emit_pop_into_parts(&parts)
             }
             Instr::Unop(unop) => self.emit_unop(unop.op),
             Instr::Binop(binop) => self.emit_binop(binop.op),
             Instr::TernOp(ternop) => Err(TranslationProblemReason::UnsupportedInstruction {
                 instruction: format!("ternary op {ternop:?}"),
             }),
-            Instr::Select(_) => {
-                self.emit_select();
-                Ok(())
-            }
-            Instr::Drop(_) => {
-                self.emit_drop();
-                Ok(())
-            }
+            Instr::Select(_) => self.emit_select(),
+            Instr::Drop(_) => self.emit_drop(),
             Instr::Call(call) => {
                 self.emit_call(call.func.index())?;
                 Ok(())
@@ -351,12 +365,9 @@ impl<'a> FunctionEmitter<'a> {
                 self.unreachable = true;
                 Ok(())
             }
-            Instr::BrIf(br_if) => {
-                self.emit_branch_if(br_if.block);
-                Ok(())
-            }
+            Instr::BrIf(br_if) => self.emit_branch_if(br_if.block),
             Instr::BrTable(br_table) => {
-                self.emit_branch_table(&br_table.blocks, br_table.default);
+                self.emit_branch_table(&br_table.blocks, br_table.default)?;
                 self.unreachable = true;
                 Ok(())
             }
@@ -374,22 +385,10 @@ impl<'a> FunctionEmitter<'a> {
                 self.emit_push("MEMORY_PAGES");
                 Ok(())
             }
-            Instr::MemoryGrow(_) => {
-                self.emit_memory_grow();
-                Ok(())
-            }
-            Instr::MemoryCopy(_) => {
-                self.emit_memory_copy();
-                Ok(())
-            }
-            Instr::MemoryFill(_) => {
-                self.emit_memory_fill();
-                Ok(())
-            }
-            Instr::MemoryInit(memory_init) => {
-                self.emit_memory_init(memory_init.data.index());
-                Ok(())
-            }
+            Instr::MemoryGrow(_) => self.emit_memory_grow(),
+            Instr::MemoryCopy(_) => self.emit_memory_copy(),
+            Instr::MemoryFill(_) => self.emit_memory_fill(),
+            Instr::MemoryInit(memory_init) => self.emit_memory_init(memory_init.data.index()),
             Instr::DataDrop(_) => Ok(()),
             Instr::RefFunc(ref_func) => {
                 self.emit_push(&format!("FUNC_{}", ref_func.func.index()));
@@ -400,18 +399,18 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(())
             }
             Instr::RefIsNull(_) => {
-                let operand = self.pop_value();
+                let operand = self.pop_value()?;
                 self.emit_push(&format!("({operand} == nil)"));
                 Ok(())
             }
             Instr::TableGet(_) => {
-                let index = self.pop_value();
+                let index = self.pop_value()?;
                 self.emit_push(&format!("FUNCTIONS[{index} + {LUAU_INDEX_OFFSET}]"));
                 Ok(())
             }
             Instr::TableSet(_) => {
-                let value = self.pop_value();
-                let index = self.pop_value();
+                let value = self.pop_value()?;
+                let index = self.pop_value()?;
                 self.writer.line(&format!(
                     "FUNCTIONS[{index} + {LUAU_INDEX_OFFSET}] = {value}"
                 ));
@@ -453,22 +452,46 @@ impl<'a> FunctionEmitter<'a> {
         let construct_id = self.open_construct(ConstructKind::If, consequent);
         self.writer.line("while true do");
         self.writer.push_indent();
-        let condition = self.pop_value();
+        let condition = self.pop_value()?;
+        let branch_entry_stack = self.operand_stack.clone();
         self.writer.line(&format!("if {condition} ~= 0 then"));
         self.writer.push_indent();
+        self.operand_stack = branch_entry_stack.clone();
+        self.unreachable = false;
         self.translate_sequence(consequent)?;
+        let consequent_stack = self.operand_stack.clone();
+        let consequent_unreachable = self.unreachable;
         self.writer.pop_indent();
         self.writer.line("else");
         self.writer.push_indent();
+        self.operand_stack = branch_entry_stack;
+        self.unreachable = false;
         self.translate_sequence(alternative)?;
+        let alternative_stack = self.operand_stack.clone();
+        let alternative_unreachable = self.unreachable;
         self.writer.pop_indent();
         self.writer.line("end");
-        if !self.unreachable {
+        let (result_stack, result_unreachable) = match (
+            consequent_unreachable,
+            alternative_unreachable,
+        ) {
+            (false, false) if consequent_stack == alternative_stack => (consequent_stack, false),
+            (false, false) => {
+                return Err(TranslationProblemReason::Internal(format!(
+                    "if branches produce different operand stacks: consequent={consequent_stack:?}, alternative={alternative_stack:?}"
+                )));
+            }
+            (false, true) => (consequent_stack, false),
+            (true, false) => (alternative_stack, false),
+            (true, true) => (VecDeque::new(), true),
+        };
+        if !result_unreachable {
             self.writer.line("break");
         }
         self.writer.pop_indent();
         self.writer.line("end");
-        self.unreachable = false;
+        self.operand_stack = result_stack;
+        self.unreachable = result_unreachable;
         self.close_construct(construct_id);
         self.emit_after_construct_checks();
         Ok(())
@@ -479,18 +502,23 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_branch_action(&branch);
     }
 
-    fn emit_branch_if(&mut self, target: InstrSeqId) {
-        let condition = self.pop_value();
+    fn emit_branch_if(&mut self, target: InstrSeqId) -> Result<(), TranslationProblemReason> {
+        let condition = self.pop_value()?;
         let branch = self.branch_action(target);
         self.writer.line(&format!("if {condition} ~= 0 then"));
         self.writer.push_indent();
         self.emit_branch_action(&branch);
         self.writer.pop_indent();
         self.writer.line("end");
+        Ok(())
     }
 
-    fn emit_branch_table(&mut self, blocks: &[InstrSeqId], default: InstrSeqId) {
-        let index = self.pop_value();
+    fn emit_branch_table(
+        &mut self,
+        blocks: &[InstrSeqId],
+        default: InstrSeqId,
+    ) -> Result<(), TranslationProblemReason> {
+        let index = self.pop_value()?;
         let mut first_arm = true;
         for (target_index, target) in blocks.iter().enumerate() {
             let branch = self.branch_action(*target);
@@ -508,6 +536,7 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_branch_action(&default_branch);
         self.writer.pop_indent();
         self.writer.line("end");
+        Ok(())
     }
 
     /// Computes the Luau statements that realize a branch to a target seq.
@@ -535,9 +564,9 @@ impl<'a> FunctionEmitter<'a> {
         let mut set_flags = Vec::new();
         for construct in &self.contexts[target_position..] {
             if construct.id == target_construct.id && target_construct.kind == ConstructKind::Loop {
-                set_flags.push(construct_restart_name(construct.id));
+                set_flags.push(Self::construct_restart_name(construct.id));
             } else {
-                set_flags.push(construct_flag_name(construct.id));
+                set_flags.push(Self::construct_flag_name(construct.id));
             }
         }
         BranchAction::Cascade { set_flags }
@@ -564,7 +593,7 @@ impl<'a> FunctionEmitter<'a> {
         };
         let mut exit_conditions = Vec::new();
         for construct in &self.contexts {
-            exit_conditions.push(construct_flag_name(construct.id));
+            exit_conditions.push(Self::construct_flag_name(construct.id));
         }
         self.writer
             .line(&format!("if {} then", exit_conditions.join(" or ")));
@@ -573,7 +602,7 @@ impl<'a> FunctionEmitter<'a> {
         self.writer.pop_indent();
         self.writer.line("end");
         if parent.kind == ConstructKind::Loop {
-            let restart_name = construct_restart_name(parent.id);
+            let restart_name = Self::construct_restart_name(parent.id);
             self.writer.line(&format!("if {restart_name} then"));
             self.writer.push_indent();
             self.writer.line(&format!("{restart_name} = false"));
@@ -590,11 +619,11 @@ impl<'a> FunctionEmitter<'a> {
             seq_ids: HashSet::from([sequence_id]),
         };
         self.next_construct_id = ConstructId(self.next_construct_id.0 + 1);
-        let exit_flag = construct_flag_name(construct.id);
+        let exit_flag = Self::construct_flag_name(construct.id);
         self.writer
             .line(&format!("local {exit_flag}: boolean = false"));
         if kind == ConstructKind::Loop {
-            let restart_flag = construct_restart_name(construct.id);
+            let restart_flag = Self::construct_restart_name(construct.id);
             self.writer
                 .line(&format!("local {restart_flag}: boolean = false"));
         }
@@ -617,9 +646,9 @@ impl<'a> FunctionEmitter<'a> {
             .iter()
             .map(|value_type| {
                 if *value_type == WasmValueType::I64 {
-                    2
+                    I64_STACK_SLOT_COUNT
                 } else {
-                    1
+                    SCALAR_STACK_SLOT_COUNT
                 }
             })
             .sum::<usize>();
@@ -700,9 +729,9 @@ impl<'a> FunctionEmitter<'a> {
                 break;
             }
             slot += if candidate.ty == walrus::ValType::I64 {
-                2
+                I64_STACK_SLOT_COUNT
             } else {
-                1
+                SCALAR_STACK_SLOT_COUNT
             };
         }
         let index = slot + LUAU_INDEX_OFFSET;
@@ -716,13 +745,24 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn emit_push(&mut self, value_expression: &str) {
+        self.operand_stack.push_back(OperandWidth::Scalar);
+        self.write_push(value_expression);
+    }
+
+    fn write_push(&mut self, value_expression: &str) {
         self.writer.line(&format!("{SP_NAME} += 1"));
         self.writer
             .line(&format!("{STACK_NAME}[{SP_NAME}] = {value_expression}"));
     }
 
     fn emit_push_i64(&mut self, low: &str, high: &str) {
-        self.writer.line(&format!("{SP_NAME} += 2"));
+        self.operand_stack.push_back(OperandWidth::I64);
+        self.write_push_i64(low, high);
+    }
+
+    fn write_push_i64(&mut self, low: &str, high: &str) {
+        self.writer
+            .line(&format!("{SP_NAME} += {I64_STACK_SLOT_COUNT}"));
         self.writer
             .line(&format!("{STACK_NAME}[{SP_NAME} - 1] = {low}"));
         self.writer
@@ -738,7 +778,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Pops one value into a fresh temporary and returns its name.
-    fn pop_value(&mut self) -> String {
+    fn pop_stack_slot(&mut self) -> String {
         let temp = self.next_temp();
         self.writer
             .line(&format!("local {temp} = {STACK_NAME}[{SP_NAME}]"));
@@ -746,25 +786,66 @@ impl<'a> FunctionEmitter<'a> {
         temp
     }
 
-    fn pop_i64(&mut self) -> (String, String) {
-        let high = self.pop_value();
-        let low = self.pop_value();
-        (low, high)
+    fn pop_operand_width(&mut self) -> Result<OperandWidth, TranslationProblemReason> {
+        self.operand_stack
+            .pop_back()
+            .ok_or_else(|| TranslationProblemReason::Internal("operand stack underflow".to_owned()))
     }
 
-    fn emit_pop_into(&mut self, target: &str) {
-        let value = self.pop_value();
+    fn pop_value(&mut self) -> Result<String, TranslationProblemReason> {
+        let width = self.pop_operand_width()?;
+        match width {
+            OperandWidth::Scalar => Ok(self.pop_stack_slot()),
+            OperandWidth::I64 => Err(TranslationProblemReason::Internal(format!(
+                "expected a scalar operand, found {width:?}"
+            ))),
+        }
+    }
+
+    fn pop_i64(&mut self) -> Result<(String, String), TranslationProblemReason> {
+        let width = self.pop_operand_width()?;
+        match width {
+            OperandWidth::I64 => {
+                let high = self.pop_stack_slot();
+                let low = self.pop_stack_slot();
+                Ok((low, high))
+            }
+            OperandWidth::Scalar => Err(TranslationProblemReason::Internal(format!(
+                "expected an i64 operand, found {width:?}"
+            ))),
+        }
+    }
+
+    fn pop_parts(&mut self) -> Result<(OperandWidth, ValueParts), TranslationProblemReason> {
+        let width = self.pop_operand_width()?;
+        match width {
+            OperandWidth::Scalar => Ok((
+                OperandWidth::Scalar,
+                ValueParts::scalar(self.pop_stack_slot()),
+            )),
+            OperandWidth::I64 => {
+                let high = self.pop_stack_slot();
+                let low = self.pop_stack_slot();
+                Ok((OperandWidth::I64, ValueParts { low, high }))
+            }
+        }
+    }
+
+    fn emit_pop_into(&mut self, target: &str) -> Result<(), TranslationProblemReason> {
+        let value = self.pop_value()?;
         self.writer.line(&format!("{target} = {value}"));
+        Ok(())
     }
 
-    fn emit_pop_into_parts(&mut self, target: &ValueParts) {
+    fn emit_pop_into_parts(&mut self, target: &ValueParts) -> Result<(), TranslationProblemReason> {
         if target.high.is_empty() {
-            self.emit_pop_into(&target.low);
+            self.emit_pop_into(&target.low)?;
         } else {
-            let (low, high) = self.pop_i64();
+            let (low, high) = self.pop_i64()?;
             self.writer.line(&format!("{} = {low}", target.low));
             self.writer.line(&format!("{} = {high}", target.high));
         }
+        Ok(())
     }
 
     fn emit_tee_into(&mut self, target: &str) {
@@ -789,81 +870,97 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_drop(&mut self) {
-        self.writer.line(&format!("{SP_NAME} -= 1"));
+    fn emit_drop(&mut self) -> Result<(), TranslationProblemReason> {
+        let width = self.pop_operand_width()?;
+        self.writer
+            .line(&format!("{SP_NAME} -= {}", width.stack_slot_count()));
+        Ok(())
     }
 
-    fn emit_select(&mut self) {
-        let condition = self.pop_value();
-        let when_false = self.pop_value();
-        let when_true = self.pop_value();
+    fn emit_select(&mut self) -> Result<(), TranslationProblemReason> {
+        let condition = self.pop_value()?;
+        let (false_width, when_false) = self.pop_parts()?;
+        let (true_width, when_true) = self.pop_parts()?;
+        if true_width != false_width {
+            return Err(TranslationProblemReason::Internal(format!(
+                "select operands have different widths: true={true_width:?}, false={false_width:?}"
+            )));
+        }
         self.writer.line(&format!("if {condition} ~= 0 then"));
         self.writer.push_indent();
-        self.emit_push(&when_true);
+        match true_width {
+            OperandWidth::Scalar => self.write_push(&when_true.low),
+            OperandWidth::I64 => self.write_push_i64(&when_true.low, &when_true.high),
+        }
         self.writer.pop_indent();
         self.writer.line("else");
         self.writer.push_indent();
-        self.emit_push(&when_false);
+        match false_width {
+            OperandWidth::Scalar => self.write_push(&when_false.low),
+            OperandWidth::I64 => self.write_push_i64(&when_false.low, &when_false.high),
+        }
         self.writer.pop_indent();
         self.writer.line("end");
+        self.operand_stack.push_back(true_width);
+        Ok(())
     }
 
     fn emit_unop(&mut self, op: walrus::ir::UnaryOp) -> Result<(), TranslationProblemReason> {
         match op {
             walrus::ir::UnaryOp::I64Eqz => {
-                let (low, high) = self.pop_i64();
+                let (low, high) = self.pop_i64()?;
                 self.emit_push(&format!("wasm_i64_eqz({low}, {high})"));
             }
             walrus::ir::UnaryOp::I32WrapI64 => {
-                let (low, _) = self.pop_i64();
+                let (low, _) = self.pop_i64()?;
                 self.emit_push(&format!("wasm_i32_wrap({low})"));
             }
             walrus::ir::UnaryOp::I64ExtendSI32 => {
-                let operand = self.pop_value();
+                let operand = self.pop_value()?;
                 self.emit_i64_call(&format!("wasm_i64_from_i32s({operand})"));
             }
             walrus::ir::UnaryOp::I64ExtendUI32 => {
-                let operand = self.pop_value();
+                let operand = self.pop_value()?;
                 self.emit_i64_call(&format!("wasm_i64_from_i32u({operand})"));
             }
             walrus::ir::UnaryOp::I64Extend8S => {
-                let (low, _) = self.pop_i64();
+                let (low, _) = self.pop_i64()?;
                 self.emit_i64_call(&format!("wasm_i64_extend8s({low})"));
             }
             walrus::ir::UnaryOp::I64Extend16S => {
-                let (low, _) = self.pop_i64();
+                let (low, _) = self.pop_i64()?;
                 self.emit_i64_call(&format!("wasm_i64_extend16s({low})"));
             }
             walrus::ir::UnaryOp::I64Extend32S => {
-                let (low, _) = self.pop_i64();
+                let (low, _) = self.pop_i64()?;
                 self.emit_i64_call(&format!("wasm_i64_extend32s({low})"));
             }
             walrus::ir::UnaryOp::F32ConvertSI64 | walrus::ir::UnaryOp::F64ConvertSI64 => {
-                let (low, high) = self.pop_i64();
+                let (low, high) = self.pop_i64()?;
                 self.emit_push(&format!("wasm_i64_to_f64s({low}, {high})"));
             }
             walrus::ir::UnaryOp::F32ConvertUI64 | walrus::ir::UnaryOp::F64ConvertUI64 => {
-                let (low, high) = self.pop_i64();
+                let (low, high) = self.pop_i64()?;
                 self.emit_push(&format!("wasm_i64_to_f64u({low}, {high})"));
             }
             walrus::ir::UnaryOp::I64TruncSF32 | walrus::ir::UnaryOp::I64TruncSF64 => {
-                let operand = self.pop_value();
+                let operand = self.pop_value()?;
                 self.emit_i64_call(&format!("wasm_i64_truncs_pair({operand})"));
             }
             walrus::ir::UnaryOp::I64TruncUF32 | walrus::ir::UnaryOp::I64TruncUF64 => {
-                let operand = self.pop_value();
+                let operand = self.pop_value()?;
                 self.emit_i64_call(&format!("wasm_i64_truncu_pair({operand})"));
             }
             walrus::ir::UnaryOp::I64ReinterpretF64 => {
-                let operand = self.pop_value();
+                let operand = self.pop_value()?;
                 self.emit_i64_call(&format!("wasm_reinterpret_i64_f64_pair({operand})"));
             }
             walrus::ir::UnaryOp::F64ReinterpretI64 => {
-                let (low, high) = self.pop_i64();
+                let (low, high) = self.pop_i64()?;
                 self.emit_push(&format!("wasm_reinterpret_f64_i64_pair({low}, {high})"));
             }
             op => {
-                let operand = self.pop_value();
+                let operand = self.pop_value()?;
                 self.emit_push(&unop_expression(op, &operand)?);
             }
         }
@@ -900,8 +997,8 @@ impl<'a> FunctionEmitter<'a> {
             _ => None,
         };
         if let Some((helper, returns_i64)) = i64_helper {
-            let (right_low, right_high) = self.pop_i64();
-            let (left_low, left_high) = self.pop_i64();
+            let (right_low, right_high) = self.pop_i64()?;
+            let (left_low, left_high) = self.pop_i64()?;
             let expression = if matches!(
                 op,
                 walrus::ir::BinaryOp::I64Shl
@@ -921,8 +1018,8 @@ impl<'a> FunctionEmitter<'a> {
             }
             return Ok(());
         }
-        let right = self.pop_value();
-        let left = self.pop_value();
+        let right = self.pop_value()?;
+        let left = self.pop_value()?;
         self.emit_push(&binop_expression(op, &left, &right)?);
         Ok(())
     }
@@ -954,14 +1051,13 @@ impl<'a> FunctionEmitter<'a> {
                     "call targets unknown function {function_index}"
                 ))
             })?;
-        let parameter_types = wasm_types(&parameter_types)?;
-        let result_types = wasm_types(&result_types)?;
-        let arguments = self.pop_arguments(&parameter_types);
+        let parameter_types = Self::wasm_types(&parameter_types)?;
+        let result_types = Self::wasm_types(&result_types)?;
+        let arguments = self.pop_arguments(&parameter_types)?;
         self.emit_call_results(
             &result_types,
             &format!("FUNC_{function_index}({})", arguments.join(", ")),
-        );
-        Ok(())
+        )
     }
 
     fn emit_call_indirect(
@@ -969,33 +1065,36 @@ impl<'a> FunctionEmitter<'a> {
         function_type: walrus::TypeId,
         _table: walrus::TableId,
     ) -> Result<(), TranslationProblemReason> {
-        let table_index = self.pop_value();
+        let table_index = self.pop_value()?;
         let function_type = self.input.module.types.get(function_type);
-        let parameter_types = wasm_types(function_type.params())?;
-        let result_types = wasm_types(function_type.results())?;
-        let arguments = self.pop_arguments(&parameter_types);
+        let parameter_types = Self::wasm_types(function_type.params())?;
+        let result_types = Self::wasm_types(function_type.results())?;
+        let arguments = self.pop_arguments(&parameter_types)?;
         self.emit_call_results(
             &result_types,
             &format!(
                 "FUNCTIONS[{table_index} + {LUAU_INDEX_OFFSET}]({})",
                 arguments.join(", ")
             ),
-        );
-        Ok(())
+        )
     }
 
-    fn emit_call_results(&mut self, result_types: &[WasmValueType], expression: &str) {
+    fn emit_call_results(
+        &mut self,
+        result_types: &[WasmValueType],
+        expression: &str,
+    ) -> Result<(), TranslationProblemReason> {
         if result_types.is_empty() {
             self.writer.line(expression);
-            return;
+            return Ok(());
         }
         let expanded_result_count = result_types
             .iter()
             .map(|value_type| {
                 if *value_type == WasmValueType::I64 {
-                    2
+                    I64_STACK_SLOT_COUNT
                 } else {
-                    1
+                    SCALAR_STACK_SLOT_COUNT
                 }
             })
             .sum::<usize>();
@@ -1007,32 +1106,52 @@ impl<'a> FunctionEmitter<'a> {
         let mut offset = 0;
         for value_type in result_types {
             if *value_type == WasmValueType::I64 {
-                self.emit_push_i64(&temporaries[offset], &temporaries[offset + 1]);
-                offset += 2;
+                let low = temporaries.get(offset).ok_or_else(|| {
+                    TranslationProblemReason::Internal(format!(
+                        "missing low i64 call result at temporary offset {offset}"
+                    ))
+                })?;
+                let high = temporaries.get(offset + 1).ok_or_else(|| {
+                    TranslationProblemReason::Internal(format!(
+                        "missing high i64 call result at temporary offset {}",
+                        offset + 1
+                    ))
+                })?;
+                self.emit_push_i64(low, high);
+                offset += I64_STACK_SLOT_COUNT;
             } else {
-                self.emit_push(&temporaries[offset]);
-                offset += 1;
+                let value = temporaries.get(offset).ok_or_else(|| {
+                    TranslationProblemReason::Internal(format!(
+                        "missing scalar call result at temporary offset {offset}"
+                    ))
+                })?;
+                self.emit_push(value);
+                offset += SCALAR_STACK_SLOT_COUNT;
             }
         }
+        Ok(())
     }
 
     /// Pops call arguments (last argument on top) and returns them in order.
-    fn pop_arguments(&mut self, types: &[WasmValueType]) -> Vec<String> {
+    fn pop_arguments(
+        &mut self,
+        types: &[WasmValueType],
+    ) -> Result<Vec<String>, TranslationProblemReason> {
         let mut groups = Vec::with_capacity(types.len());
         for value_type in types.iter().rev() {
             if *value_type == WasmValueType::I64 {
-                let (low, high) = self.pop_i64();
+                let (low, high) = self.pop_i64()?;
                 groups.push(vec![low, high]);
             } else {
-                groups.push(vec![self.pop_value()]);
+                groups.push(vec![self.pop_value()?]);
             }
         }
         groups.reverse();
-        groups.into_iter().flatten().collect()
+        Ok(groups.into_iter().flatten().collect())
     }
 
-    fn emit_memory_grow(&mut self) {
-        let delta = self.pop_value();
+    fn emit_memory_grow(&mut self) -> Result<(), TranslationProblemReason> {
+        let delta = self.pop_value()?;
         let old = self.next_temp();
         self.writer.line(&format!("local {old} = MEMORY_PAGES"));
         self.writer
@@ -1047,47 +1166,52 @@ impl<'a> FunctionEmitter<'a> {
         self.writer.line("MEMORY = new_memory");
         self.writer
             .line(&format!("MEMORY_PAGES = MEMORY_PAGES + {delta}"));
-        self.emit_push(&old);
+        self.write_push(&old);
         self.writer.pop_indent();
         self.writer.line("else");
         self.writer.push_indent();
-        self.emit_push("-1");
+        self.write_push("-1");
         self.writer.pop_indent();
         self.writer.line("end");
+        self.operand_stack.push_back(OperandWidth::Scalar);
+        Ok(())
     }
 
     /// Lowers `memory.copy`: `buffer.copy(MEMORY, dest, MEMORY, src, len)`.
-    fn emit_memory_copy(&mut self) {
-        let length = self.pop_value();
-        let source = self.pop_value();
-        let destination = self.pop_value();
+    fn emit_memory_copy(&mut self) -> Result<(), TranslationProblemReason> {
+        let length = self.pop_value()?;
+        let source = self.pop_value()?;
+        let destination = self.pop_value()?;
         self.writer.line(&format!(
             "buffer.copy(MEMORY, {destination}, MEMORY, {source}, {length})"
         ));
+        Ok(())
     }
 
     /// Lowers `memory.fill`: `buffer.fill(MEMORY, dest, value, len)`.
-    fn emit_memory_fill(&mut self) {
-        let length = self.pop_value();
-        let value = self.pop_value();
-        let destination = self.pop_value();
+    fn emit_memory_fill(&mut self) -> Result<(), TranslationProblemReason> {
+        let length = self.pop_value()?;
+        let value = self.pop_value()?;
+        let destination = self.pop_value()?;
         self.writer.line(&format!(
             "buffer.fill(MEMORY, {destination}, {value}, {length})"
         ));
+        Ok(())
     }
 
     /// Lowers `memory.init`: copy from the segment's passive buffer.
-    fn emit_memory_init(&mut self, data_index: usize) {
-        let length = self.pop_value();
-        let source = self.pop_value();
-        let destination = self.pop_value();
+    fn emit_memory_init(&mut self, data_index: usize) -> Result<(), TranslationProblemReason> {
+        let length = self.pop_value()?;
+        let source = self.pop_value()?;
+        let destination = self.pop_value()?;
         self.writer.line(&format!(
             "buffer.copy(MEMORY, {destination}, DATA_{data_index}, {source}, {length})"
         ));
+        Ok(())
     }
 
     fn emit_load(&mut self, kind: LoadKind, arg: MemArg) -> Result<(), TranslationProblemReason> {
-        let address = self.pop_value();
+        let address = self.pop_value()?;
         let offset = arg.offset;
         match kind {
             LoadKind::I64 { atomic: false } => {
@@ -1098,7 +1222,7 @@ impl<'a> FunctionEmitter<'a> {
                 ));
                 self.writer.line(&format!(
                     "local {high} = buffer.readu32(MEMORY, {address} + {})",
-                    offset + 4
+                    offset + I64_HALF_BYTE_COUNT
                 ));
                 self.emit_push_i64(&low, &high);
             }
@@ -1178,75 +1302,68 @@ impl<'a> FunctionEmitter<'a> {
         let offset = arg.offset;
         match kind {
             StoreKind::I64 { atomic: false } => {
-                let high = self.pop_value();
-                let low = self.pop_value();
-                let address = self.pop_value();
+                let (low, high) = self.pop_i64()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writeu32(MEMORY, {address} + {offset}, {low})"
                 ));
                 self.writer.line(&format!(
                     "buffer.writeu32(MEMORY, {address} + {}, {high})",
-                    offset + 4
+                    offset + I64_HALF_BYTE_COUNT
                 ));
             }
             StoreKind::I64_8 { atomic: false } => {
-                let high = self.pop_value();
-                let low = self.pop_value();
-                let address = self.pop_value();
-                let _ = high;
+                let (low, _) = self.pop_i64()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writeu8(MEMORY, {address} + {offset}, {low})"
                 ));
             }
             StoreKind::I64_16 { atomic: false } => {
-                let high = self.pop_value();
-                let low = self.pop_value();
-                let address = self.pop_value();
-                let _ = high;
+                let (low, _) = self.pop_i64()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writeu16(MEMORY, {address} + {offset}, {low})"
                 ));
             }
             StoreKind::I64_32 { atomic: false } => {
-                let high = self.pop_value();
-                let low = self.pop_value();
-                let address = self.pop_value();
-                let _ = high;
+                let (low, _) = self.pop_i64()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writeu32(MEMORY, {address} + {offset}, {low})"
                 ));
             }
             StoreKind::I32 { atomic: false } => {
-                let value = self.pop_value();
-                let address = self.pop_value();
+                let value = self.pop_value()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writei32(MEMORY, {address} + {offset}, {value})"
                 ));
             }
             StoreKind::F64 => {
-                let value = self.pop_value();
-                let address = self.pop_value();
+                let value = self.pop_value()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writef64(MEMORY, {address} + {offset}, {value})"
                 ));
             }
             StoreKind::F32 => {
-                let value = self.pop_value();
-                let address = self.pop_value();
+                let value = self.pop_value()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writef32(MEMORY, {address} + {offset}, {value})"
                 ));
             }
             StoreKind::I32_8 { atomic: false } => {
-                let value = self.pop_value();
-                let address = self.pop_value();
+                let value = self.pop_value()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writei8(MEMORY, {address} + {offset}, {value})"
                 ));
             }
             StoreKind::I32_16 { atomic: false } => {
-                let value = self.pop_value();
-                let address = self.pop_value();
+                let value = self.pop_value()?;
+                let address = self.pop_value()?;
                 self.writer.line(&format!(
                     "buffer.writei16(MEMORY, {address} + {offset}, {value})"
                 ));
@@ -1265,12 +1382,12 @@ impl<'a> FunctionEmitter<'a> {
         self.next_temp_id = TempId(self.next_temp_id.0 + 1);
         temp
     }
-}
 
-fn construct_flag_name(construct_id: ConstructId) -> String {
-    format!("exit_{}", construct_id.0)
-}
+    fn construct_flag_name(construct_id: ConstructId) -> String {
+        format!("exit_{}", construct_id.0)
+    }
 
-fn construct_restart_name(construct_id: ConstructId) -> String {
-    format!("restart_{}", construct_id.0)
+    fn construct_restart_name(construct_id: ConstructId) -> String {
+        format!("restart_{}", construct_id.0)
+    }
 }
