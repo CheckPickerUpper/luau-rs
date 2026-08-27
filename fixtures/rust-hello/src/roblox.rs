@@ -97,18 +97,23 @@ impl Vector3Components {
     }
 }
 
+// The Roblox imports carry addresses as `i32`, which is exactly how a 32-bit
+// target spells a pointer. Building for a wider target would silently change
+// what a pointer means at this boundary, so the build stops instead.
+#[cfg(not(target_pointer_width = "32"))]
+compile_error!(
+    "the Roblox fixture bindings require a 32-bit target such as wasm32-unknown-unknown"
+);
+
+/// Reinterprets an address as the `i32` the Roblox imports carry.
+///
+/// On a 32-bit target an address and an `i32` are the same four bytes, so every
+/// address has exactly one spelling here and none can be rejected. The byte
+/// widths make that total conversion the only one that compiles, which is why
+/// there is no failure arm: the previous range check would have hung the module
+/// forever on any address past 2GiB, under a panic handler that only loops.
 fn pointer<T>(value: *const T) -> i32 {
-    let address = value.addr();
-    match i32::try_from(address) {
-        Ok(pointer) => pointer,
-        Err(conversion_error) => {
-            assert!(
-                false,
-                "wasm32 pointer conversion failed: {conversion_error}"
-            );
-            0
-        }
-    }
+    i32::from_ne_bytes(value.addr().to_ne_bytes())
 }
 
 pub(crate) fn print(message: &CStr) {

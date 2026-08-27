@@ -483,62 +483,62 @@ end
 
 local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any}
     local WASM_IMPORTS = imports
-    local FUNC_0: any, FUNC_1: any, FUNC_2: any, FUNC_3: any, FUNC_4: any, FUNC_5: any, FUNC_6: any, FUNC_7: any, FUNC_8: any, FUNC_9: any, FUNC_10: any, FUNC_11: any, FUNC_12: any, FUNC_13: any, FUNC_14: any, FUNC_15: any, FUNC_16: any, FUNC_17: any, FUNC_18: any, FUNC_19: any, FUNC_20: any, FUNC_21: any, FUNC_22: any, FUNC_23: any, FUNC_24: any, FUNC_25: any, FUNC_26: any, FUNC_27: any, FUNC_28: any, FUNC_29: any, FUNC_30: any, FUNC_31: any, FUNC_32: any, FUNC_33: any, FUNC_34: any, FUNC_35: any, FUNC_36: any, FUNC_37: any, FUNC_38: any, FUNC_39: any, FUNC_40: any, FUNC_41: any, FUNC_42: any, FUNC_43: any, FUNC_44: any, FUNC_45: any, FUNC_46: any, FUNC_47: any, FUNC_48: any, FUNC_49: any, FUNC_50: any
+    local FUNC_0: any, FUNC_1: any, FUNC_2: any, FUNC_3: any, FUNC_4: any, FUNC_5: any, FUNC_6: any, FUNC_7: any, FUNC_8: any, FUNC_9: any, FUNC_10: any, FUNC_11: any, FUNC_12: any, FUNC_13: any, FUNC_14: any, FUNC_15: any, FUNC_16: any, FUNC_17: any, FUNC_18: any, FUNC_19: any, FUNC_20: any, FUNC_21: any, FUNC_22: any, FUNC_23: any, FUNC_24: any, FUNC_25: any, FUNC_26: any, FUNC_27: any, FUNC_28: any, FUNC_29: any, FUNC_30: any, FUNC_31: any, FUNC_32: any, FUNC_33: any, FUNC_34: any, FUNC_35: any, FUNC_36: any, FUNC_37: any, FUNC_38: any, FUNC_39: any, FUNC_40: any, FUNC_41: any, FUNC_42: any, FUNC_43: any, FUNC_44: any
     local MEMORY: buffer = buffer.create(1114112)
     local MEMORY_PAGES: number = 17
     local MAXIMUM_PAGES: number = 1024
     local GLOBALS: {any} = { [1] = 1048576 }
     local FUNCTIONS: {any} = {}
-    FUNC_0 = function(p0: number): number
-        return WASM_IMPORTS["roblox"]["roblox_get_service"](p0)
-    end
-    
-    FUNC_1 = function(p0: number, p1: number): number
-        return WASM_IMPORTS["roblox"]["roblox_get_property_kind"](p0, p1)
-    end
-    
-    FUNC_2 = function(p0: number): number
-        return WASM_IMPORTS["roblox"]["roblox_instance_new"](p0)
-    end
-    
-    FUNC_3 = function(p0: number)
+    FUNC_0 = function(p0: number)
         return WASM_IMPORTS["roblox"]["roblox_destroy"](p0)
     end
     
-    FUNC_4 = function(p0: number, p1: number, p2: number)
+    FUNC_1 = function(p0: number, p1: number, p2: number)
         return WASM_IMPORTS["roblox"]["roblox_remote_event_fire_server"](p0, p1, p2)
     end
     
-    FUNC_5 = function(p0: number, p1: number, p2: number, p3: number)
+    FUNC_2 = function(p0: number, p1: number, p2: number, p3: number)
         return WASM_IMPORTS["roblox"]["roblox_remote_event_fire_client"](p0, p1, p2, p3)
     end
     
-    FUNC_6 = function(p0: number, p1: number, p2: number): number
+    FUNC_3 = function(p0: number, p1: number, p2: number): number
         return WASM_IMPORTS["roblox"]["roblox_remote_function_invoke_server"](p0, p1, p2)
     end
     
-    FUNC_7 = function(p0: number, p1: number, p2: number, p3: number): number
+    FUNC_4 = function(p0: number, p1: number, p2: number, p3: number): number
         return WASM_IMPORTS["roblox"]["roblox_remote_function_invoke_client"](p0, p1, p2, p3)
     end
     
-    FUNC_8 = function(p0: number, p1: number, p2: number, p3: number, p4: number)
+    FUNC_5 = function(p0: number): number
+        return WASM_IMPORTS["roblox"]["roblox_get_service"](p0)
+    end
+    
+    FUNC_6 = function(p0: number): number
+        return WASM_IMPORTS["roblox"]["roblox_instance_new"](p0)
+    end
+    
+    FUNC_7 = function(p0: number, p1: number, p2: number, p3: number, p4: number)
         return WASM_IMPORTS["roblox"]["roblox_set_vector3"](p0, p1, p2, p3, p4)
     end
     
-    FUNC_9 = function(p0: number, p1: number, p2: number)
+    FUNC_8 = function(p0: number, p1: number, p2: number)
         return WASM_IMPORTS["roblox"]["roblox_set_property"](p0, p1, p2)
     end
     
-    FUNC_10 = function(p0: number, p1: number, p2: number)
+    FUNC_9 = function(p0: number, p1: number, p2: number)
         return WASM_IMPORTS["roblox"]["roblox_set_string_property"](p0, p1, p2)
     end
     
-    FUNC_11 = function(p0: number, p1: number)
+    FUNC_10 = function(p0: number, p1: number)
         return WASM_IMPORTS["roblox"]["roblox_set_parent"](p0, p1)
     end
     
-    FUNC_12 = function(p0: number)
+    FUNC_11 = function(p0: number)
         return WASM_IMPORTS["roblox"]["roblox_print"](p0)
+    end
+    
+    FUNC_12 = function(p0: number, p1: number): number
+        return WASM_IMPORTS["roblox"]["roblox_get_property_kind"](p0, p1)
     end
     
     FUNC_13 = function(p0: number, p1: number): number
@@ -557,119 +557,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return WASM_IMPORTS["roblox"]["roblox_disconnect"](p0)
     end
     
-    FUNC_17 = function(p0: number): number -- _RINvNtCs68oYRdM3uVh_10rust_hello6roblox7pointeraEB4_
-        local stack: {any} = {}
-        local sp: number = 0
-        local l0: number = 0
-        sp += 1
-        stack[sp] = GLOBALS[1]
-        sp += 1
-        stack[sp] = 16
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = stack[sp]
-        sp -= 1
-        sp += 1
-        stack[sp] = wasm_i32_wrap((t1 - t0))
-        local t2 = stack[sp]
-        l0 = t2
-        local t3 = stack[sp]
-        sp -= 1
-        GLOBALS[1] = t3
-        local exit_0: boolean = false
-        while true do
-            sp += 1
-            stack[sp] = p0
-            sp += 1
-            stack[sp] = -1
-            local t4 = stack[sp]
-            sp -= 1
-            local t5 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = (t5 > t4)
-            local t6 = stack[sp]
-            sp -= 1
-            if t6 ~= 0 then
-                break
-            end
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = 2
-            local t7 = stack[sp]
-            sp -= 1
-            local t8 = stack[sp]
-            sp -= 1
-            buffer.writei8(MEMORY, t8 + 7, t7)
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = 1
-            local t9 = stack[sp]
-            sp -= 1
-            local t10 = stack[sp]
-            sp -= 1
-            buffer.writei32(MEMORY, t10 + 12, t9)
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = 7
-            local t11 = stack[sp]
-            sp -= 1
-            local t12 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = wasm_i32_wrap((t12 + t11))
-            local t13 = stack[sp]
-            sp -= 1
-            local t14 = stack[sp]
-            sp -= 1
-            buffer.writei32(MEMORY, t14 + 8, t13)
-            sp += 1
-            stack[sp] = 1048728
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = 8
-            local t15 = stack[sp]
-            sp -= 1
-            local t16 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = wasm_i32_wrap((t16 + t15))
-            sp += 1
-            stack[sp] = 1048908
-            local t17 = stack[sp]
-            sp -= 1
-            local t18 = stack[sp]
-            sp -= 1
-            local t19 = stack[sp]
-            sp -= 1
-            FUNC_41(t19, t18, t17)
-            error("wasm trap: unreachable")
-        end
-        sp += 1
-        stack[sp] = l0
-        sp += 1
-        stack[sp] = 16
-        local t20 = stack[sp]
-        sp -= 1
-        local t21 = stack[sp]
-        sp -= 1
-        sp += 1
-        stack[sp] = wasm_i32_wrap((t21 + t20))
-        local t22 = stack[sp]
-        sp -= 1
-        GLOBALS[1] = t22
-        sp += 1
-        stack[sp] = p0
-        return stack[sp - 0]
-    end
-    
-    FUNC_18 = function(p0: number): number -- _RNvCs68oYRdM3uVh_10rust_hello10on_clicked
+    FUNC_17 = function(p0: number): number -- _RNvCs68oYRdM3uVh_10rust_hello10on_clicked
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -690,13 +578,13 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp -= 1
         local t4 = stack[sp]
         sp -= 1
-        buffer.writei32(MEMORY, t4 + 1049456, t3)
+        buffer.writei32(MEMORY, t4 + 1049360, t3)
         sp += 1
         stack[sp] = p0
         return stack[sp - 0]
     end
     
-    FUNC_19 = function(p0: number) -- _RNvCs6rREvFdRhLb_7___rustc17rust_begin_unwind
+    FUNC_18 = function(p0: number) -- _RNvCs6rREvFdRhLb_7___rustc17rust_begin_unwind
         local stack: {any} = {}
         local sp: number = 0
         local exit_0: boolean = false
@@ -706,92 +594,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         end
     end
     
-    FUNC_20 = function(p0: number): number -- _RNvNtCs68oYRdM3uVh_10rust_hello6roblox11get_service
-        local stack: {any} = {}
-        local sp: number = 0
-        sp += 1
-        stack[sp] = p0
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
-        sp += 1
-        stack[sp] = t1
-        local t2 = stack[sp]
-        sp -= 1
-        local t3 = FUNC_0(t2)
-        sp += 1
-        stack[sp] = t3
-        return stack[sp - 0]
-    end
-    
-    FUNC_21 = function(p0: number, p1: number): number -- _RNvNtCs68oYRdM3uVh_10rust_hello6roblox13property_kind
-        local stack: {any} = {}
-        local sp: number = 0
-        sp += 1
-        stack[sp] = p0
-        sp += 1
-        stack[sp] = p1
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
-        sp += 1
-        stack[sp] = t1
-        local t2 = stack[sp]
-        sp -= 1
-        local t3 = stack[sp]
-        sp -= 1
-        local t4 = FUNC_1(t3, t2)
-        sp += 1
-        stack[sp] = t4
-        local t5 = stack[sp]
-        p0 = t5
-        sp += 1
-        stack[sp] = 4
-        sp += 1
-        stack[sp] = p0
-        sp += 1
-        stack[sp] = 4
-        local t6 = stack[sp]
-        sp -= 1
-        local t7 = stack[sp]
-        sp -= 1
-        sp += 1
-        stack[sp] = wasm_i32_ltu(t7, t6)
-        local t8 = stack[sp]
-        sp -= 1
-        local t9 = stack[sp]
-        sp -= 1
-        local t10 = stack[sp]
-        sp -= 1
-        if t8 ~= 0 then
-            sp += 1
-            stack[sp] = t10
-        else
-            sp += 1
-            stack[sp] = t9
-        end
-        return stack[sp - 0]
-    end
-    
-    FUNC_22 = function(p0: number): number -- _RNvNtCs68oYRdM3uVh_10rust_hello6roblox3new
-        local stack: {any} = {}
-        local sp: number = 0
-        sp += 1
-        stack[sp] = p0
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
-        sp += 1
-        stack[sp] = t1
-        local t2 = stack[sp]
-        sp -= 1
-        local t3 = FUNC_2(t2)
-        sp += 1
-        stack[sp] = t3
-        return stack[sp - 0]
-    end
-    
-    FUNC_23 = function(p0: number, p1: number): number -- add
+    FUNC_19 = function(p0: number, p1: number): number -- add
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -807,17 +610,17 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_24 = function(p0: number) -- destroy_part
+    FUNC_20 = function(p0: number) -- destroy_part
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
         stack[sp] = p0
         local t0 = stack[sp]
         sp -= 1
-        FUNC_3(t0)
+        FUNC_0(t0)
     end
     
-    FUNC_25 = function(p0: number) -- double_at
+    FUNC_21 = function(p0: number) -- double_at
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -843,7 +646,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         buffer.writei32(MEMORY, t4 + 0, t3)
     end
     
-    FUNC_26 = function(p0: number): number -- fib
+    FUNC_22 = function(p0: number): number -- fib
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -953,30 +756,25 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_27 = function(p0: number, p1: number) -- fire_remote_event
+    FUNC_23 = function(p0: number, p1: number) -- fire_remote_event
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
         stack[sp] = p0
         sp += 1
-        stack[sp] = 1048779
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
-        sp += 1
-        stack[sp] = t1
+        stack[sp] = 1048742
         sp += 1
         stack[sp] = p1
+        local t0 = stack[sp]
+        sp -= 1
+        local t1 = stack[sp]
+        sp -= 1
         local t2 = stack[sp]
         sp -= 1
-        local t3 = stack[sp]
-        sp -= 1
-        local t4 = stack[sp]
-        sp -= 1
-        FUNC_4(t4, t3, t2)
+        FUNC_1(t2, t1, t0)
     end
     
-    FUNC_28 = function(p0: number, p1: number, p2: number) -- fire_remote_event_to_client
+    FUNC_24 = function(p0: number, p1: number, p2: number) -- fire_remote_event_to_client
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -984,26 +782,21 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp += 1
         stack[sp] = p1
         sp += 1
-        stack[sp] = 1048779
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
-        sp += 1
-        stack[sp] = t1
+        stack[sp] = 1048742
         sp += 1
         stack[sp] = p2
+        local t0 = stack[sp]
+        sp -= 1
+        local t1 = stack[sp]
+        sp -= 1
         local t2 = stack[sp]
         sp -= 1
         local t3 = stack[sp]
         sp -= 1
-        local t4 = stack[sp]
-        sp -= 1
-        local t5 = stack[sp]
-        sp -= 1
-        FUNC_5(t5, t4, t3, t2)
+        FUNC_2(t3, t2, t1, t0)
     end
     
-    FUNC_29 = function(): number -- get_last_click
+    FUNC_25 = function(): number -- get_last_click
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -1011,37 +804,32 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local t0 = stack[sp]
         sp -= 1
         sp += 1
-        stack[sp] = buffer.readi32(MEMORY, t0 + 1049456)
+        stack[sp] = buffer.readi32(MEMORY, t0 + 1049360)
         return stack[sp - 0]
     end
     
-    FUNC_30 = function(p0: number, p1: number): number -- invoke_remote_function
+    FUNC_26 = function(p0: number, p1: number): number -- invoke_remote_function
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
         stack[sp] = p0
         sp += 1
-        stack[sp] = 1048812
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
-        sp += 1
-        stack[sp] = t1
+        stack[sp] = 1048775
         sp += 1
         stack[sp] = p1
+        local t0 = stack[sp]
+        sp -= 1
+        local t1 = stack[sp]
+        sp -= 1
         local t2 = stack[sp]
         sp -= 1
-        local t3 = stack[sp]
-        sp -= 1
-        local t4 = stack[sp]
-        sp -= 1
-        local t5 = FUNC_6(t4, t3, t2)
+        local t3 = FUNC_3(t2, t1, t0)
         sp += 1
-        stack[sp] = t5
+        stack[sp] = t3
         return stack[sp - 0]
     end
     
-    FUNC_31 = function(p0: number, p1: number, p2: number): number -- invoke_remote_function_on_client
+    FUNC_27 = function(p0: number, p1: number, p2: number): number -- invoke_remote_function_on_client
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -1049,174 +837,144 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp += 1
         stack[sp] = p1
         sp += 1
-        stack[sp] = 1048812
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
-        sp += 1
-        stack[sp] = t1
+        stack[sp] = 1048775
         sp += 1
         stack[sp] = p2
+        local t0 = stack[sp]
+        sp -= 1
+        local t1 = stack[sp]
+        sp -= 1
         local t2 = stack[sp]
         sp -= 1
         local t3 = stack[sp]
         sp -= 1
-        local t4 = stack[sp]
-        sp -= 1
-        local t5 = stack[sp]
-        sp -= 1
-        local t6 = FUNC_7(t5, t4, t3, t2)
+        local t4 = FUNC_4(t3, t2, t1, t0)
         sp += 1
-        stack[sp] = t6
+        stack[sp] = t4
         return stack[sp - 0]
     end
     
-    FUNC_32 = function(p0: number, p1: number, p2: number): number -- make_part
+    FUNC_28 = function(p0: number, p1: number, p2: number): number -- make_part
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
         local l1: number = 0
         sp += 1
-        stack[sp] = 1048866
+        stack[sp] = 1048829
         local t0 = stack[sp]
         sp -= 1
-        local t1 = FUNC_20(t0)
+        local t1 = FUNC_5(t0)
         sp += 1
         stack[sp] = t1
         local t2 = stack[sp]
         sp -= 1
         l0 = t2
         sp += 1
-        stack[sp] = 1048774
+        stack[sp] = 1048737
         local t3 = stack[sp]
         sp -= 1
-        local t4 = FUNC_22(t3)
+        local t4 = FUNC_6(t3)
         sp += 1
         stack[sp] = t4
         local t5 = stack[sp]
         l1 = t5
         sp += 1
-        stack[sp] = 1048827
-        local t6 = stack[sp]
-        sp -= 1
-        local t7 = FUNC_17(t6)
-        sp += 1
-        stack[sp] = t7
+        stack[sp] = 1048790
         sp += 1
         stack[sp] = p0
         sp += 1
         stack[sp] = p1
         sp += 1
         stack[sp] = p2
+        local t6 = stack[sp]
+        sp -= 1
+        local t7 = stack[sp]
+        sp -= 1
         local t8 = stack[sp]
         sp -= 1
         local t9 = stack[sp]
         sp -= 1
         local t10 = stack[sp]
         sp -= 1
+        FUNC_7(t10, t9, t8, t7, t6)
+        sp += 1
+        stack[sp] = l1
+        sp += 1
+        stack[sp] = 1048852
+        sp += 1
+        stack[sp] = 1
         local t11 = stack[sp]
         sp -= 1
         local t12 = stack[sp]
         sp -= 1
-        FUNC_8(t12, t11, t10, t9, t8)
+        local t13 = stack[sp]
+        sp -= 1
+        FUNC_8(t13, t12, t11)
         sp += 1
         stack[sp] = l1
         sp += 1
-        stack[sp] = 1048889
-        local t13 = stack[sp]
+        stack[sp] = 1048795
+        sp += 1
+        stack[sp] = 1048728
+        local t14 = stack[sp]
         sp -= 1
-        local t14 = FUNC_17(t13)
-        sp += 1
-        stack[sp] = t14
-        sp += 1
-        stack[sp] = 1
         local t15 = stack[sp]
         sp -= 1
         local t16 = stack[sp]
         sp -= 1
+        FUNC_9(t16, t15, t14)
+        sp += 1
+        stack[sp] = l1
+        sp += 1
+        stack[sp] = l0
         local t17 = stack[sp]
         sp -= 1
-        FUNC_9(t17, t16, t15)
-        sp += 1
-        stack[sp] = l1
-        sp += 1
-        stack[sp] = 1048832
         local t18 = stack[sp]
         sp -= 1
-        local t19 = FUNC_17(t18)
+        FUNC_10(t18, t17)
         sp += 1
-        stack[sp] = t19
-        sp += 1
-        stack[sp] = 1048765
-        local t20 = stack[sp]
+        stack[sp] = 1048839
+        local t19 = stack[sp]
         sp -= 1
-        local t21 = FUNC_17(t20)
-        sp += 1
-        stack[sp] = t21
-        local t22 = stack[sp]
-        sp -= 1
-        local t23 = stack[sp]
-        sp -= 1
-        local t24 = stack[sp]
-        sp -= 1
-        FUNC_10(t24, t23, t22)
-        sp += 1
-        stack[sp] = l1
-        sp += 1
-        stack[sp] = l0
-        local t25 = stack[sp]
-        sp -= 1
-        local t26 = stack[sp]
-        sp -= 1
-        FUNC_11(t26, t25)
-        sp += 1
-        stack[sp] = 1048876
-        local t27 = stack[sp]
-        sp -= 1
-        local t28 = FUNC_17(t27)
-        sp += 1
-        stack[sp] = t28
-        local t29 = stack[sp]
-        sp -= 1
-        FUNC_12(t29)
+        FUNC_11(t19)
         sp += 1
         stack[sp] = l1
         return stack[sp - 0]
     end
     
-    FUNC_33 = function(): number -- make_player
+    FUNC_29 = function(): number -- make_player
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
-        stack[sp] = 1048805
+        stack[sp] = 1048768
         local t0 = stack[sp]
         sp -= 1
-        local t1 = FUNC_22(t0)
+        local t1 = FUNC_6(t0)
         sp += 1
         stack[sp] = t1
         return stack[sp - 0]
     end
     
-    FUNC_34 = function(): number -- make_remote_event
+    FUNC_30 = function(): number -- make_remote_event
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
         local l1: number = 0
         sp += 1
-        stack[sp] = 1048837
+        stack[sp] = 1048800
         local t0 = stack[sp]
         sp -= 1
-        local t1 = FUNC_20(t0)
+        local t1 = FUNC_5(t0)
         sp += 1
         stack[sp] = t1
         local t2 = stack[sp]
         sp -= 1
         l0 = t2
         sp += 1
-        stack[sp] = 1048779
+        stack[sp] = 1048742
         local t3 = stack[sp]
         sp -= 1
-        local t4 = FUNC_22(t3)
+        local t4 = FUNC_6(t3)
         sp += 1
         stack[sp] = t4
         local t5 = stack[sp]
@@ -1227,32 +985,32 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp -= 1
         local t7 = stack[sp]
         sp -= 1
-        FUNC_11(t7, t6)
+        FUNC_10(t7, t6)
         sp += 1
         stack[sp] = l1
         return stack[sp - 0]
     end
     
-    FUNC_35 = function(): number -- make_remote_function
+    FUNC_31 = function(): number -- make_remote_function
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
         local l1: number = 0
         sp += 1
-        stack[sp] = 1048837
+        stack[sp] = 1048800
         local t0 = stack[sp]
         sp -= 1
-        local t1 = FUNC_20(t0)
+        local t1 = FUNC_5(t0)
         sp += 1
         stack[sp] = t1
         local t2 = stack[sp]
         sp -= 1
         l0 = t2
         sp += 1
-        stack[sp] = 1048812
+        stack[sp] = 1048775
         local t3 = stack[sp]
         sp -= 1
-        local t4 = FUNC_22(t3)
+        local t4 = FUNC_6(t3)
         sp += 1
         stack[sp] = t4
         local t5 = stack[sp]
@@ -1263,13 +1021,13 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp -= 1
         local t7 = stack[sp]
         sp -= 1
-        FUNC_11(t7, t6)
+        FUNC_10(t7, t6)
         sp += 1
         stack[sp] = l1
         return stack[sp - 0]
     end
     
-    FUNC_36 = function(p0: number): number -- part_is_anchored
+    FUNC_32 = function(p0: number): number -- part_is_anchored
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -1283,62 +1041,49 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             sp += 1
             stack[sp] = p0
             sp += 1
-            stack[sp] = 1048889
+            stack[sp] = 1048852
             local t1 = stack[sp]
             sp -= 1
             local t2 = stack[sp]
             sp -= 1
-            local t3 = FUNC_21(t2, t1)
+            local t3 = FUNC_12(t2, t1)
             sp += 1
             stack[sp] = t3
             sp += 1
-            stack[sp] = 255
+            stack[sp] = 1
             local t4 = stack[sp]
             sp -= 1
             local t5 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = bit32.band(t5, t4)
-            sp += 1
-            stack[sp] = 1
+            stack[sp] = (t5 ~= t4)
             local t6 = stack[sp]
             sp -= 1
-            local t7 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = (t7 ~= t6)
-            local t8 = stack[sp]
-            sp -= 1
-            if t8 ~= 0 then
+            if t6 ~= 0 then
                 break
             end
             sp += 1
             stack[sp] = p0
             sp += 1
-            stack[sp] = 1048889
-            local t9 = stack[sp]
+            stack[sp] = 1048852
+            local t7 = stack[sp]
             sp -= 1
-            local t10 = FUNC_17(t9)
+            local t8 = stack[sp]
+            sp -= 1
+            local t9 = FUNC_13(t8, t7)
             sp += 1
-            stack[sp] = t10
-            local t11 = stack[sp]
-            sp -= 1
-            local t12 = stack[sp]
-            sp -= 1
-            local t13 = FUNC_13(t12, t11)
-            sp += 1
-            stack[sp] = t13
+            stack[sp] = t9
             sp += 1
             stack[sp] = 1
-            local t14 = stack[sp]
+            local t10 = stack[sp]
             sp -= 1
-            local t15 = stack[sp]
+            local t11 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = (t15 == t14)
-            local t16 = stack[sp]
+            stack[sp] = (t11 == t10)
+            local t12 = stack[sp]
             sp -= 1
-            l0 = t16
+            l0 = t12
             break
         end
         sp += 1
@@ -1346,12 +1091,11 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_37 = function(p0: number): number -- part_name_is_generated
+    FUNC_33 = function(p0: number): number -- part_name_is_generated
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
         local l1: number = 0
-        local l2: number = 0
         sp += 1
         stack[sp] = GLOBALS[1]
         sp += 1
@@ -1428,230 +1172,172 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         while true do
             local exit_1: boolean = false
             while true do
-                local exit_2: boolean = false
-                while true do
-                    sp += 1
-                    stack[sp] = p0
-                    sp += 1
-                    stack[sp] = 1048832
-                    local t17 = stack[sp]
-                    sp -= 1
-                    local t18 = stack[sp]
-                    sp -= 1
-                    local t19 = FUNC_21(t18, t17)
-                    sp += 1
-                    stack[sp] = t19
-                    sp += 1
-                    stack[sp] = 255
-                    local t20 = stack[sp]
-                    sp -= 1
-                    local t21 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = bit32.band(t21, t20)
-                    sp += 1
-                    stack[sp] = 2
-                    local t22 = stack[sp]
-                    sp -= 1
-                    local t23 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = (t23 ~= t22)
-                    local t24 = stack[sp]
-                    sp -= 1
-                    if t24 ~= 0 then
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = 1048832
-                    local t25 = stack[sp]
-                    sp -= 1
-                    local t26 = FUNC_17(t25)
-                    sp += 1
-                    stack[sp] = t26
-                    local t27 = stack[sp]
-                    sp -= 1
-                    l2 = t27
-                    sp += 1
-                    stack[sp] = l0
-                    sp += 1
-                    stack[sp] = -1
-                    local t28 = stack[sp]
-                    sp -= 1
-                    local t29 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = (t29 <= t28)
-                    local t30 = stack[sp]
-                    sp -= 1
-                    if t30 ~= 0 then
-                        exit_1 = true
-                        exit_2 = true
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = 0
-                    local t31 = stack[sp]
-                    sp -= 1
-                    l1 = t31
-                    sp += 1
-                    stack[sp] = p0
-                    sp += 1
-                    stack[sp] = l2
-                    sp += 1
-                    stack[sp] = l0
-                    sp += 1
-                    stack[sp] = 32
-                    local t32 = stack[sp]
-                    sp -= 1
-                    local t33 = stack[sp]
-                    sp -= 1
-                    local t34 = stack[sp]
-                    sp -= 1
-                    local t35 = stack[sp]
-                    sp -= 1
-                    local t36 = FUNC_14(t35, t34, t33, t32)
-                    sp += 1
-                    stack[sp] = t36
-                    local t37 = stack[sp]
-                    p0 = t37
-                    sp += 1
-                    stack[sp] = 0
-                    local t38 = stack[sp]
-                    sp -= 1
-                    local t39 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = (t39 < t38)
-                    local t40 = stack[sp]
-                    sp -= 1
-                    if t40 ~= 0 then
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = p0
-                    sp += 1
-                    stack[sp] = 33
-                    local t41 = stack[sp]
-                    sp -= 1
-                    local t42 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = wasm_i32_geu(t42, t41)
-                    local t43 = stack[sp]
-                    sp -= 1
-                    if t43 ~= 0 then
-                        exit_0 = true
-                        exit_1 = true
-                        exit_2 = true
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = l0
-                    sp += 1
-                    stack[sp] = 32
-                    local t44 = stack[sp]
-                    sp -= 1
-                    local t45 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = wasm_i32_wrap((t45 + t44))
-                    sp += 1
-                    stack[sp] = l0
-                    sp += 1
-                    stack[sp] = p0
-                    local t46 = stack[sp]
-                    sp -= 1
-                    local t47 = stack[sp]
-                    sp -= 1
-                    local t48 = stack[sp]
-                    sp -= 1
-                    FUNC_43(t48, t47, t46)
-                    sp += 1
-                    stack[sp] = l0
-                    local t49 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = buffer.readi32(MEMORY, t49 + 32)
-                    sp += 1
-                    stack[sp] = 1
-                    local t50 = stack[sp]
-                    sp -= 1
-                    local t51 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = (t51 == t50)
-                    local t52 = stack[sp]
-                    sp -= 1
-                    if t52 ~= 0 then
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = l0
-                    local t53 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = buffer.readi32(MEMORY, t53 + 40)
-                    sp += 1
-                    stack[sp] = 13
-                    local t54 = stack[sp]
-                    sp -= 1
-                    local t55 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = (t55 ~= t54)
-                    local t56 = stack[sp]
-                    sp -= 1
-                    if t56 ~= 0 then
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = l0
-                    local t57 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = buffer.readi32(MEMORY, t57 + 36)
-                    sp += 1
-                    stack[sp] = 1048940
-                    sp += 1
-                    stack[sp] = 13
-                    local t58 = stack[sp]
-                    sp -= 1
-                    local t59 = stack[sp]
-                    sp -= 1
-                    local t60 = stack[sp]
-                    sp -= 1
-                    local t61 = FUNC_50(t60, t59, t58)
-                    sp += 1
-                    stack[sp] = t61
-                    local t62 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = (t62 == 0)
-                    local t63 = stack[sp]
-                    sp -= 1
-                    l1 = t63
+                sp += 1
+                stack[sp] = p0
+                sp += 1
+                stack[sp] = 1048795
+                local t17 = stack[sp]
+                sp -= 1
+                local t18 = stack[sp]
+                sp -= 1
+                local t19 = FUNC_12(t18, t17)
+                sp += 1
+                stack[sp] = t19
+                sp += 1
+                stack[sp] = 2
+                local t20 = stack[sp]
+                sp -= 1
+                local t21 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = (t21 ~= t20)
+                local t22 = stack[sp]
+                sp -= 1
+                if t22 ~= 0 then
                     break
                 end
-                if exit_0 or exit_1 then
+                sp += 1
+                stack[sp] = 0
+                local t23 = stack[sp]
+                sp -= 1
+                l1 = t23
+                sp += 1
+                stack[sp] = p0
+                sp += 1
+                stack[sp] = 1048795
+                sp += 1
+                stack[sp] = l0
+                sp += 1
+                stack[sp] = 32
+                local t24 = stack[sp]
+                sp -= 1
+                local t25 = stack[sp]
+                sp -= 1
+                local t26 = stack[sp]
+                sp -= 1
+                local t27 = stack[sp]
+                sp -= 1
+                local t28 = FUNC_14(t27, t26, t25, t24)
+                sp += 1
+                stack[sp] = t28
+                local t29 = stack[sp]
+                p0 = t29
+                sp += 1
+                stack[sp] = 0
+                local t30 = stack[sp]
+                sp -= 1
+                local t31 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = (t31 < t30)
+                local t32 = stack[sp]
+                sp -= 1
+                if t32 ~= 0 then
+                    break
+                end
+                sp += 1
+                stack[sp] = p0
+                sp += 1
+                stack[sp] = 33
+                local t33 = stack[sp]
+                sp -= 1
+                local t34 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = wasm_i32_geu(t34, t33)
+                local t35 = stack[sp]
+                sp -= 1
+                if t35 ~= 0 then
+                    exit_0 = true
+                    exit_1 = true
                     break
                 end
                 sp += 1
                 stack[sp] = l0
                 sp += 1
-                stack[sp] = 48
-                local t64 = stack[sp]
+                stack[sp] = 36
+                local t36 = stack[sp]
                 sp -= 1
-                local t65 = stack[sp]
+                local t37 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = wasm_i32_wrap((t65 + t64))
-                local t66 = stack[sp]
-                sp -= 1
-                GLOBALS[1] = t66
+                stack[sp] = wasm_i32_wrap((t37 + t36))
                 sp += 1
-                stack[sp] = l1
-                return stack[sp - 0]
+                stack[sp] = l0
+                sp += 1
+                stack[sp] = p0
+                local t38 = stack[sp]
+                sp -= 1
+                local t39 = stack[sp]
+                sp -= 1
+                local t40 = stack[sp]
+                sp -= 1
+                FUNC_39(t40, t39, t38)
+                sp += 1
+                stack[sp] = l0
+                local t41 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = buffer.readi32(MEMORY, t41 + 36)
+                sp += 1
+                stack[sp] = 1
+                local t42 = stack[sp]
+                sp -= 1
+                local t43 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = (t43 == t42)
+                local t44 = stack[sp]
+                sp -= 1
+                if t44 ~= 0 then
+                    break
+                end
+                sp += 1
+                stack[sp] = l0
+                local t45 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = buffer.readi32(MEMORY, t45 + 44)
+                sp += 1
+                stack[sp] = 13
+                local t46 = stack[sp]
+                sp -= 1
+                local t47 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = (t47 ~= t46)
+                local t48 = stack[sp]
+                sp -= 1
+                if t48 ~= 0 then
+                    break
+                end
+                sp += 1
+                stack[sp] = l0
+                local t49 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = buffer.readi32(MEMORY, t49 + 40)
+                sp += 1
+                stack[sp] = 1048888
+                sp += 1
+                stack[sp] = 13
+                local t50 = stack[sp]
+                sp -= 1
+                local t51 = stack[sp]
+                sp -= 1
+                local t52 = stack[sp]
+                sp -= 1
+                local t53 = FUNC_44(t52, t51, t50)
+                sp += 1
+                stack[sp] = t53
+                local t54 = stack[sp]
+                sp -= 1
+                sp += 1
+                stack[sp] = (t54 == 0)
+                local t55 = stack[sp]
+                sp -= 1
+                l1 = t55
+                break
             end
             if exit_0 then
                 break
@@ -1659,60 +1345,19 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             sp += 1
             stack[sp] = l0
             sp += 1
-            stack[sp] = 2
-            local t67 = stack[sp]
+            stack[sp] = 48
+            local t56 = stack[sp]
             sp -= 1
-            local t68 = stack[sp]
-            sp -= 1
-            buffer.writei8(MEMORY, t68 + 47, t67)
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = 1
-            local t69 = stack[sp]
-            sp -= 1
-            local t70 = stack[sp]
-            sp -= 1
-            buffer.writei32(MEMORY, t70 + 36, t69)
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = 47
-            local t71 = stack[sp]
-            sp -= 1
-            local t72 = stack[sp]
+            local t57 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = wasm_i32_wrap((t72 + t71))
-            local t73 = stack[sp]
+            stack[sp] = wasm_i32_wrap((t57 + t56))
+            local t58 = stack[sp]
             sp -= 1
-            local t74 = stack[sp]
-            sp -= 1
-            buffer.writei32(MEMORY, t74 + 32, t73)
+            GLOBALS[1] = t58
             sp += 1
-            stack[sp] = 1048728
-            sp += 1
-            stack[sp] = l0
-            sp += 1
-            stack[sp] = 32
-            local t75 = stack[sp]
-            sp -= 1
-            local t76 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = wasm_i32_wrap((t76 + t75))
-            sp += 1
-            stack[sp] = 1048908
-            local t77 = stack[sp]
-            sp -= 1
-            local t78 = stack[sp]
-            sp -= 1
-            local t79 = stack[sp]
-            sp -= 1
-            FUNC_41(t79, t78, t77)
-            error("wasm trap: unreachable")
+            stack[sp] = l1
+            return stack[sp - 0]
         end
         sp += 1
         stack[sp] = 0
@@ -1721,71 +1366,85 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp += 1
         stack[sp] = 32
         sp += 1
-        stack[sp] = 1048924
-        local t80 = stack[sp]
+        stack[sp] = 1048872
+        local t59 = stack[sp]
         sp -= 1
-        local t81 = stack[sp]
+        local t60 = stack[sp]
         sp -= 1
-        local t82 = stack[sp]
+        local t61 = stack[sp]
         sp -= 1
-        local t83 = stack[sp]
+        local t62 = stack[sp]
         sp -= 1
-        FUNC_42(t83, t82, t81, t80)
+        FUNC_38(t62, t61, t60, t59)
         error("wasm trap: unreachable")
     end
     
-    FUNC_38 = function(p0: number): number -- subscribe
+    FUNC_34 = function(p0: number): number -- subscribe
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
         stack[sp] = p0
         sp += 1
-        stack[sp] = 1048898
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = FUNC_17(t0)
+        stack[sp] = 1048861
         sp += 1
-        stack[sp] = t1
-        sp += 1
-        stack[sp] = 2
-        local t2 = stack[sp]
-        sp -= 1
-        local t3 = stack[sp]
-        sp -= 1
-        local t4 = stack[sp]
-        sp -= 1
-        local t5 = FUNC_15(t4, t3, t2)
-        sp += 1
-        stack[sp] = t5
-        return stack[sp - 0]
-    end
-    
-    FUNC_39 = function(p0: number): number -- unset_property_kind
-        local stack: {any} = {}
-        local sp: number = 0
-        sp += 1
-        stack[sp] = p0
-        sp += 1
-        stack[sp] = 1048855
+        stack[sp] = 1
         local t0 = stack[sp]
         sp -= 1
         local t1 = stack[sp]
         sp -= 1
-        local t2 = FUNC_21(t1, t0)
-        sp += 1
-        stack[sp] = t2
-        sp += 1
-        stack[sp] = 255
-        local t3 = stack[sp]
+        local t2 = stack[sp]
         sp -= 1
-        local t4 = stack[sp]
-        sp -= 1
+        local t3 = FUNC_15(t2, t1, t0)
         sp += 1
-        stack[sp] = bit32.band(t4, t3)
+        stack[sp] = t3
         return stack[sp - 0]
     end
     
-    FUNC_40 = function(p0: number): number -- unsubscribe
+    FUNC_35 = function(p0: number): number -- unset_property_kind
+        local stack: {any} = {}
+        local sp: number = 0
+        sp += 1
+        stack[sp] = p0
+        sp += 1
+        stack[sp] = 1048818
+        local t0 = stack[sp]
+        sp -= 1
+        local t1 = stack[sp]
+        sp -= 1
+        local t2 = FUNC_12(t1, t0)
+        sp += 1
+        stack[sp] = t2
+        local t3 = stack[sp]
+        p0 = t3
+        sp += 1
+        stack[sp] = 4
+        sp += 1
+        stack[sp] = p0
+        sp += 1
+        stack[sp] = 4
+        local t4 = stack[sp]
+        sp -= 1
+        local t5 = stack[sp]
+        sp -= 1
+        sp += 1
+        stack[sp] = wasm_i32_ltu(t5, t4)
+        local t6 = stack[sp]
+        sp -= 1
+        local t7 = stack[sp]
+        sp -= 1
+        local t8 = stack[sp]
+        sp -= 1
+        if t6 ~= 0 then
+            sp += 1
+            stack[sp] = t8
+        else
+            sp += 1
+            stack[sp] = t7
+        end
+        return stack[sp - 0]
+    end
+    
+    FUNC_36 = function(p0: number): number -- unsubscribe
         local stack: {any} = {}
         local sp: number = 0
         sp += 1
@@ -1798,7 +1457,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_41 = function(p0: number, p1: number, p2: number) -- _RNvNtCskGMzdWn1DGZ_4core9panicking9panic_fmt
+    FUNC_37 = function(p0: number, p1: number, p2: number) -- _RNvNtCskGMzdWn1DGZ_4core9panicking9panic_fmt
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -1882,11 +1541,11 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         stack[sp] = wasm_i32_wrap((t17 + t16))
         local t18 = stack[sp]
         sp -= 1
-        FUNC_19(t18)
+        FUNC_18(t18)
         error("wasm trap: unreachable")
     end
     
-    FUNC_42 = function(p0: number, p1: number, p2: number, p3: number) -- _RNvNtNtCskGMzdWn1DGZ_4core5slice5index16slice_index_fail
+    FUNC_38 = function(p0: number, p1: number, p2: number, p3: number) -- _RNvNtNtCskGMzdWn1DGZ_4core5slice5index16slice_index_fail
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -1946,7 +1605,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         break
                     end
                     sp += 1
-                    stack[sp] = 3
+                    stack[sp] = 2
                     local t10 = stack[sp]
                     sp -= 1
                     local t11, t12 = wasm_i64_from_i32u(t10)
@@ -2112,7 +1771,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     sp -= 1
                     local t60 = stack[sp]
                     sp -= 1
-                    FUNC_41(t60, t59, t58)
+                    FUNC_37(t60, t59, t58)
                     error("wasm trap: unreachable")
                 end
                 if exit_0 or exit_1 then
@@ -2139,7 +1798,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 sp += 1
                 stack[sp] = l0
                 sp += 1
-                stack[sp] = 3
+                stack[sp] = 2
                 local t65 = stack[sp]
                 sp -= 1
                 local t66, t67 = wasm_i64_from_i32u(t65)
@@ -2262,7 +1921,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 sp -= 1
                 local t108 = stack[sp]
                 sp -= 1
-                FUNC_41(t108, t107, t106)
+                FUNC_37(t108, t107, t106)
                 error("wasm trap: unreachable")
             end
             if exit_0 then
@@ -2289,7 +1948,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             sp += 1
             stack[sp] = l0
             sp += 1
-            stack[sp] = 3
+            stack[sp] = 2
             local t113 = stack[sp]
             sp -= 1
             local t114, t115 = wasm_i64_from_i32u(t113)
@@ -2412,7 +2071,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             sp -= 1
             local t156 = stack[sp]
             sp -= 1
-            FUNC_41(t156, t155, t154)
+            FUNC_37(t156, t155, t154)
             error("wasm trap: unreachable")
         end
         sp += 1
@@ -2535,11 +2194,11 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp -= 1
         local t193 = stack[sp]
         sp -= 1
-        FUNC_41(t193, t192, t191)
+        FUNC_37(t193, t192, t191)
         error("wasm trap: unreachable")
     end
     
-    FUNC_43 = function(p0: number, p1: number, p2: number) -- _RNvNtNtCskGMzdWn1DGZ_4core3str8converts9from_utf8
+    FUNC_39 = function(p0: number, p1: number, p2: number) -- _RNvNtNtCskGMzdWn1DGZ_4core3str8converts9from_utf8
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -2853,7 +2512,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                                                                 local t56 = stack[sp]
                                                                 sp -= 1
                                                                 sp += 1
-                                                                stack[sp] = buffer.readu8(MEMORY, t56 + 1049153)
+                                                                stack[sp] = buffer.readu8(MEMORY, t56 + 1049101)
                                                                 sp += 1
                                                                 stack[sp] = -2
                                                                 local t57 = stack[sp]
@@ -4026,7 +3685,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         buffer.writei32(MEMORY, t241 + 0, t240)
     end
     
-    FUNC_44 = function(p0: number, p1: number, p2: number, p3: number, p4: number, p5: number): number -- _RNvMsa_NtCskGMzdWn1DGZ_4core3fmtNtB5_9Formatter12pad_integral
+    FUNC_40 = function(p0: number, p1: number, p2: number, p3: number, p4: number, p5: number): number -- _RNvMsa_NtCskGMzdWn1DGZ_4core3fmtNtB5_9Formatter12pad_integral
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -4173,7 +3832,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     sp -= 1
                     local t25 = stack[sp]
                     sp -= 1
-                    local t26 = FUNC_45(t25, t24)
+                    local t26 = FUNC_41(t25, t24)
                     sp += 1
                     stack[sp] = t26
                     local t27 = stack[sp]
@@ -4921,7 +4580,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                         sp -= 1
                         local t175 = stack[sp]
                         sp -= 1
-                        local t176 = FUNC_46(t175, t174, t173, t172, t171)
+                        local t176 = FUNC_42(t175, t174, t173, t172, t171)
                         sp += 1
                         stack[sp] = t176
                         local t177 = stack[sp]
@@ -5074,7 +4733,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                     sp -= 1
                     local t205 = stack[sp]
                     sp -= 1
-                    local t206 = FUNC_46(t205, t204, t203, t202, t201)
+                    local t206 = FUNC_42(t205, t204, t203, t202, t201)
                     sp += 1
                     stack[sp] = t206
                     local t207 = stack[sp]
@@ -5334,7 +4993,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             sp -= 1
             local t260 = stack[sp]
             sp -= 1
-            local t261 = FUNC_46(t260, t259, t258, t257, t256)
+            local t261 = FUNC_42(t260, t259, t258, t257, t256)
             sp += 1
             stack[sp] = t261
             local t262 = stack[sp]
@@ -5375,7 +5034,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_45 = function(p0: number, p1: number): number -- _RNvNtNtCskGMzdWn1DGZ_4core3str5count14do_count_chars
+    FUNC_41 = function(p0: number, p1: number): number -- _RNvNtNtCskGMzdWn1DGZ_4core3str5count14do_count_chars
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -7084,7 +6743,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_46 = function(p0: number, p1: number, p2: number, p3: number, p4: number): number -- _RNvNvMsa_NtCskGMzdWn1DGZ_4core3fmtNtB7_9Formatter12pad_integral12write_prefix
+    FUNC_42 = function(p0: number, p1: number, p2: number, p3: number, p4: number): number -- _RNvNvMsa_NtCskGMzdWn1DGZ_4core3fmtNtB7_9Formatter12pad_integral12write_prefix
         local stack: {any} = {}
         local sp: number = 0
         local exit_0: boolean = false
@@ -7175,1199 +6834,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_47 = function(p0: number, p1: number, p2: number): number -- _RNvMsa_NtCskGMzdWn1DGZ_4core3fmtNtB5_9Formatter3pad
-        local stack: {any} = {}
-        local sp: number = 0
-        local l0: number = 0
-        local l1: number = 0
-        local l2: number = 0
-        local l3: number = 0
-        local l4: number = 0
-        local l5: number = 0
-        local l6: number = 0
-        local exit_0: boolean = false
-        while true do
-            local exit_1: boolean = false
-            while true do
-                sp += 1
-                stack[sp] = p0
-                local t0 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = buffer.readi32(MEMORY, t0 + 8)
-                local t1 = stack[sp]
-                l0 = t1
-                sp += 1
-                stack[sp] = 402653184
-                local t2 = stack[sp]
-                sp -= 1
-                local t3 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = bit32.band(t3, t2)
-                local t4 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = (t4 == 0)
-                local t5 = stack[sp]
-                sp -= 1
-                if t5 ~= 0 then
-                    break
-                end
-                local exit_2: boolean = false
-                while true do
-                    local exit_3: boolean = false
-                    while true do
-                        local exit_4: boolean = false
-                        while true do
-                            local exit_5: boolean = false
-                            while true do
-                                local exit_6: boolean = false
-                                while true do
-                                    sp += 1
-                                    stack[sp] = l0
-                                    sp += 1
-                                    stack[sp] = 268435456
-                                    local t6 = stack[sp]
-                                    sp -= 1
-                                    local t7 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = bit32.band(t7, t6)
-                                    local t8 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = (t8 == 0)
-                                    local t9 = stack[sp]
-                                    sp -= 1
-                                    if t9 ~= 0 then
-                                        break
-                                    end
-                                    sp += 1
-                                    stack[sp] = p0
-                                    local t10 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = buffer.readu16(MEMORY, t10 + 14)
-                                    local t11 = stack[sp]
-                                    l1 = t11
-                                    local t12 = stack[sp]
-                                    sp -= 1
-                                    if t12 ~= 0 then
-                                        exit_5 = true
-                                        exit_6 = true
-                                        break
-                                    end
-                                    sp += 1
-                                    stack[sp] = 0
-                                    local t13 = stack[sp]
-                                    sp -= 1
-                                    p2 = t13
-                                    exit_4 = true
-                                    exit_5 = true
-                                    exit_6 = true
-                                    break
-                                end
-                                if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_5 then
-                                    break
-                                end
-                                local exit_7: boolean = false
-                                while true do
-                                    sp += 1
-                                    stack[sp] = p2
-                                    sp += 1
-                                    stack[sp] = 16
-                                    local t14 = stack[sp]
-                                    sp -= 1
-                                    local t15 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = wasm_i32_ltu(t15, t14)
-                                    local t16 = stack[sp]
-                                    sp -= 1
-                                    if t16 ~= 0 then
-                                        break
-                                    end
-                                    sp += 1
-                                    stack[sp] = p1
-                                    sp += 1
-                                    stack[sp] = p2
-                                    local t17 = stack[sp]
-                                    sp -= 1
-                                    local t18 = stack[sp]
-                                    sp -= 1
-                                    local t19 = FUNC_45(t18, t17)
-                                    sp += 1
-                                    stack[sp] = t19
-                                    local t20 = stack[sp]
-                                    sp -= 1
-                                    l2 = t20
-                                    exit_2 = true
-                                    exit_3 = true
-                                    exit_4 = true
-                                    exit_5 = true
-                                    exit_7 = true
-                                    break
-                                end
-                                if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_5 then
-                                    break
-                                end
-                                local exit_8: boolean = false
-                                while true do
-                                    sp += 1
-                                    stack[sp] = p2
-                                    local t21 = stack[sp]
-                                    sp -= 1
-                                    if t21 ~= 0 then
-                                        break
-                                    end
-                                    sp += 1
-                                    stack[sp] = 0
-                                    local t22 = stack[sp]
-                                    sp -= 1
-                                    l2 = t22
-                                    exit_2 = true
-                                    exit_3 = true
-                                    exit_4 = true
-                                    exit_5 = true
-                                    exit_8 = true
-                                    break
-                                end
-                                if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_5 then
-                                    break
-                                end
-                                sp += 1
-                                stack[sp] = p2
-                                sp += 1
-                                stack[sp] = 3
-                                local t23 = stack[sp]
-                                sp -= 1
-                                local t24 = stack[sp]
-                                sp -= 1
-                                sp += 1
-                                stack[sp] = bit32.band(t24, t23)
-                                local t25 = stack[sp]
-                                sp -= 1
-                                l3 = t25
-                                sp += 1
-                                stack[sp] = 0
-                                local t26 = stack[sp]
-                                sp -= 1
-                                l4 = t26
-                                sp += 1
-                                stack[sp] = 0
-                                local t27 = stack[sp]
-                                sp -= 1
-                                l2 = t27
-                                local exit_9: boolean = false
-                                while true do
-                                    sp += 1
-                                    stack[sp] = p2
-                                    sp += 1
-                                    stack[sp] = 4
-                                    local t28 = stack[sp]
-                                    sp -= 1
-                                    local t29 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = wasm_i32_ltu(t29, t28)
-                                    local t30 = stack[sp]
-                                    sp -= 1
-                                    if t30 ~= 0 then
-                                        break
-                                    end
-                                    sp += 1
-                                    stack[sp] = p2
-                                    sp += 1
-                                    stack[sp] = 12
-                                    local t31 = stack[sp]
-                                    sp -= 1
-                                    local t32 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = bit32.band(t32, t31)
-                                    local t33 = stack[sp]
-                                    sp -= 1
-                                    l1 = t33
-                                    sp += 1
-                                    stack[sp] = 0
-                                    local t34 = stack[sp]
-                                    sp -= 1
-                                    l2 = t34
-                                    sp += 1
-                                    stack[sp] = 0
-                                    local t35 = stack[sp]
-                                    sp -= 1
-                                    l4 = t35
-                                    local exit_10: boolean = false
-                                    local restart_10: boolean = false
-                                    while true do
-                                        sp += 1
-                                        stack[sp] = l2
-                                        sp += 1
-                                        stack[sp] = p1
-                                        sp += 1
-                                        stack[sp] = l4
-                                        local t36 = stack[sp]
-                                        sp -= 1
-                                        local t37 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t37 + t36))
-                                        local t38 = stack[sp]
-                                        l5 = t38
-                                        local t39 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = buffer.readi8(MEMORY, t39 + 0)
-                                        sp += 1
-                                        stack[sp] = -65
-                                        local t40 = stack[sp]
-                                        sp -= 1
-                                        local t41 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = (t41 > t40)
-                                        local t42 = stack[sp]
-                                        sp -= 1
-                                        local t43 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t43 + t42))
-                                        sp += 1
-                                        stack[sp] = l5
-                                        sp += 1
-                                        stack[sp] = 1
-                                        local t44 = stack[sp]
-                                        sp -= 1
-                                        local t45 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t45 + t44))
-                                        local t46 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = buffer.readi8(MEMORY, t46 + 0)
-                                        sp += 1
-                                        stack[sp] = -65
-                                        local t47 = stack[sp]
-                                        sp -= 1
-                                        local t48 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = (t48 > t47)
-                                        local t49 = stack[sp]
-                                        sp -= 1
-                                        local t50 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t50 + t49))
-                                        sp += 1
-                                        stack[sp] = l5
-                                        sp += 1
-                                        stack[sp] = 2
-                                        local t51 = stack[sp]
-                                        sp -= 1
-                                        local t52 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t52 + t51))
-                                        local t53 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = buffer.readi8(MEMORY, t53 + 0)
-                                        sp += 1
-                                        stack[sp] = -65
-                                        local t54 = stack[sp]
-                                        sp -= 1
-                                        local t55 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = (t55 > t54)
-                                        local t56 = stack[sp]
-                                        sp -= 1
-                                        local t57 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t57 + t56))
-                                        sp += 1
-                                        stack[sp] = l5
-                                        sp += 1
-                                        stack[sp] = 3
-                                        local t58 = stack[sp]
-                                        sp -= 1
-                                        local t59 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t59 + t58))
-                                        local t60 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = buffer.readi8(MEMORY, t60 + 0)
-                                        sp += 1
-                                        stack[sp] = -65
-                                        local t61 = stack[sp]
-                                        sp -= 1
-                                        local t62 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = (t62 > t61)
-                                        local t63 = stack[sp]
-                                        sp -= 1
-                                        local t64 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t64 + t63))
-                                        local t65 = stack[sp]
-                                        sp -= 1
-                                        l2 = t65
-                                        sp += 1
-                                        stack[sp] = l1
-                                        sp += 1
-                                        stack[sp] = l4
-                                        sp += 1
-                                        stack[sp] = 4
-                                        local t66 = stack[sp]
-                                        sp -= 1
-                                        local t67 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t67 + t66))
-                                        local t68 = stack[sp]
-                                        l4 = t68
-                                        local t69 = stack[sp]
-                                        sp -= 1
-                                        local t70 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = (t70 ~= t69)
-                                        local t71 = stack[sp]
-                                        sp -= 1
-                                        if t71 ~= 0 then
-                                            continue
-                                        end
-                                    end
-                                    if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_5 or exit_9 then
-                                        break
-                                    end
-                                    sp += 1
-                                    stack[sp] = l3
-                                    local t72 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = (t72 == 0)
-                                    local t73 = stack[sp]
-                                    sp -= 1
-                                    if t73 ~= 0 then
-                                        exit_2 = true
-                                        exit_3 = true
-                                        exit_4 = true
-                                        exit_5 = true
-                                        exit_9 = true
-                                        break
-                                    end
-                                    break
-                                end
-                                if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_5 then
-                                    break
-                                end
-                                sp += 1
-                                stack[sp] = p1
-                                sp += 1
-                                stack[sp] = l4
-                                local t74 = stack[sp]
-                                sp -= 1
-                                local t75 = stack[sp]
-                                sp -= 1
-                                sp += 1
-                                stack[sp] = wasm_i32_wrap((t75 + t74))
-                                local t76 = stack[sp]
-                                sp -= 1
-                                l5 = t76
-                                local exit_11: boolean = false
-                                local restart_11: boolean = false
-                                while true do
-                                    sp += 1
-                                    stack[sp] = l2
-                                    sp += 1
-                                    stack[sp] = l5
-                                    local t77 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = buffer.readi8(MEMORY, t77 + 0)
-                                    sp += 1
-                                    stack[sp] = -65
-                                    local t78 = stack[sp]
-                                    sp -= 1
-                                    local t79 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = (t79 > t78)
-                                    local t80 = stack[sp]
-                                    sp -= 1
-                                    local t81 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = wasm_i32_wrap((t81 + t80))
-                                    local t82 = stack[sp]
-                                    sp -= 1
-                                    l2 = t82
-                                    sp += 1
-                                    stack[sp] = l5
-                                    sp += 1
-                                    stack[sp] = 1
-                                    local t83 = stack[sp]
-                                    sp -= 1
-                                    local t84 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = wasm_i32_wrap((t84 + t83))
-                                    local t85 = stack[sp]
-                                    sp -= 1
-                                    l5 = t85
-                                    sp += 1
-                                    stack[sp] = l3
-                                    sp += 1
-                                    stack[sp] = -1
-                                    local t86 = stack[sp]
-                                    sp -= 1
-                                    local t87 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = wasm_i32_wrap((t87 + t86))
-                                    local t88 = stack[sp]
-                                    l3 = t88
-                                    local t89 = stack[sp]
-                                    sp -= 1
-                                    if t89 ~= 0 then
-                                        continue
-                                    end
-                                    exit_2 = true
-                                    exit_3 = true
-                                    exit_4 = true
-                                    exit_5 = true
-                                    exit_11 = true
-                                    break
-                                end
-                                if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_5 then
-                                    break
-                                end
-                                break
-                            end
-                            if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 then
-                                break
-                            end
-                            sp += 1
-                            stack[sp] = p1
-                            sp += 1
-                            stack[sp] = p2
-                            local t90 = stack[sp]
-                            sp -= 1
-                            local t91 = stack[sp]
-                            sp -= 1
-                            sp += 1
-                            stack[sp] = wasm_i32_wrap((t91 + t90))
-                            local t92 = stack[sp]
-                            sp -= 1
-                            l4 = t92
-                            sp += 1
-                            stack[sp] = 0
-                            local t93 = stack[sp]
-                            sp -= 1
-                            p2 = t93
-                            sp += 1
-                            stack[sp] = p1
-                            local t94 = stack[sp]
-                            sp -= 1
-                            l5 = t94
-                            sp += 1
-                            stack[sp] = l1
-                            local t95 = stack[sp]
-                            sp -= 1
-                            l3 = t95
-                            local exit_12: boolean = false
-                            local restart_12: boolean = false
-                            while true do
-                                sp += 1
-                                stack[sp] = l5
-                                local t96 = stack[sp]
-                                l2 = t96
-                                sp += 1
-                                stack[sp] = l4
-                                local t97 = stack[sp]
-                                sp -= 1
-                                local t98 = stack[sp]
-                                sp -= 1
-                                sp += 1
-                                stack[sp] = (t98 == t97)
-                                local t99 = stack[sp]
-                                sp -= 1
-                                if t99 ~= 0 then
-                                    exit_3 = true
-                                    exit_4 = true
-                                    exit_12 = true
-                                    break
-                                end
-                                local exit_13: boolean = false
-                                while true do
-                                    local exit_14: boolean = false
-                                    while true do
-                                        sp += 1
-                                        stack[sp] = l2
-                                        local t100 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = buffer.readi8(MEMORY, t100 + 0)
-                                        local t101 = stack[sp]
-                                        l5 = t101
-                                        sp += 1
-                                        stack[sp] = -1
-                                        local t102 = stack[sp]
-                                        sp -= 1
-                                        local t103 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = (t103 <= t102)
-                                        local t104 = stack[sp]
-                                        sp -= 1
-                                        if t104 ~= 0 then
-                                            break
-                                        end
-                                        sp += 1
-                                        stack[sp] = l2
-                                        sp += 1
-                                        stack[sp] = 1
-                                        local t105 = stack[sp]
-                                        sp -= 1
-                                        local t106 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t106 + t105))
-                                        local t107 = stack[sp]
-                                        sp -= 1
-                                        l5 = t107
-                                        exit_13 = true
-                                        exit_14 = true
-                                        break
-                                    end
-                                    if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_12 or exit_13 then
-                                        break
-                                    end
-                                    local exit_15: boolean = false
-                                    while true do
-                                        sp += 1
-                                        stack[sp] = l5
-                                        sp += 1
-                                        stack[sp] = -32
-                                        local t108 = stack[sp]
-                                        sp -= 1
-                                        local t109 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_geu(t109, t108)
-                                        local t110 = stack[sp]
-                                        sp -= 1
-                                        if t110 ~= 0 then
-                                            break
-                                        end
-                                        sp += 1
-                                        stack[sp] = l2
-                                        sp += 1
-                                        stack[sp] = 2
-                                        local t111 = stack[sp]
-                                        sp -= 1
-                                        local t112 = stack[sp]
-                                        sp -= 1
-                                        sp += 1
-                                        stack[sp] = wasm_i32_wrap((t112 + t111))
-                                        local t113 = stack[sp]
-                                        sp -= 1
-                                        l5 = t113
-                                        exit_13 = true
-                                        exit_15 = true
-                                        break
-                                    end
-                                    if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_12 or exit_13 then
-                                        break
-                                    end
-                                    sp += 1
-                                    stack[sp] = l2
-                                    sp += 1
-                                    stack[sp] = 4
-                                    sp += 1
-                                    stack[sp] = 3
-                                    sp += 1
-                                    stack[sp] = l5
-                                    sp += 1
-                                    stack[sp] = -17
-                                    local t114 = stack[sp]
-                                    sp -= 1
-                                    local t115 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = wasm_i32_gtu(t115, t114)
-                                    local t116 = stack[sp]
-                                    sp -= 1
-                                    local t117 = stack[sp]
-                                    sp -= 1
-                                    local t118 = stack[sp]
-                                    sp -= 1
-                                    if t116 ~= 0 then
-                                        sp += 1
-                                        stack[sp] = t118
-                                    else
-                                        sp += 1
-                                        stack[sp] = t117
-                                    end
-                                    local t119 = stack[sp]
-                                    sp -= 1
-                                    local t120 = stack[sp]
-                                    sp -= 1
-                                    sp += 1
-                                    stack[sp] = wasm_i32_wrap((t120 + t119))
-                                    local t121 = stack[sp]
-                                    sp -= 1
-                                    l5 = t121
-                                    break
-                                end
-                                if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 or exit_12 then
-                                    break
-                                end
-                                if restart_12 then
-                                    restart_12 = false
-                                    continue
-                                end
-                                sp += 1
-                                stack[sp] = l5
-                                sp += 1
-                                stack[sp] = l2
-                                local t122 = stack[sp]
-                                sp -= 1
-                                local t123 = stack[sp]
-                                sp -= 1
-                                sp += 1
-                                stack[sp] = wasm_i32_wrap((t123 - t122))
-                                sp += 1
-                                stack[sp] = p2
-                                local t124 = stack[sp]
-                                sp -= 1
-                                local t125 = stack[sp]
-                                sp -= 1
-                                sp += 1
-                                stack[sp] = wasm_i32_wrap((t125 + t124))
-                                local t126 = stack[sp]
-                                sp -= 1
-                                p2 = t126
-                                sp += 1
-                                stack[sp] = l3
-                                sp += 1
-                                stack[sp] = -1
-                                local t127 = stack[sp]
-                                sp -= 1
-                                local t128 = stack[sp]
-                                sp -= 1
-                                sp += 1
-                                stack[sp] = wasm_i32_wrap((t128 + t127))
-                                local t129 = stack[sp]
-                                l3 = t129
-                                local t130 = stack[sp]
-                                sp -= 1
-                                if t130 ~= 0 then
-                                    continue
-                                end
-                            end
-                            if exit_0 or exit_1 or exit_2 or exit_3 or exit_4 then
-                                break
-                            end
-                            break
-                        end
-                        if exit_0 or exit_1 or exit_2 or exit_3 then
-                            break
-                        end
-                        sp += 1
-                        stack[sp] = 0
-                        local t131 = stack[sp]
-                        sp -= 1
-                        l3 = t131
-                        break
-                    end
-                    if exit_0 or exit_1 or exit_2 then
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = l1
-                    sp += 1
-                    stack[sp] = l3
-                    local t132 = stack[sp]
-                    sp -= 1
-                    local t133 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = wasm_i32_wrap((t133 - t132))
-                    local t134 = stack[sp]
-                    sp -= 1
-                    l2 = t134
-                    break
-                end
-                if exit_0 or exit_1 then
-                    break
-                end
-                sp += 1
-                stack[sp] = l2
-                sp += 1
-                stack[sp] = p0
-                local t135 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = buffer.readu16(MEMORY, t135 + 12)
-                local t136 = stack[sp]
-                l5 = t136
-                local t137 = stack[sp]
-                sp -= 1
-                local t138 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = wasm_i32_geu(t138, t137)
-                local t139 = stack[sp]
-                sp -= 1
-                if t139 ~= 0 then
-                    break
-                end
-                sp += 1
-                stack[sp] = l5
-                sp += 1
-                stack[sp] = l2
-                local t140 = stack[sp]
-                sp -= 1
-                local t141 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = wasm_i32_wrap((t141 - t140))
-                local t142 = stack[sp]
-                sp -= 1
-                l6 = t142
-                sp += 1
-                stack[sp] = 0
-                local t143 = stack[sp]
-                sp -= 1
-                l2 = t143
-                sp += 1
-                stack[sp] = 0
-                local t144 = stack[sp]
-                sp -= 1
-                l1 = t144
-                local exit_16: boolean = false
-                while true do
-                    local exit_17: boolean = false
-                    while true do
-                        local exit_18: boolean = false
-                        while true do
-                            sp += 1
-                            stack[sp] = l0
-                            sp += 1
-                            stack[sp] = 29
-                            local t145 = stack[sp]
-                            sp -= 1
-                            local t146 = stack[sp]
-                            sp -= 1
-                            sp += 1
-                            stack[sp] = wasm_shr_u(t146, t145)
-                            sp += 1
-                            stack[sp] = 3
-                            local t147 = stack[sp]
-                            sp -= 1
-                            local t148 = stack[sp]
-                            sp -= 1
-                            sp += 1
-                            stack[sp] = bit32.band(t148, t147)
-                            local t149 = stack[sp]
-                            sp -= 1
-                            if t149 == 0 then
-                                exit_16 = true
-                                exit_17 = true
-                                exit_18 = true
-                                break
-                            elseif t149 == 1 then
-                                break
-                            elseif t149 == 2 then
-                                exit_17 = true
-                                exit_18 = true
-                                break
-                            elseif t149 == 3 then
-                                exit_16 = true
-                                exit_17 = true
-                                exit_18 = true
-                                break
-                            else
-                                exit_16 = true
-                                exit_17 = true
-                                exit_18 = true
-                                break
-                            end
-                        end
-                        if exit_0 or exit_1 or exit_16 or exit_17 then
-                            break
-                        end
-                        sp += 1
-                        stack[sp] = l6
-                        local t150 = stack[sp]
-                        sp -= 1
-                        l1 = t150
-                        exit_16 = true
-                        exit_17 = true
-                        break
-                    end
-                    if exit_0 or exit_1 or exit_16 then
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = l6
-                    sp += 1
-                    stack[sp] = 65534
-                    local t151 = stack[sp]
-                    sp -= 1
-                    local t152 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = bit32.band(t152, t151)
-                    sp += 1
-                    stack[sp] = 1
-                    local t153 = stack[sp]
-                    sp -= 1
-                    local t154 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = wasm_shr_u(t154, t153)
-                    local t155 = stack[sp]
-                    sp -= 1
-                    l1 = t155
-                    break
-                end
-                if exit_0 or exit_1 then
-                    break
-                end
-                sp += 1
-                stack[sp] = l0
-                sp += 1
-                stack[sp] = 2097151
-                local t156 = stack[sp]
-                sp -= 1
-                local t157 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = bit32.band(t157, t156)
-                local t158 = stack[sp]
-                sp -= 1
-                l4 = t158
-                sp += 1
-                stack[sp] = p0
-                local t159 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = buffer.readi32(MEMORY, t159 + 4)
-                local t160 = stack[sp]
-                sp -= 1
-                l3 = t160
-                sp += 1
-                stack[sp] = p0
-                local t161 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = buffer.readi32(MEMORY, t161 + 0)
-                local t162 = stack[sp]
-                sp -= 1
-                p0 = t162
-                local exit_19: boolean = false
-                while true do
-                    local exit_20: boolean = false
-                    local restart_20: boolean = false
-                    while true do
-                        sp += 1
-                        stack[sp] = l2
-                        sp += 1
-                        stack[sp] = 65535
-                        local t163 = stack[sp]
-                        sp -= 1
-                        local t164 = stack[sp]
-                        sp -= 1
-                        sp += 1
-                        stack[sp] = bit32.band(t164, t163)
-                        sp += 1
-                        stack[sp] = l1
-                        sp += 1
-                        stack[sp] = 65535
-                        local t165 = stack[sp]
-                        sp -= 1
-                        local t166 = stack[sp]
-                        sp -= 1
-                        sp += 1
-                        stack[sp] = bit32.band(t166, t165)
-                        local t167 = stack[sp]
-                        sp -= 1
-                        local t168 = stack[sp]
-                        sp -= 1
-                        sp += 1
-                        stack[sp] = wasm_i32_geu(t168, t167)
-                        local t169 = stack[sp]
-                        sp -= 1
-                        if t169 ~= 0 then
-                            exit_19 = true
-                            exit_20 = true
-                            break
-                        end
-                        sp += 1
-                        stack[sp] = 1
-                        local t170 = stack[sp]
-                        sp -= 1
-                        l5 = t170
-                        sp += 1
-                        stack[sp] = l2
-                        sp += 1
-                        stack[sp] = 1
-                        local t171 = stack[sp]
-                        sp -= 1
-                        local t172 = stack[sp]
-                        sp -= 1
-                        sp += 1
-                        stack[sp] = wasm_i32_wrap((t172 + t171))
-                        local t173 = stack[sp]
-                        sp -= 1
-                        l2 = t173
-                        sp += 1
-                        stack[sp] = p0
-                        sp += 1
-                        stack[sp] = l4
-                        sp += 1
-                        stack[sp] = l3
-                        local t174 = stack[sp]
-                        sp -= 1
-                        sp += 1
-                        stack[sp] = buffer.readi32(MEMORY, t174 + 16)
-                        local t175 = stack[sp]
-                        sp -= 1
-                        local t176 = stack[sp]
-                        sp -= 1
-                        local t177 = stack[sp]
-                        sp -= 1
-                        local t178 = FUNCTIONS[t175 + 1](t177, t176)
-                        sp += 1
-                        stack[sp] = t178
-                        local t179 = stack[sp]
-                        sp -= 1
-                        if t179 ~= 0 then
-                            exit_0 = true
-                            exit_1 = true
-                            exit_19 = true
-                            exit_20 = true
-                            break
-                        end
-                        continue
-                    end
-                    if exit_0 or exit_1 or exit_19 then
-                        break
-                    end
-                    break
-                end
-                if exit_0 or exit_1 then
-                    break
-                end
-                sp += 1
-                stack[sp] = 1
-                local t180 = stack[sp]
-                sp -= 1
-                l5 = t180
-                sp += 1
-                stack[sp] = p0
-                sp += 1
-                stack[sp] = p1
-                sp += 1
-                stack[sp] = p2
-                sp += 1
-                stack[sp] = l3
-                local t181 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = buffer.readi32(MEMORY, t181 + 12)
-                local t182 = stack[sp]
-                sp -= 1
-                local t183 = stack[sp]
-                sp -= 1
-                local t184 = stack[sp]
-                sp -= 1
-                local t185 = stack[sp]
-                sp -= 1
-                local t186 = FUNCTIONS[t182 + 1](t185, t184, t183)
-                sp += 1
-                stack[sp] = t186
-                local t187 = stack[sp]
-                sp -= 1
-                if t187 ~= 0 then
-                    exit_0 = true
-                    exit_1 = true
-                    break
-                end
-                sp += 1
-                stack[sp] = 0
-                local t188 = stack[sp]
-                sp -= 1
-                l2 = t188
-                sp += 1
-                stack[sp] = l6
-                sp += 1
-                stack[sp] = l1
-                local t189 = stack[sp]
-                sp -= 1
-                local t190 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = wasm_i32_wrap((t190 - t189))
-                sp += 1
-                stack[sp] = 65535
-                local t191 = stack[sp]
-                sp -= 1
-                local t192 = stack[sp]
-                sp -= 1
-                sp += 1
-                stack[sp] = bit32.band(t192, t191)
-                local t193 = stack[sp]
-                sp -= 1
-                p2 = t193
-                local exit_21: boolean = false
-                local restart_21: boolean = false
-                while true do
-                    sp += 1
-                    stack[sp] = l2
-                    sp += 1
-                    stack[sp] = 65535
-                    local t194 = stack[sp]
-                    sp -= 1
-                    local t195 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = bit32.band(t195, t194)
-                    local t196 = stack[sp]
-                    l1 = t196
-                    sp += 1
-                    stack[sp] = p2
-                    local t197 = stack[sp]
-                    sp -= 1
-                    local t198 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = wasm_i32_ltu(t198, t197)
-                    local t199 = stack[sp]
-                    sp -= 1
-                    l5 = t199
-                    sp += 1
-                    stack[sp] = l1
-                    sp += 1
-                    stack[sp] = p2
-                    local t200 = stack[sp]
-                    sp -= 1
-                    local t201 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = wasm_i32_geu(t201, t200)
-                    local t202 = stack[sp]
-                    sp -= 1
-                    if t202 ~= 0 then
-                        exit_0 = true
-                        exit_1 = true
-                        exit_21 = true
-                        break
-                    end
-                    sp += 1
-                    stack[sp] = l2
-                    sp += 1
-                    stack[sp] = 1
-                    local t203 = stack[sp]
-                    sp -= 1
-                    local t204 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = wasm_i32_wrap((t204 + t203))
-                    local t205 = stack[sp]
-                    sp -= 1
-                    l2 = t205
-                    sp += 1
-                    stack[sp] = p0
-                    sp += 1
-                    stack[sp] = l4
-                    sp += 1
-                    stack[sp] = l3
-                    local t206 = stack[sp]
-                    sp -= 1
-                    sp += 1
-                    stack[sp] = buffer.readi32(MEMORY, t206 + 16)
-                    local t207 = stack[sp]
-                    sp -= 1
-                    local t208 = stack[sp]
-                    sp -= 1
-                    local t209 = stack[sp]
-                    sp -= 1
-                    local t210 = FUNCTIONS[t207 + 1](t209, t208)
-                    sp += 1
-                    stack[sp] = t210
-                    local t211 = stack[sp]
-                    sp -= 1
-                    if t211 ~= 0 then
-                        exit_0 = true
-                        exit_1 = true
-                        exit_21 = true
-                        break
-                    end
-                    continue
-                end
-                if exit_0 or exit_1 then
-                    break
-                end
-                break
-            end
-            if exit_0 then
-                break
-            end
-            sp += 1
-            stack[sp] = p0
-            local t212 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = buffer.readi32(MEMORY, t212 + 0)
-            sp += 1
-            stack[sp] = p1
-            sp += 1
-            stack[sp] = p2
-            sp += 1
-            stack[sp] = p0
-            local t213 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = buffer.readi32(MEMORY, t213 + 4)
-            local t214 = stack[sp]
-            sp -= 1
-            sp += 1
-            stack[sp] = buffer.readi32(MEMORY, t214 + 12)
-            local t215 = stack[sp]
-            sp -= 1
-            local t216 = stack[sp]
-            sp -= 1
-            local t217 = stack[sp]
-            sp -= 1
-            local t218 = stack[sp]
-            sp -= 1
-            local t219 = FUNCTIONS[t215 + 1](t218, t217, t216)
-            sp += 1
-            stack[sp] = t219
-            local t220 = stack[sp]
-            sp -= 1
-            l5 = t220
-            break
-        end
-        sp += 1
-        stack[sp] = l5
-        return stack[sp - 0]
-    end
-    
-    FUNC_48 = function(p0: number, p1: number): number -- _RNvXs8_NtNtNtCskGMzdWn1DGZ_4core3fmt3num3impmNtB9_7Display3fmt
+    FUNC_43 = function(p0: number, p1: number): number -- _RNvXs8_NtNtNtCskGMzdWn1DGZ_4core3fmt3num3impmNtB9_7Display3fmt
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -8527,7 +6994,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t36 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = buffer.readu16(MEMORY, t36 + 1048953)
+                stack[sp] = buffer.readu16(MEMORY, t36 + 1048901)
                 local t37 = stack[sp]
                 sp -= 1
                 local t38 = stack[sp]
@@ -8580,7 +7047,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
                 local t49 = stack[sp]
                 sp -= 1
                 sp += 1
-                stack[sp] = buffer.readu16(MEMORY, t49 + 1048953)
+                stack[sp] = buffer.readu16(MEMORY, t49 + 1048901)
                 local t50 = stack[sp]
                 sp -= 1
                 local t51 = stack[sp]
@@ -8734,7 +7201,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t82 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = buffer.readu16(MEMORY, t82 + 1048953)
+            stack[sp] = buffer.readu16(MEMORY, t82 + 1048901)
             local t83 = stack[sp]
             sp -= 1
             local t84 = stack[sp]
@@ -8816,7 +7283,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             local t98 = stack[sp]
             sp -= 1
             sp += 1
-            stack[sp] = buffer.readu8(MEMORY, t98 + 1048954)
+            stack[sp] = buffer.readu8(MEMORY, t98 + 1048902)
             local t99 = stack[sp]
             sp -= 1
             local t100 = stack[sp]
@@ -8872,7 +7339,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         sp -= 1
         local t112 = stack[sp]
         sp -= 1
-        local t113 = FUNC_44(t112, t111, t110, t109, t108, t107)
+        local t113 = FUNC_40(t112, t111, t110, t109, t108, t107)
         sp += 1
         stack[sp] = t113
         local t114 = stack[sp]
@@ -8896,28 +7363,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    FUNC_49 = function(p0: number, p1: number): number -- _RNvXs_NtNtCskGMzdWn1DGZ_4core3num5errorNtB4_15TryFromIntErrorNtNtB8_3fmt7Display3fmt
-        local stack: {any} = {}
-        local sp: number = 0
-        sp += 1
-        stack[sp] = p1
-        sp += 1
-        stack[sp] = 1049409
-        sp += 1
-        stack[sp] = 47
-        local t0 = stack[sp]
-        sp -= 1
-        local t1 = stack[sp]
-        sp -= 1
-        local t2 = stack[sp]
-        sp -= 1
-        local t3 = FUNC_47(t2, t1, t0)
-        sp += 1
-        stack[sp] = t3
-        return stack[sp - 0]
-    end
-    
-    FUNC_50 = function(p0: number, p1: number, p2: number): number -- memcmp
+    FUNC_44 = function(p0: number, p1: number, p2: number): number -- memcmp
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
@@ -9055,11 +7501,10 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    buffer.writestring(MEMORY, 1048576, "\022slice index starts at \192\013 but ends at \192\000\018range start index \192\" out of range for slice of length \192\000\016range end index \192\" out of range for slice of length \192\000\"wasm32 pointer conversion failed: \192\000GeneratedPart\000RemoteEvent\000src/roblox.rs\000Player\000RemoteFunction\000Size\000Name\000ReplicatedStorage\000CanCollide\000Workspace\000part created\000Anchored\000Clicked\000\000\000\215\000\016\000\013\000\000\000i\000\000\000\013\000\000\000\215\000\016\000\013\000\000\000\204\000\000\000'\000\000\000GeneratedPart00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\004\004\004\004\004\000\000\000\000\000\000\000\000\000\000\000out of range integral type conversion attempted")
-    FUNCTIONS[2] = FUNC_49
-    FUNCTIONS[3] = FUNC_18
-    FUNCTIONS[4] = FUNC_48
-    local WASM_EXPORTS: {[string]: any} = { ["memory"] = MEMORY, ["add"] = FUNC_23, ["destroy_part"] = FUNC_24, ["double_at"] = FUNC_25, ["fib"] = FUNC_26, ["fire_remote_event"] = FUNC_27, ["fire_remote_event_to_client"] = FUNC_28, ["get_last_click"] = FUNC_29, ["invoke_remote_function"] = FUNC_30, ["invoke_remote_function_on_client"] = FUNC_31, ["make_part"] = FUNC_32, ["make_player"] = FUNC_33, ["make_remote_event"] = FUNC_34, ["make_remote_function"] = FUNC_35, ["part_is_anchored"] = FUNC_36, ["part_name_is_generated"] = FUNC_37, ["subscribe"] = FUNC_38, ["unset_property_kind"] = FUNC_39, ["unsubscribe"] = FUNC_40, ["functions"] = FUNCTIONS }
+    buffer.writestring(MEMORY, 1048576, "\022slice index starts at \192\013 but ends at \192\000\018range start index \192\" out of range for slice of length \192\000\016range end index \192\" out of range for slice of length \192\000GeneratedPart\000RemoteEvent\000src/roblox.rs\000Player\000RemoteFunction\000Size\000Name\000ReplicatedStorage\000CanCollide\000Workspace\000part created\000Anchored\000Clicked\000\000\000\000\178\000\016\000\013\000\000\000\209\000\000\000'\000\000\000GeneratedPart00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\004\004\004\004\004\000\000\000\000\000\000\000\000\000\000\000")
+    FUNCTIONS[2] = FUNC_17
+    FUNCTIONS[3] = FUNC_43
+    local WASM_EXPORTS: {[string]: any} = { ["memory"] = MEMORY, ["add"] = FUNC_19, ["destroy_part"] = FUNC_20, ["double_at"] = FUNC_21, ["fib"] = FUNC_22, ["fire_remote_event"] = FUNC_23, ["fire_remote_event_to_client"] = FUNC_24, ["get_last_click"] = FUNC_25, ["invoke_remote_function"] = FUNC_26, ["invoke_remote_function_on_client"] = FUNC_27, ["make_part"] = FUNC_28, ["make_player"] = FUNC_29, ["make_remote_event"] = FUNC_30, ["make_remote_function"] = FUNC_31, ["part_is_anchored"] = FUNC_32, ["part_name_is_generated"] = FUNC_33, ["subscribe"] = FUNC_34, ["unset_property_kind"] = FUNC_35, ["unsubscribe"] = FUNC_36, ["functions"] = FUNCTIONS }
     return WASM_EXPORTS
 end
 
