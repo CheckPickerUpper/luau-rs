@@ -14,6 +14,9 @@
 -- handles back into real Instances before touching the Roblox API. String
 -- arguments arrive as pointers into the module's linear memory and are
 -- decoded by this runtime after bind_memory.
+-- Event connections and remote calls are also represented by explicit handles
+-- and direction-specific imports. Remote payloads in this boundary are
+-- numeric; unsupported values are rejected instead of being dropped.
 --
 -- The constructor takes the Roblox globals explicitly so the same module can
 -- run against the real platform or against a mock environment in tests.
@@ -45,6 +48,9 @@ RobloxRuntime.__index = RobloxRuntime
 local FIRST_HANDLE: number = 1
 -- The null handle, used for optional instances that are absent.
 local NULL_HANDLE: number = 0
+-- Connection handles are separate from Instance handles so callers cannot
+-- accidentally disconnect an Instance.
+local FIRST_CONNECTION: number = 1
 
 function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
     local self = setmetatable({}, RobloxRuntime) :: RobloxRuntime
@@ -53,6 +59,8 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
     self.exports = nil
     self.instances = {}
     self.next_handle = FIRST_HANDLE
+    self.connections = {}
+    self.next_connection = FIRST_CONNECTION
 
     local imports = { roblox = {} }
     local roblox_imports: { [string]: any } = imports.roblox
@@ -120,23 +128,88 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
         handle: number,
         event_ptr: number,
         callback_index: number
-    )
-        local instance = self:instance_at(handle)
+    ): number
+        local instance = self:_require_instance(handle, "event connection")
         local event_name = self:_read_string(event_ptr)
-        if instance == nil then
-            return
-        end
         local event = instance[event_name]
-        if event ~= nil and event.Connect ~= nil then
-            event:Connect(function(...)
-                local callback = self.exports.functions[callback_index + 1]
-                if callback ~= nil then
-                    return callback(...)
-                end
-            end)
+        if event == nil or event.Connect == nil then
+            error("roblox event is unavailable: " .. event_name)
         end
+        local exports = self.exports
+        if exports == nil then
+            error("roblox event connection requires bound module exports")
+        end
+        local connection = event:Connect(function(...)
+            local callback = exports.functions[callback_index + 1]
+            if callback == nil then
+                error("roblox callback index is unavailable: " .. tostring(callback_index))
+            end
+            return callback(...)
+        end)
+        local connection_handle = self.next_connection
+        self.next_connection += 1
+        self.connections[connection_handle] = connection
+        return connection_handle
     end
 
+    roblox_imports.roblox_disconnect = function(connection_handle: number): number
+        local connection = self.connections[connection_handle]
+        if connection == nil then
+            return 0
+        end
+        connection:Disconnect()
+        self.connections[connection_handle] = nil
+        return 1
+    end
+
+    roblox_imports.roblox_remote_event_fire_server = function(
+        handle: number,
+        remote_ptr: number,
+        payload: any
+    )
+        local remote = self:_remote_at(handle, remote_ptr, "RemoteEvent")
+        if remote.FireServer == nil then
+            error("roblox RemoteEvent does not support FireServer")
+        end
+        remote:FireServer(self:_number_payload(payload))
+    end
+    roblox_imports.roblox_remote_event_fire_client = function(
+        handle: number,
+        player_handle: number,
+        remote_ptr: number,
+        payload: any
+    )
+        local remote = self:_remote_at(handle, remote_ptr, "RemoteEvent")
+        local player = self:_require_instance(player_handle, "remote player")
+        if remote.FireClient == nil then
+            error("roblox RemoteEvent does not support FireClient")
+        end
+        remote:FireClient(player, self:_number_payload(payload))
+    end
+    roblox_imports.roblox_remote_function_invoke_server = function(
+        handle: number,
+        remote_ptr: number,
+        payload: any
+    ): number
+        local remote = self:_remote_at(handle, remote_ptr, "RemoteFunction")
+        if remote.InvokeServer == nil then
+            error("roblox RemoteFunction does not support InvokeServer")
+        end
+        return remote:InvokeServer(self:_number_payload(payload))
+    end
+    roblox_imports.roblox_remote_function_invoke_client = function(
+        handle: number,
+        player_handle: number,
+        remote_ptr: number,
+        payload: any
+    ): number
+        local remote = self:_remote_at(handle, remote_ptr, "RemoteFunction")
+        local player = self:_require_instance(player_handle, "remote player")
+        if remote.InvokeClient == nil then
+            error("roblox RemoteFunction does not support InvokeClient")
+        end
+        return remote:InvokeClient(player, self:_number_payload(payload))
+    end
     self.imports = imports
     return self
 end
@@ -163,6 +236,37 @@ end
 -- Resolves a handle to a live instance, or nil when the handle is absent.
 function RobloxRuntime:instance_at(handle: number): any
     return self.instances[handle]
+end
+
+-- Rejects an unknown Instance handle before an import can silently do nothing.
+function RobloxRuntime:_require_instance(handle: number, operation: string): any
+    local instance = self:instance_at(handle)
+    if instance == nil then
+        error("roblox " .. operation .. " received unknown Instance handle " .. tostring(handle))
+    end
+    return instance
+end
+
+-- Resolves a named remote while keeping missing capabilities explicit.
+function RobloxRuntime:_remote_at(handle: number, remote_ptr: number, class_name: string): any
+    local instance = self:_require_instance(handle, class_name)
+    if instance.ClassName == class_name then
+        return instance
+    end
+    local remote_name = self:_read_string(remote_ptr)
+    local remote = instance[remote_name]
+    if remote == nil then
+        error("roblox " .. class_name .. " is unavailable: " .. remote_name)
+    end
+    return remote
+end
+
+-- Keeps this first remote boundary small and rejects values it cannot carry.
+function RobloxRuntime:_number_payload(payload: any): number
+    if type(payload) ~= "number" then
+        error("roblox remote payload must be a number")
+    end
+    return payload
 end
 
 -- Returns the handle for an instance, registering it on first use.

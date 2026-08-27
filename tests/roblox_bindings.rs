@@ -46,14 +46,21 @@ fn generated_fixture_luau() -> Result<String, Error> {
 /// The mock Roblox environment used by the behavior scenario.
 const MOCK_ROBLOX_ENVIRONMENT: &str = r#"
 local function make_event()
-    local connections = {}
+    local callbacks = {}
+    local next_connection = 1
     return {
         Connect = function(self, callback)
-            table.insert(connections, callback)
-            return { Disconnect = function(self) end }
+            local connection_id = next_connection
+            next_connection += 1
+            callbacks[connection_id] = callback
+            return {
+                Disconnect = function(self)
+                    callbacks[connection_id] = nil
+                end,
+            }
         end,
         Fire = function(self, ...)
-            for _, callback in ipairs(connections) do
+            for _, callback in pairs(callbacks) do
                 callback(...)
             end
         end,
@@ -61,11 +68,12 @@ local function make_event()
 end
 local services = {
     Workspace = { Name = "Workspace", Children = {}, Destroy = function(self) end },
+    ReplicatedStorage = { Name = "ReplicatedStorage", Children = {}, Destroy = function(self) end },
 }
 local game = { GetService = function(self, name) return services[name] end }
 local Instance = {
     new = function(className)
-        return {
+        local instance = {
             ClassName = className,
             Children = {},
             Parent = nil,
@@ -73,6 +81,24 @@ local Instance = {
             Clicked = make_event(),
             Destroy = function(self) end,
         }
+        if className == "RemoteEvent" then
+            instance.FireServer = function(self, payload)
+                self.LastServerPayload = payload
+            end
+            instance.FireClient = function(self, player, payload)
+                self.LastClientPlayer = player
+                self.LastClientPayload = payload
+            end
+        elseif className == "RemoteFunction" then
+            instance.InvokeServer = function(self, payload)
+                return payload * 2
+            end
+            instance.InvokeClient = function(self, player, payload)
+                self.LastClientPlayer = player
+                return payload * 3
+            end
+        end
+        return instance
     end,
 }
 local Vector3 = { new = function(x, y, z) return { x = x, y = y, z = z } end }
@@ -104,9 +130,23 @@ fn driver_source(generated: &str, runtime: &str) -> String {
          assert(part.Size.x == 1 and part.Size.y == 2 and part.Size.z == 3, \"size mismatch\")\n\
          assert(part.Anchored == 1, \"anchored should be 1\")\n\
          assert(printed[1] == \"part created\", \"print import mismatch\")\n\
-         m.subscribe(handle)\n\
+         local connection = m.subscribe(handle)\n\
          part.Clicked:Fire(21)\n\
          assert(m.get_last_click() == 42, \"event callback mismatch\")\n\
+         assert(m.unsubscribe(connection) == 1, \"disconnect mismatch\")\n\
+         part.Clicked:Fire(9)\n\
+         assert(m.get_last_click() == 42, \"disconnected callback fired\")\n\
+         local remote_event = m.make_remote_event()\n\
+         m.fire_remote_event(remote_event, 17)\n\
+         local remote_event_instance = runtime:instance_at(remote_event)\n\
+         assert(remote_event_instance.LastServerPayload == 17, \"RemoteEvent payload mismatch\")\n\
+         local player = m.make_player()\n\
+         m.fire_remote_event_to_client(remote_event, player, 19)\n\
+         assert(remote_event_instance.LastClientPlayer == runtime:instance_at(player), \"RemoteEvent player mismatch\")\n\
+         assert(remote_event_instance.LastClientPayload == 19, \"RemoteEvent client payload mismatch\")\n\
+         local remote_function = m.make_remote_function()\n\
+         assert(m.invoke_remote_function(remote_function, 21) == 42, \"RemoteFunction result mismatch\")\n\
+         assert(m.invoke_remote_function_on_client(remote_function, player, 14) == 42, \"RemoteFunction client result mismatch\")\n\
          assert(m.add(20, 22) == 42, \"add mismatch\")\n\
          assert(m.fib(9) == 34, \"fib mismatch\")\n"
     )
