@@ -7,6 +7,19 @@ use luau_rs::{
     TranslateOutcome,
 };
 use rstest::rstest;
+use std::collections::HashMap;
+use std::hash::{BuildHasherDefault, Hasher};
+
+#[derive(Default)]
+struct ConstantHasher;
+
+impl Hasher for ConstantHasher {
+    fn finish(&self) -> u64 {
+        0
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {}
+}
 use std::io::Error;
 use std::path::PathBuf;
 use std::process::Command;
@@ -17,14 +30,14 @@ fn fixture_wasm_path() -> PathBuf {
 }
 
 fn native_standard_library_score() -> i32 {
-    use std::collections::HashMap;
-
     let values = [3, 5, 7];
     let name = String::from("luau");
     let formatted = format!("{name}:{}", values.len());
-    let mut scores = HashMap::new();
-    scores.insert(formatted, 29);
-    let lookup = scores.get("luau:3").copied().unwrap_or_default();
+    let key = formatted.len() as i32;
+    let mut scores: HashMap<i32, i32, BuildHasherDefault<ConstantHasher>> =
+        HashMap::with_capacity_and_hasher(1, BuildHasherDefault::default());
+    scores.insert(key, 29);
+    let lookup = scores.get(&key).copied().unwrap_or_default();
     lookup + values.iter().sum::<i32>()
 }
 
@@ -55,15 +68,17 @@ fn given_std_crate_when_run_in_official_luau_then_matches_native_output() -> Res
         .prefix("luau-rs-standard-library-bdd")
         .tempdir()?;
     let source_path = temp_dir.path().join("driver.luau");
+    let module_path = temp_dir.path().join("module.luau");
     let driver = format!(
         "local function make()\n{generated}\nend\n\
          local m = make()({{}})\n\
          assert(m.standard_library_score() == {expected}, \"standard-library result mismatch\")\n",
     );
-    fs_err::write(&source_path, driver)?;
+    fs_err::write(&source_path, &driver)?;
+    fs_err::write(&module_path, &generated)?;
 
     let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
-    let analysis = Command::new(analyzer).arg(&source_path).output()?;
+    let analysis = Command::new(analyzer).arg(&module_path).output()?;
     if !analysis.status.success() {
         return Err(Error::other(format!(
             "standard-library Luau analysis failed: stderr={}",

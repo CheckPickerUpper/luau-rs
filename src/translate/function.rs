@@ -277,7 +277,11 @@ impl<'a> FunctionEmitter<'a> {
             if self.unreachable {
                 break;
             }
+            self.writer.line("do");
+            self.writer.push_indent();
             self.translate_instruction(instruction)?;
+            self.writer.pop_indent();
+            self.writer.line("end");
         }
         Ok(())
     }

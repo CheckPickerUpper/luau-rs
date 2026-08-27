@@ -5,7 +5,8 @@ use crate::wasm::{
     DecodedDataSegmentKind, DecodedExport, DecodedFunction, DecodedFunctionBody,
     DecodedGlobalValue, DecodedModule, StartFunctionPresence,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
+use walrus::ir::{dfs_in_order, Visitor};
 use walrus::FunctionKind;
 
 use super::function::{emit_function_body, function_signature, FunctionBodyInput};
@@ -53,6 +54,7 @@ pub fn emit_module(
     decoded: &DecodedModule,
     options: TranslateOptions,
 ) -> Result<String, TranslationProblemReason> {
+    let reachable = reachable_function_indices(decoded)?;
     let mut writer = TextWriter::new();
     writer.line("--!strict");
     writer.line("");
@@ -68,15 +70,15 @@ pub fn emit_module(
     ));
     writer.push_indent();
     writer.line(&format!("local WASM_IMPORTS = {IMPORTS_NAME}"));
-    emit_function_name_declarations(decoded, &mut writer);
+    emit_function_name_declarations(decoded, &reachable, &mut writer);
 
     emit_memory(decoded, &mut writer);
     emit_globals(decoded, &mut writer);
     writer.line("local FUNCTIONS: {any} = {}");
 
-    emit_functions(decoded, &mut writer)?;
+    emit_functions(decoded, &reachable, &mut writer)?;
     emit_data_segments(decoded, &mut writer);
-    emit_element_segments(decoded, &mut writer)?;
+    emit_element_segments(decoded, &reachable, &mut writer)?;
     emit_start(decoded, &mut writer);
     emit_exports(decoded, &mut writer);
     emit_main_invocation(decoded, options, &mut writer);
@@ -93,10 +95,15 @@ pub fn emit_module(
 /// Declares every `FUNC_N` name before any body is emitted, so wasm index
 /// order never shadows call order and recursion resolves. The names are typed
 /// `any` so strict analysis allows calls before a body is assigned.
-fn emit_function_name_declarations(decoded: &DecodedModule, writer: &mut TextWriter) {
+fn emit_function_name_declarations(
+    decoded: &DecodedModule,
+    reachable: &HashSet<usize>,
+    writer: &mut TextWriter,
+) {
     let names = decoded
         .functions()
         .iter()
+        .filter(|function| reachable.contains(&function.index()))
         .map(|function| format!("FUNC_{}: any", function.index()))
         .collect::<Vec<_>>();
     writer.line(&format!("local {}", names.join(", ")));
@@ -179,11 +186,19 @@ fn emit_globals(decoded: &DecodedModule, writer: &mut TextWriter) {
 
 fn emit_functions(
     decoded: &DecodedModule,
+    reachable: &HashSet<usize>,
     writer: &mut TextWriter,
 ) -> Result<(), TranslationProblemReason> {
     let import_routes = import_routes_by_index(decoded);
     let module = decoded.walrus_module();
     for function in decoded.functions() {
+        if !reachable.contains(&function.index()) {
+            continue;
+        }
+        if should_stub_panic(function) {
+            emit_panic_stub(function, writer);
+            continue;
+        }
         match function.body() {
             DecodedFunctionBody::Imported => {
                 emit_import_proxy(function, &import_routes, writer)?;
@@ -203,7 +218,118 @@ fn emit_functions(
     Ok(())
 }
 
-/// Maps each imported function index to its `(module, name)` route.
+/// Handles runtime functions that deliberately terminate execution.
+/// Identifies Rust runtime paths whose only supported outcome is a wasm trap.
+fn should_stub_panic(function: &DecodedFunction) -> bool {
+    function
+        .name()
+        .is_some_and(|name| name.contains("panic") || name.contains("rust_oom"))
+}
+
+/// Replaces host-side panic formatting with the backend's deterministic trap.
+fn emit_panic_stub(function: &DecodedFunction, writer: &mut TextWriter) {
+    let (parameters, return_annotation) = function_signature(function);
+    let comment_name = function
+        .name()
+        .map_or_else(String::new, |name| format!(" -- {name}"));
+    if return_annotation.is_empty() {
+        writer.line(&format!(
+            "FUNC_{} = function({}){}",
+            function.index(),
+            parameters.join(", "),
+            comment_name
+        ));
+    } else {
+        writer.line(&format!(
+            "FUNC_{} = function({}): {}{}",
+            function.index(),
+            parameters.join(", "),
+            return_annotation,
+            comment_name
+        ));
+    }
+    writer.push_indent();
+    writer.line("error(\"wasm trap: panic\")");
+    writer.pop_indent();
+    writer.line("end");
+    writer.line("");
+}
+
+/// Computes the function closure that the generated module can execute.
+fn reachable_function_indices(
+    decoded: &DecodedModule,
+) -> Result<HashSet<usize>, TranslationProblemReason> {
+    let mut reachable = HashSet::new();
+    for export in decoded.exports() {
+        if let DecodedExport::Function { function_index, .. } = export {
+            reachable.insert(*function_index);
+        }
+    }
+    if let Some(function_index) = decoded.start_function().function_index() {
+        reachable.insert(function_index);
+    }
+
+    let mut pending = reachable.iter().copied().collect::<VecDeque<_>>();
+    let mut includes_indirect_targets = false;
+    while let Some(function_index) = pending.pop_front() {
+        let Some(function) = decoded
+            .functions()
+            .iter()
+            .find(|candidate| candidate.index() == function_index)
+        else {
+            continue;
+        };
+        let DecodedFunctionBody::Defined { entry_sequence } = function.body() else {
+            continue;
+        };
+        let local_function = find_local_function(decoded.walrus_module(), function_index)?;
+        let mut references = FunctionReferenceCollector::default();
+        dfs_in_order(&mut references, local_function, *entry_sequence);
+        if references.uses_indirect_calls && !includes_indirect_targets {
+            includes_indirect_targets = true;
+            for segment in decoded.element_segments() {
+                for function_index in segment.function_indices() {
+                    if reachable.insert(*function_index) {
+                        pending.push_back(*function_index);
+                    }
+                }
+            }
+        }
+        for referenced in references.functions {
+            if reachable.insert(referenced) {
+                pending.push_back(referenced);
+            }
+        }
+    }
+    Ok(reachable)
+}
+
+#[derive(Default)]
+struct FunctionReferenceCollector {
+    functions: Vec<usize>,
+    uses_indirect_calls: bool,
+}
+
+impl<'instr> Visitor<'instr> for FunctionReferenceCollector {
+    fn visit_instr(
+        &mut self,
+        instruction: &'instr walrus::ir::Instr,
+        _location: &'instr walrus::ir::InstrLocId,
+    ) {
+        if matches!(
+            instruction,
+            walrus::ir::Instr::CallIndirect(..) | walrus::ir::Instr::ReturnCallIndirect(..)
+        ) {
+            self.uses_indirect_calls = true;
+        }
+    }
+
+    fn visit_function_id(&mut self, function: &walrus::FunctionId) {
+        self.functions.push(function.index());
+    }
+}
+
+/// Maps imported functions to their module routes.
 fn import_routes_by_index(decoded: &DecodedModule) -> HashMap<usize, (String, String)> {
     let mut routes = HashMap::new();
     for import in decoded.imports() {
@@ -312,11 +438,15 @@ fn emit_data_segments(decoded: &DecodedModule, writer: &mut TextWriter) {
 
 fn emit_element_segments(
     decoded: &DecodedModule,
+    reachable: &HashSet<usize>,
     writer: &mut TextWriter,
 ) -> Result<(), TranslationProblemReason> {
     for segment in decoded.element_segments() {
         let table_offset = usize_from_u32(segment.table_offset())?;
         for (position, function_index) in segment.function_indices().iter().enumerate() {
+            if !reachable.contains(function_index) {
+                continue;
+            }
             writer.line(&format!(
                 "FUNCTIONS[{}] = FUNC_{function_index}",
                 table_offset + position + super::writer::LUAU_INDEX_OFFSET

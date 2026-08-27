@@ -7,4 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [profile.release]
-opt-level = "z"
+opt-level = 3
+panic = "abort"
+lto = "fat"
+codegen-units = 1

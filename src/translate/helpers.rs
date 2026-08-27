@@ -49,28 +49,28 @@ local function wasm_i32_rems(a: number, b: number): number
     return r
 end
 
-local function wasm_i32_ltu(a: number, b: number): boolean
+local function wasm_i32_ltu(a: number, b: number): number
     local ua = a < 0 and a + 4294967296 or a
     local ub = b < 0 and b + 4294967296 or b
-    return ua < ub
+    return ua < ub and 1 or 0
 end
 
-local function wasm_i32_gtu(a: number, b: number): boolean
+local function wasm_i32_gtu(a: number, b: number): number
     local ua = a < 0 and a + 4294967296 or a
     local ub = b < 0 and b + 4294967296 or b
-    return ua > ub
+    return ua > ub and 1 or 0
 end
 
-local function wasm_i32_leu(a: number, b: number): boolean
+local function wasm_i32_leu(a: number, b: number): number
     local ua = a < 0 and a + 4294967296 or a
     local ub = b < 0 and b + 4294967296 or b
-    return ua <= ub
+    return ua <= ub and 1 or 0
 end
 
-local function wasm_i32_geu(a: number, b: number): boolean
+local function wasm_i32_geu(a: number, b: number): number
     local ua = a < 0 and a + 4294967296 or a
     local ub = b < 0 and b + 4294967296 or b
-    return ua >= ub
+    return ua >= ub and 1 or 0
 end
 
 local function wasm_i32_divu(a: number, b: number): number
