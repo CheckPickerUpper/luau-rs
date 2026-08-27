@@ -61,6 +61,7 @@ function RobloxRuntime.new(env: RobloxEnvironment): RobloxRuntime
     local self = setmetatable({}, RobloxRuntime) :: RobloxRuntime
     self.env = env
     self.memory = nil
+    self.decoded_strings = {}
     self.exports = nil
     self.instances = {}
     self.next_handle = FIRST_HANDLE
@@ -277,6 +278,10 @@ end
 
 -- Decodes a null-terminated string from the module's linear memory.
 function RobloxRuntime:_read_string(pointer: number): string
+    local cached = self.decoded_strings[pointer]
+    if cached ~= nil then
+        return cached
+    end
     local memory = self.memory
     if memory == nil then
         return ""
@@ -291,7 +296,9 @@ function RobloxRuntime:_read_string(pointer: number): string
         characters[index + 1] = string.char(byte)
         index += 1
     end
-    return table.concat(characters)
+    local decoded = table.concat(characters)
+    self.decoded_strings[pointer] = decoded
+    return decoded
 end
 
 function RobloxRuntime:_require_supported_property(property_name: string)
@@ -366,6 +373,7 @@ end
 -- Binds the module's linear memory so string decoding works.
 function RobloxRuntime:bind_memory(memory: buffer)
     self.memory = memory
+    self.decoded_strings = {}
 end
 
 -- Binds the module's exported surface so imports can invoke Rust callbacks.
