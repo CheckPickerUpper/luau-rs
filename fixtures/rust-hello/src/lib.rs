@@ -128,7 +128,8 @@ pub extern "C" fn make_part(x: f64, y: f64, z: f64) -> i32 {
 
     let workspace = roblox::get_service(workspace_name);
     let part = roblox::new(part_class);
-    roblox::set_vector3(part, size_property, x, y, z);
+    let size = roblox::Vector3Components::new(x, y, z);
+    roblox::set_vector3(part, size_property, size);
     roblox::set_number(part, c"Anchored", 1.0);
     roblox::set_string(part, c"Name", c"GeneratedPart");
     roblox::set_parent(part, workspace);

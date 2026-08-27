@@ -1273,9 +1273,8 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         local stack: {any} = {}
         local sp: number = 0
         local l0: number = 0
-        local l1: number = 0
         sp += 1
-        stack[sp] = 1
+        stack[sp] = 0
         local t0 = stack[sp]
         sp -= 1
         l0 = t0
@@ -1300,76 +1299,50 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
             sp -= 1
             sp += 1
             stack[sp] = bit32.band(t5, t4)
-            local t6 = stack[sp]
-            l1 = t6
             sp += 1
             stack[sp] = 1
+            local t6 = stack[sp]
+            sp -= 1
             local t7 = stack[sp]
             sp -= 1
+            sp += 1
+            stack[sp] = (t7 ~= t6)
             local t8 = stack[sp]
             sp -= 1
-            sp += 1
-            stack[sp] = (t8 ~= t7)
-            local t9 = stack[sp]
-            sp -= 1
-            if t9 ~= 0 then
+            if t8 ~= 0 then
                 break
             end
             sp += 1
             stack[sp] = p0
             sp += 1
             stack[sp] = 1048889
-            local t10 = stack[sp]
+            local t9 = stack[sp]
             sp -= 1
-            local t11 = FUNC_17(t10)
+            local t10 = FUNC_17(t9)
             sp += 1
-            stack[sp] = t11
+            stack[sp] = t10
+            local t11 = stack[sp]
+            sp -= 1
             local t12 = stack[sp]
             sp -= 1
-            local t13 = stack[sp]
-            sp -= 1
-            local t14 = FUNC_13(t13, t12)
+            local t13 = FUNC_13(t12, t11)
             sp += 1
-            stack[sp] = t14
+            stack[sp] = t13
             sp += 1
             stack[sp] = 1
+            local t14 = stack[sp]
+            sp -= 1
             local t15 = stack[sp]
             sp -= 1
+            sp += 1
+            stack[sp] = (t15 == t14)
             local t16 = stack[sp]
             sp -= 1
-            sp += 1
-            stack[sp] = (t16 ~= t15)
-            local t17 = stack[sp]
-            sp -= 1
-            l0 = t17
+            l0 = t16
             break
         end
         sp += 1
-        stack[sp] = l1
-        sp += 1
-        stack[sp] = 1
-        local t18 = stack[sp]
-        sp -= 1
-        local t19 = stack[sp]
-        sp -= 1
-        sp += 1
-        stack[sp] = (t19 == t18)
-        sp += 1
         stack[sp] = l0
-        sp += 1
-        stack[sp] = 1
-        local t20 = stack[sp]
-        sp -= 1
-        local t21 = stack[sp]
-        sp -= 1
-        sp += 1
-        stack[sp] = bit32.bxor(t21, t20)
-        local t22 = stack[sp]
-        sp -= 1
-        local t23 = stack[sp]
-        sp -= 1
-        sp += 1
-        stack[sp] = bit32.band(t23, t22)
         return stack[sp - 0]
     end
     
@@ -9082,7 +9055,7 @@ local function instantiate(imports: {[string]: {[string]: any}}): {[string]: any
         return stack[sp - 0]
     end
     
-    buffer.writestring(MEMORY, 1048576, "\022slice index starts at \192\013 but ends at \192\000\018range start index \192\" out of range for slice of length \192\000\016range end index \192\" out of range for slice of length \192\000\"wasm32 pointer conversion failed: \192\000GeneratedPart\000RemoteEvent\000src/roblox.rs\000Player\000RemoteFunction\000Size\000Name\000ReplicatedStorage\000CanCollide\000Workspace\000part created\000Anchored\000Clicked\000\000\000\215\000\016\000\013\000\000\000G\000\000\000\013\000\000\000\215\000\016\000\013\000\000\000\155\000\000\000!\000\000\000GeneratedPart00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\004\004\004\004\004\000\000\000\000\000\000\000\000\000\000\000out of range integral type conversion attempted")
+    buffer.writestring(MEMORY, 1048576, "\022slice index starts at \192\013 but ends at \192\000\018range start index \192\" out of range for slice of length \192\000\016range end index \192\" out of range for slice of length \192\000\"wasm32 pointer conversion failed: \192\000GeneratedPart\000RemoteEvent\000src/roblox.rs\000Player\000RemoteFunction\000Size\000Name\000ReplicatedStorage\000CanCollide\000Workspace\000part created\000Anchored\000Clicked\000\000\000\215\000\016\000\013\000\000\000i\000\000\000\013\000\000\000\215\000\016\000\013\000\000\000\204\000\000\000'\000\000\000GeneratedPart00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\002\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\003\004\004\004\004\004\000\000\000\000\000\000\000\000\000\000\000out of range integral type conversion attempted")
     FUNCTIONS[2] = FUNC_49
     FUNCTIONS[3] = FUNC_18
     FUNCTIONS[4] = FUNC_48

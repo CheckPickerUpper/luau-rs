@@ -1,6 +1,7 @@
 //! Safe Rust wrappers for the small Roblox import surface used by the fixture.
 
 use core::ffi::CStr;
+use core::str::Utf8Error;
 
 #[link(wasm_import_module = "roblox")]
 unsafe extern "C" {
@@ -54,13 +55,46 @@ pub(crate) enum PropertyKind {
 }
 
 /// A property read failed at the binding boundary.
+///
+/// Each variant carries what its own source established, so a caller can tell a
+/// value the runtime refused to write from one this side could not describe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PropertyError {
+    /// The runtime reported the property as absent.
     Missing,
+    /// The property is covered, but currently holds a different type.
     WrongType,
+    /// The runtime does not cover the property at all.
     Unsupported,
-    InvalidUtf8,
-    BufferTooSmall,
+    /// The bytes the runtime wrote were not UTF-8; the error locates the byte.
+    InvalidUtf8(Utf8Error),
+    /// The runtime declined to write, answering this negative length instead.
+    RuntimeRejectedOutputBuffer(i32),
+    /// The output buffer is longer than the `i32` capacity the import carries.
+    OutputCapacityExceedsImport(usize),
+}
+
+/// The components the runtime uses to build a `Vector3` property value.
+///
+/// The three axes travel together so a property write names its instance, its
+/// property, and one value, rather than five loose positional arguments.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Vector3Components {
+    x_component: f64,
+    y_component: f64,
+    z_component: f64,
+}
+
+/// Builds a `Vector3` value. Every triple of finite components is meaningful to
+/// the runtime, so there is nothing here to reject.
+impl Vector3Components {
+    pub(crate) fn new(x_component: f64, y_component: f64, z_component: f64) -> Self {
+        Self {
+            x_component,
+            y_component,
+            z_component,
+        }
+    }
 }
 
 fn pointer<T>(value: *const T) -> i32 {
@@ -103,8 +137,16 @@ pub(crate) fn set_string(handle: i32, property: &CStr, value: &CStr) {
     };
 }
 
-pub(crate) fn set_vector3(handle: i32, property: &CStr, x: f64, y: f64, z: f64) {
-    unsafe { roblox_set_vector3(handle, pointer(property.as_ptr()), x, y, z) };
+pub(crate) fn set_vector3(handle: i32, property: &CStr, components: Vector3Components) {
+    unsafe {
+        roblox_set_vector3(
+            handle,
+            pointer(property.as_ptr()),
+            components.x_component,
+            components.y_component,
+            components.z_component,
+        )
+    };
 }
 
 pub(crate) fn property_kind(handle: i32, property: &CStr) -> PropertyKind {
@@ -141,9 +183,11 @@ pub(crate) fn get_string<'a>(
     }
     let capacity = match i32::try_from(output.len()) {
         Ok(capacity) => capacity,
-        Err(_) => return Err(PropertyError::BufferTooSmall),
+        Err(_too_large_for_import) => {
+            return Err(PropertyError::OutputCapacityExceedsImport(output.len()))
+        }
     };
-    let length = unsafe {
+    let written = unsafe {
         roblox_get_string_property(
             handle,
             pointer(property.as_ptr()),
@@ -151,8 +195,16 @@ pub(crate) fn get_string<'a>(
             capacity,
         )
     };
-    let length = usize::try_from(length).map_err(|_| PropertyError::BufferTooSmall)?;
-    core::str::from_utf8(&output[..length]).map_err(|_| PropertyError::InvalidUtf8)
+    // The runtime answers with a negative length when the value did not fit,
+    // which is the only way this conversion fails.
+    let written = match usize::try_from(written) {
+        Ok(byte_count) => byte_count,
+        Err(_negative_length) => return Err(PropertyError::RuntimeRejectedOutputBuffer(written)),
+    };
+    match core::str::from_utf8(&output[..written]) {
+        Ok(text) => Ok(text),
+        Err(utf8_error) => Err(PropertyError::InvalidUtf8(utf8_error)),
+    }
 }
 
 pub(crate) fn destroy(handle: i32) {
