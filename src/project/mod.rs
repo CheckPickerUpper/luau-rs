@@ -267,15 +267,13 @@ fn publish_staging_directory(
 ) -> Result<(), std::io::Error> {
     match fs_err::symlink_metadata(project_root) {
         Ok(metadata) if metadata.is_dir() => {
-            let backup_directory =
-                output_sibling_path(project_root, "backup", INITIAL_STAGING_DIRECTORY_ATTEMPT);
-            match fs_err::rename(project_root, &backup_directory) {
-                Ok(()) => {}
+            let backup_directory = match move_output_to_backup(project_root) {
+                Ok(path) => path,
                 Err(error) => {
                     remove_staging_directory(staging_directory);
                     return Err(error);
                 }
-            }
+            };
             match fs_err::rename(staging_directory, project_root) {
                 Ok(()) => {
                     remove_staging_directory(&backup_directory);
@@ -356,6 +354,28 @@ fn output_sibling_path(project_root: &Path, purpose: &str, attempt: usize) -> Pa
         ".{project_name}.luau-rs-{purpose}-{}-{timestamp_nanos}-{attempt}",
         std::process::id()
     ))
+}
+
+fn move_output_to_backup(project_root: &Path) -> Result<PathBuf, std::io::Error> {
+    let mut attempt = INITIAL_STAGING_DIRECTORY_ATTEMPT;
+    loop {
+        let backup_directory = output_sibling_path(project_root, "backup", attempt);
+        match fs_err::rename(project_root, &backup_directory) {
+            Ok(()) => return Ok(backup_directory),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                attempt += 1;
+                if attempt >= MAX_STAGING_DIRECTORY_ATTEMPTS {
+                    return Err(std::io::Error::new(
+                        error.kind(),
+                        format!(
+                            "could not create a unique backup directory after {attempt} attempts: {error}"
+                        ),
+                    ));
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
 }
 
 /// Compiles a complete project after validating every module before any output is accepted.
