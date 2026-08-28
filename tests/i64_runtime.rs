@@ -242,6 +242,41 @@ fn run_luau(source: &str, driver: &str, prefix: &str) -> Result<bool, Error> {
     Ok(output.status.success())
 }
 
+fn analyze_luau(source: &str, prefix: &str) -> Result<bool, Error> {
+    let analyzer = official_luau_tool(("LUAU_ANALYZE_BIN", "luau-analyze"))?;
+    let temp_dir = tempfile::Builder::new().prefix(prefix).tempdir()?;
+    let source_path = temp_dir.path().join("module.luau");
+    fs_err::write(&source_path, source)?;
+    let output = Command::new(analyzer).arg(source_path).output()?;
+    if !output.status.success() {
+        eprintln!(
+            "official Luau analyzer stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(output.status.success())
+}
+
+#[test]
+fn given_i64_module_when_analyzed_then_bitwise_lowering_is_type_safe() -> Result<(), Error> {
+    let generated = generated_i64_luau()?;
+    for forbidden in [" & ", " | ", " ~ ", " << ", " >> "] {
+        if generated.contains(forbidden) {
+            return Err(Error::other(format!(
+                "generated output contains raw operator {forbidden:?}"
+            )));
+        }
+    }
+
+    if analyze_luau(&generated, "luau-rs-i64-analyze")? {
+        Ok(())
+    } else {
+        Err(Error::other(
+            "official Luau rejected the generated i64 module during analysis",
+        ))
+    }
+}
+
 #[test]
 fn given_i64_module_when_run_in_official_luau_then_exact_halves_survive_every_boundary(
 ) -> Result<(), Error> {
@@ -269,8 +304,12 @@ assert_pair("bit and", function() return m.bit_and(4294967295, 4294967295, 65535
 assert_pair("bit or", function() return m.bit_or(0, 1, 4294967295, 0) end, 4294967295, 1)
 assert_pair("xor", function() return m.xor(4294967295, 0, 4294967295, 4294967295) end, 0, 4294967295)
 assert_pair("shift left", function() return m.shl(1, 0, 32, 0) end, 0, 1)
+assert_pair("shift left zero", function() return m.shl(1, 0, 0, 0) end, 1, 0)
+assert_pair("shift left 63", function() return m.shl(1, 0, 63, 0) end, 0, 2147483648)
 assert_pair("shift right signed", function() return m.shr_s(0, 2147483648, 32, 0) end, 2147483648, 4294967295)
+assert_pair("shift right signed 63", function() return m.shr_s(0, 2147483648, 63, 0) end, 4294967295, 4294967295)
 assert_pair("shift right unsigned", function() return m.shr_u(0, 2147483648, 32, 0) end, 2147483648, 0)
+assert_pair("shift right unsigned zero", function() return m.shr_u(0, 2147483648, 0, 0) end, 0, 2147483648)
 assert_pair("rotate left", function() return m.rotl(1, 0, 32, 0) end, 0, 1)
 assert_pair("rotate right", function() return m.rotr(1, 0, 32, 0) end, 0, 1)
 assert_pair("signed i32 conversion", function() return m.from_i32_s(-1) end, 4294967295, 4294967295)
