@@ -11,7 +11,7 @@ use thiserror::Error;
 
 /// Compiles wasm modules (built from Rust) into strict Luau for Roblox.
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(name = "luau-rs", version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

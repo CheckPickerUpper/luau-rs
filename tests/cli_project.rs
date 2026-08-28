@@ -226,3 +226,43 @@ fn given_good_project_when_recompiled_with_corrupt_module_then_last_output_survi
         )))
     }
 }
+
+#[rstest]
+fn given_luau_rs_help_when_requested_then_stable_project_commands_are_listed() -> Result<(), Error>
+{
+    let command = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
+        .args(["--help"])
+        .output()?;
+    if !command.status.success() {
+        return Err(Error::other(format!(
+            "luau-rs --help failed: status={}",
+            command.status
+        )));
+    }
+    let stdout = String::from_utf8_lossy(&command.stdout);
+    for expected in ["build", "check", "compile"] {
+        if !stdout.contains(expected) {
+            return Err(Error::other(format!(
+                "luau-rs --help omitted {expected:?}: stdout={stdout}"
+            )));
+        }
+    }
+    for subcommand in ["check", "compile"] {
+        let subcommand_help = assert_cmd::cargo::cargo_bin_cmd!("luau-rs")
+            .args([subcommand, "--help"])
+            .output()?;
+        if !subcommand_help.status.success() {
+            return Err(Error::other(format!(
+                "luau-rs {subcommand} --help failed: status={}",
+                subcommand_help.status
+            )));
+        }
+        let subcommand_stdout = String::from_utf8_lossy(&subcommand_help.stdout);
+        if !subcommand_stdout.contains("--manifest-path") {
+            return Err(Error::other(format!(
+                "luau-rs {subcommand} --help omitted --manifest-path: stdout={subcommand_stdout}"
+            )));
+        }
+    }
+    Ok(())
+}
