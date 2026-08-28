@@ -212,3 +212,14 @@ phases:
   the same pattern this emitter produces.
 
 See `CLAUDE.md` for the full architecture and agent guidance.
+
+## Rejection diagnostics
+
+`WasmDecodeRejection::diagnostics()` and `TranslationRejection::diagnostics()`
+expose a stable serializable report. Each diagnostic contains `code`, `message`,
+and a `location` with optional `file`, `line`, `column`, `function`, and `wasm_offset`
+fields. `source_available` distinguishes a DWARF-backed Rust location from the
+fallback, and `hint` explains how to recover source lines when debug metadata is
+missing. Decode diagnostics use DWARF when available; translation-stage
+diagnostics retain the function/offset contract for callers that add their own
+source metadata.

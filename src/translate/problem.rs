@@ -1,3 +1,4 @@
+use crate::diagnostics::DiagnosticReport;
 use thiserror::Error;
 
 /// Names one reason translation stopped before an artifact was produced.
@@ -34,14 +35,29 @@ pub enum TranslationProblemReason {
 /// Carries every translation problem discovered while emitting one module.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranslationRejection {
+    diagnostics: DiagnosticReport,
     problems: Vec<TranslationProblemReason>,
 }
 
 impl TranslationRejection {
     /// @why Lets every rejection problem travel together through one outcome.
     #[must_use]
-    pub const fn from_problems(problems: Vec<TranslationProblemReason>) -> Self {
-        Self { problems }
+    pub fn from_problems(problems: Vec<TranslationProblemReason>) -> Self {
+        let diagnostics = DiagnosticReport::without_locations(
+            problems
+                .iter()
+                .map(|problem| (problem_code(problem).into(), problem.to_string())),
+        );
+        Self {
+            diagnostics,
+            problems,
+        }
+    }
+
+    /// Returns the stable structured diagnostics for these translation problems.
+    #[must_use]
+    pub const fn diagnostics(&self) -> &DiagnosticReport {
+        &self.diagnostics
     }
 
     /// @why Lets callers report every problem at once instead of stopping at the first.
@@ -64,5 +80,14 @@ impl TranslationRejection {
 impl From<TranslationProblemReason> for TranslationRejection {
     fn from(reason: TranslationProblemReason) -> Self {
         Self::from_problems(vec![reason])
+    }
+}
+const fn problem_code(problem: &TranslationProblemReason) -> &'static str {
+    match problem {
+        TranslationProblemReason::UnsupportedInstruction { .. } => "unsupported_instruction",
+        TranslationProblemReason::ImmutableGlobalSet { .. } => "immutable_global_set",
+        TranslationProblemReason::MissingIndirectCallTable => "missing_indirect_call_table",
+        TranslationProblemReason::MissingMemory => "missing_memory",
+        TranslationProblemReason::Internal(_) => "internal_translation_failure",
     }
 }
