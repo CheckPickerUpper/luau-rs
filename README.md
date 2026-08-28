@@ -84,19 +84,25 @@ source_root = "wasm"
 output_root = "build"
 ```
 
-Under `source_root`, modules use this convention:
+Under `source_root`, project files use the Roblox DataModel layout directly:
 
 ```text
-<source_root>/<server|client|shared>/<entrypoint|library>/<module-path>.wasm
+<source_root>/<RobloxService>/<module-path>.wasm
 ```
 
-For example, `wasm/server/entrypoint/game/main.wasm` becomes
+For example, `wasm/ServerScriptService/game/main.wasm` becomes
 `ServerScriptService/game/main.server.luau`, while
-`wasm/shared/library/math/core.wasm` becomes
-`ReplicatedStorage/math/core.luau`. `check` performs discovery, decoding, and
-translation without writing output. `compile` stages every generated file and
+`wasm/ReplicatedStorage/math/core.wasm` becomes
+`ReplicatedStorage/math/core.luau`. `ServerScriptService`, `Workspace`,
+`ReplicatedFirst`, `StarterGui`, `StarterPlayer/StarterPlayerScripts`, and
+`StarterPlayer/StarterCharacterScripts` own entrypoint scripts. `ServerStorage`
+and `ReplicatedStorage` own libraries. Existing `.luau`, `.rbxm`, `.rbxmx`,
+`.rbxl`, `.rbxlx`, and `*.model.json` files are retained at their DataModel
+paths. `check` performs discovery, decoding, and translation without writing
+output. `compile` stages every generated file and retained asset, then
 atomically replaces the previous `output_root` only after the complete tree is
-ready.
+ready. Unknown services, illegal `StarterPlayer` placement, duplicate output
+paths, and overlapping source/output roots are rejected before generation.
 
 ## Current scope
 

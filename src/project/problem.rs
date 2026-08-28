@@ -15,6 +15,23 @@ pub enum ProjectCompilationProblem {
     #[error("shared module {0} cannot be an entrypoint")]
     SharedEntrypoint(crate::project::ProjectModuleIdentity),
 
+    /// A service-derived module was assigned a role that its service cannot host.
+    #[error("module {identity} cannot be placed in its Roblox service as a {role:?}")]
+    IllegalServicePlacement {
+        /// The service-derived module identity that failed validation.
+        identity: crate::project::ProjectModuleIdentity,
+        /// The role that was requested for the service.
+        role: crate::project::ProjectModuleRole,
+    },
+
+    /// Two source modules would publish the same `DataModel` path.
+    #[error("multiple modules would publish to {0}")]
+    DuplicateOutputPath(String),
+
+    /// A generated module would overwrite a source asset at the same `DataModel` path.
+    #[error("generated module overlaps source asset at {0}")]
+    SourceOutputOverlap(String),
+
     /// The wasm bytes for a module failed to decode.
     #[error("module {0} failed to decode")]
     DecodeFailed(String),
@@ -30,6 +47,7 @@ pub struct ProjectCompilationRejection {
     problem: ProjectCompilationProblem,
 }
 
+/// Exposes the typed reason that stopped project compilation.
 impl ProjectCompilationRejection {
     /// @why Lets callers wrap a single problem into a rejection outcome.
     #[must_use]

@@ -1,67 +1,56 @@
-//! Roblox project layout: identities, execution sides, and output paths.
+//! Source identities and generated Roblox destinations.
 
+use super::{ModuleExecutionSide, ProjectModuleRole, RobloxService};
 use std::fmt;
-
-/// Which Roblox runtime realm a module executes in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ModuleExecutionSide {
-    /// Runs only in the authoritative server runtime.
-    Server,
-    /// Runs only in each player's client runtime.
-    Client,
-    /// Is available to both runtimes and initialized independently by each one.
-    Shared,
-}
-
-/// Whether a module is an eager entrypoint or a lazily-initialized library.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProjectModuleRole {
-    /// Instantiates and invokes the module's `main` export eagerly.
-    Entrypoint,
-    /// Emits declarations only; a later import surface owns initialization.
-    Library,
-}
 
 /// Identifies one source module and its Roblox execution boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub enum ProjectModuleIdentity {
-    /// Places the module beneath `ServerScriptService`.
+    /// Places a lower-level CLI module beneath `ServerScriptService`.
     Server {
         /// Is a slash-separated path relative to the server source root.
         module_path: String,
     },
-    /// Places the module beneath `StarterPlayerScripts`.
+    /// Places a lower-level CLI module beneath `StarterPlayerScripts`.
     Client {
         /// Is a slash-separated path relative to the client source root.
         module_path: String,
     },
-    /// Places the module beneath `ReplicatedStorage` for independent client
-    /// and server initialization.
+    /// Places a lower-level CLI module beneath `ReplicatedStorage`.
     Shared {
         /// Is a slash-separated path relative to the shared source root.
+        module_path: String,
+    },
+    /// Places a discovered module under its owning Roblox service.
+    RobloxService {
+        /// The recognized service that owns the module.
+        service: RobloxService,
+        /// Is a slash-separated path beneath that service.
         module_path: String,
     },
 }
 
 /// Keeps source identity decisions centralized before project layout derives target paths.
 impl ProjectModuleIdentity {
-    /// @why Lets compilation select Roblox placement without duplicating execution-side checks.
+    /// Lets compilation select Roblox placement without duplicating execution-side checks.
     #[must_use]
     pub const fn execution_side(&self) -> ModuleExecutionSide {
         match self {
             Self::Server { .. } => ModuleExecutionSide::Server,
             Self::Client { .. } => ModuleExecutionSide::Client,
             Self::Shared { .. } => ModuleExecutionSide::Shared,
+            Self::RobloxService { service, .. } => service.execution_side(),
         }
     }
 
-    /// @why Lets diagnostics name the offending source module without exposing storage.
+    /// Lets diagnostics name the offending source module without exposing storage.
     #[must_use]
     pub fn module_path(&self) -> &str {
         match self {
             Self::Server { module_path }
             | Self::Client { module_path }
-            | Self::Shared { module_path } => module_path,
+            | Self::Shared { module_path }
+            | Self::RobloxService { module_path, .. } => module_path,
         }
     }
 
@@ -85,7 +74,34 @@ impl ProjectModuleIdentity {
                 Some(format!("ReplicatedStorage/{module_path}.luau"))
             }
             (Self::Shared { .. }, ProjectModuleRole::Entrypoint) => None,
+            (Self::RobloxService { service, .. }, role) => {
+                service_output_path(*service, module_path, role)
+            }
         }
+    }
+}
+
+fn service_output_path(
+    service: RobloxService,
+    module_path: &str,
+    module_role: ProjectModuleRole,
+) -> Option<String> {
+    match service.module_role() {
+        expected_role if expected_role == module_role => {
+            let suffix = match module_role {
+                ProjectModuleRole::Entrypoint => match service.execution_side() {
+                    ModuleExecutionSide::Server => ".server.luau",
+                    ModuleExecutionSide::Client => ".client.luau",
+                    ModuleExecutionSide::Shared => ".luau",
+                },
+                ProjectModuleRole::Library => ".luau",
+            };
+            Some(format!(
+                "{}/{module_path}{suffix}",
+                service.data_model_path()
+            ))
+        }
+        _ => None,
     }
 }
 
@@ -95,6 +111,9 @@ impl fmt::Display for ProjectModuleIdentity {
             Self::Server { .. } => "server",
             Self::Client { .. } => "client",
             Self::Shared { .. } => "shared",
+            Self::RobloxService { service, .. } => {
+                return write!(formatter, "{service:?}/{}", self.module_path())
+            }
         };
         write!(formatter, "{execution_side}:{}", self.module_path())
     }

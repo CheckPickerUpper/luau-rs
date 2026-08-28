@@ -44,6 +44,14 @@ pub enum ProjectManifestProblem {
         /// The configured output-root value that failed validation.
         path: PathBuf,
     },
+    /// The compiler cannot safely publish one project into the other project's source tree.
+    #[error("project source_root {source_root:?} overlaps output_root {output_root:?}")]
+    OverlappingRoots {
+        /// The configured source root.
+        source_root: PathBuf,
+        /// The configured output root.
+        output_root: PathBuf,
+    },
 }
 
 impl ProjectManifest {
@@ -87,17 +95,19 @@ impl ProjectManifest {
             Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
             Some(_) | None => PathBuf::from("."),
         };
+        let source_root = resolve_manifest_path(&manifest_directory, &document.project.source_root);
+        let output_root = resolve_manifest_path(&manifest_directory, &document.project.output_root);
+        if source_root.starts_with(&output_root) || output_root.starts_with(&source_root) {
+            return Err(ProjectManifestProblem::OverlappingRoots {
+                source_root,
+                output_root,
+            });
+        }
         Ok(Self {
             manifest_path: manifest_path.to_path_buf(),
             project: ManifestProject {
-                source_root: resolve_manifest_path(
-                    &manifest_directory,
-                    &document.project.source_root,
-                ),
-                output_root: resolve_manifest_path(
-                    &manifest_directory,
-                    &document.project.output_root,
-                ),
+                source_root,
+                output_root,
             },
         })
     }

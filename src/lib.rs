@@ -15,7 +15,7 @@ pub use project::{
     ModuleExecutionSide, ProjectCompilationOutcome, ProjectCompilationProblem,
     ProjectCompilationRejection, ProjectCompilationRequest, ProjectDiscoveryProblem,
     ProjectManifest, ProjectManifestProblem, ProjectModuleIdentity, ProjectModuleRole,
-    ProjectModuleSource, ProjectOutputPath,
+    ProjectModuleSource, ProjectOutputPath, RobloxService,
 };
 pub use translate::{
     translate_module, GeneratedLuauText, MainInvocation, TranslateOptions, TranslateOutcome,
