@@ -2,6 +2,14 @@ name: Compiler change
 description: Propose one observable language, validation, or toolchain change.
 title: "compiler: "
 body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the single user-visible compiler or toolchain result this issue must deliver.
+      placeholder: "A project author can compile a server module and receive a deterministic Luau file at its Roblox placement."
+    validations:
+      required: true
   - type: dropdown
     id: compiler_stage
     attributes:
@@ -38,6 +46,38 @@ body:
       label: Invalid state made impossible
       description: Describe the invalid program shape that the compiler must reject, and the source range the rejection identifies.
       placeholder: "The checker rejects assigning a string to total and points at the assigned expression."
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: Name related behavior that this issue explicitly does not add, preserve, or redesign. Write None when there are no exclusions.
+      placeholder: "Do not add compatibility aliases or procedural macros."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_evidence
+    attributes:
+      label: Acceptance evidence
+      description: List the observable cases that prove the outcome and the invalid state that must become impossible.
+      placeholder: "- Accepted source compiles through the public API.\n- Generated Luau parses and analyzes.\n- Invalid input identifies the declared source range."
+    validations:
+      required: true
+  - type: textarea
+    id: platform_constraints
+    attributes:
+      label: Platform constraints
+      description: State operating-system, Roblox execution-side, or filesystem constraints that affect the contract. Write None when the behavior is platform-neutral.
+      placeholder: "Compilation is platform-neutral; generated placement must distinguish server, client, and shared modules."
+    validations:
+      required: true
+  - type: textarea
+    id: native_dependency_routing
+    attributes:
+      label: Native dependency routing
+      description: Identify required native tools, pinned revisions, and the CI or local route that supplies them. Write None when no native dependency is required.
+      placeholder: "Official Luau tools come from the pinned revision in compiler-contracts.yml; do not require a globally installed binary."
     validations:
       required: true
   - type: textarea

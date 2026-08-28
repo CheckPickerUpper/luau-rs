@@ -9,6 +9,7 @@ use luau_rs::{
 };
 use rstest::rstest;
 use std::io::Error;
+use std::thread;
 use support::official_luau_tool;
 
 fn fixture_wasm_bytes() -> Result<Vec<u8>, Error> {
@@ -100,6 +101,57 @@ fn given_translated_module_when_analyzed_then_luau_accepts_it() -> Result<(), Er
     } else {
         Err(Error::other(format!(
             "translated Luau failed analysis: success={success}, stderr={}",
+            String::from_utf8_lossy(&result.stderr)
+        )))
+    }
+}
+
+#[rstest]
+fn given_translated_module_when_checked_by_full_moon_then_luau_parses_it() -> Result<(), Error> {
+    // Given the compiled Rust hello module translated into Luau.
+    let generated = generate_fixture_luau(&fixture_wasm_bytes()?)?;
+
+    // When Full Moon parses the generated Luau using its Luau grammar.
+    let parse_result = thread::Builder::new()
+        .name("full-moon-contract".to_owned())
+        .stack_size(32 * 1024 * 1024)
+        .spawn(move || match full_moon::parse(&generated) {
+            Ok(_) => Ok(()),
+            Err(errors) => Err(format!("errors={errors:?}")),
+        })
+        .map_err(|error| Error::other(format!("could not start Full Moon parser: {error}")))?
+        .join()
+        .map_err(|_| Error::other("Full Moon parser thread panicked"))?;
+
+    parse_result.map_err(|errors| {
+        Error::other(format!("generated Luau failed Full Moon parsing: {errors}"))
+    })
+}
+
+#[rstest]
+fn given_translated_module_when_compiled_then_official_luau_accepts_it() -> Result<(), Error> {
+    // Given the compiled Rust hello module translated into Luau.
+    let generated = generate_fixture_luau(&fixture_wasm_bytes()?)?;
+    let compiler = official_luau_tool(("LUAU_COMPILE_BIN", "luau-compile"))?;
+    let temp_dir = tempfile::Builder::new()
+        .prefix("luau-rs-round-trip-compile")
+        .tempdir()?;
+    let source_path = temp_dir.path().join("fixture.luau");
+    fs_err::write(&source_path, &generated)?;
+
+    // When the pinned official Luau compiler compiles the generated module.
+    let result = Command::new(compiler)
+        .arg("--text")
+        .arg(&source_path)
+        .output()?;
+
+    // Then the generated module is accepted by the official compiler.
+    let success = result.status.success();
+    if success {
+        Ok(())
+    } else {
+        Err(Error::other(format!(
+            "generated Luau failed official compilation: success={success}, stderr={}",
             String::from_utf8_lossy(&result.stderr)
         )))
     }

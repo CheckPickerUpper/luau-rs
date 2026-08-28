@@ -24,6 +24,46 @@ body:
       description: Include generated Luau, runtime output, or diagnostic text.
     validations:
       required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Contract outcome
+      description: State the one observable behavior the regression report expects the compiler to restore.
+      placeholder: "The public compiler rejects the invalid source and highlights the assigned expression."
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: Name related behavior that the regression fix must not change. Write None when there are no exclusions.
+      placeholder: "Do not change valid source syntax or unrelated diagnostic reasons."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_evidence
+    attributes:
+      label: Acceptance evidence
+      description: List the passing and rejecting cases that prove the regression is fixed at the public boundary.
+      placeholder: "- The smallest reproducer passes its public compiler fixture.\n- The original valid case remains accepted."
+    validations:
+      required: true
+  - type: textarea
+    id: platform_constraints
+    attributes:
+      label: Platform constraints
+      description: State operating-system, Roblox execution-side, or filesystem constraints relevant to reproducing the regression. Write None when platform-neutral.
+      placeholder: "None."
+    validations:
+      required: true
+  - type: textarea
+    id: native_dependency_routing
+    attributes:
+      label: Native dependency routing
+      description: Identify required native tools, pinned revisions, and the CI or local route that supplies them. Write None when no native dependency is required.
+      placeholder: "Official Luau tools are supplied by the pinned CI checkout described in compiler-contracts.yml."
+    validations:
+      required: true
   - type: dropdown
     id: validation_boundary
     attributes:
