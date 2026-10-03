@@ -63,6 +63,7 @@ pub fn emit_module(
     writer.raw(HELPER_SOURCE);
     writer.line("");
 
+    writer.line("-- Host imports have externally defined, dynamic shapes.");
     writer.line(&format!(
         "local function instantiate({IMPORTS_NAME}: {{[string]: {{[string]: any}}}}): {{[string]: any}}"
     ));
@@ -72,6 +73,7 @@ pub fn emit_module(
 
     emit_memory(decoded, &mut writer);
     emit_globals(decoded, &mut writer);
+    writer.line("-- Indirect calls index functions with heterogeneous signatures.");
     writer.line("local FUNCTIONS: {any} = {}");
 
     emit_functions(decoded, &mut writer)?;
@@ -91,13 +93,47 @@ pub fn emit_module(
 }
 
 /// Declares every `FUNC_N` name before any body is emitted, so wasm index
-/// order never shadows call order and recursion resolves. The names are typed
-/// `any` so strict analysis allows calls before a body is assigned.
+/// order never shadows call order and recursion resolves. Each declaration
+/// carries the expanded wasm signature so strict analysis can check calls
+/// before a body is assigned.
 fn emit_function_name_declarations(decoded: &DecodedModule, writer: &mut TextWriter) {
     let names = decoded
         .functions()
         .iter()
-        .map(|function| format!("FUNC_{}: any", function.index()))
+        .map(|function| {
+            let parameter_types = function
+                .params()
+                .iter()
+                .flat_map(|value_type| {
+                    if *value_type == crate::wasm::WasmValueType::I64 {
+                        vec!["number", "number"]
+                    } else {
+                        vec![value_type.luau_type_name()]
+                    }
+                })
+                .collect::<Vec<_>>();
+            let result_types = function
+                .results()
+                .iter()
+                .flat_map(|value_type| {
+                    if *value_type == crate::wasm::WasmValueType::I64 {
+                        vec!["number", "number"]
+                    } else {
+                        vec![value_type.luau_type_name()]
+                    }
+                })
+                .collect::<Vec<_>>();
+            let return_annotation = match result_types.as_slice() {
+                [] => "()".to_owned(),
+                [single] => (*single).to_owned(),
+                _ => format!("({})", result_types.join(", ")),
+            };
+            format!(
+                "FUNC_{}: ({}) -> {return_annotation}",
+                function.index(),
+                parameter_types.join(", ")
+            )
+        })
         .collect::<Vec<_>>();
     writer.line(&format!("local {}", names.join(", ")));
 }
@@ -172,7 +208,7 @@ fn emit_globals(decoded: &DecodedModule, writer: &mut TextWriter) {
         }
     }
     writer.line(&format!(
-        "local GLOBALS: {{any}} = {{ {} }}",
+        "local GLOBALS: {{number}} = {{ {} }}",
         entries.join(", ")
     ));
 }
@@ -356,6 +392,7 @@ fn emit_exports(decoded: &DecodedModule, writer: &mut TextWriter) {
     // The indirect-call table is always exported so the Roblox runtime can
     // invoke Rust callbacks registered through imports (events).
     entries.push("[\"functions\"] = FUNCTIONS".to_string());
+    writer.line("-- Exports combine memory buffers and functions, so the table stays dynamic.");
     writer.line(&format!(
         "local WASM_EXPORTS: {{[string]: any}} = {{ {} }}",
         entries.join(", ")
